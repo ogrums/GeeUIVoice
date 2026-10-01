@@ -39,6 +39,10 @@ class VoiceLoop(
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
+        live.onUserText = { VoiceHud.line = it; VoiceHud.mode = "think" }
+        live.onAnswer = { VoiceHud.line = it; VoiceHud.mode = "talk" }
+        live.onListen = { VoiceHud.mode = "hear" }
+        live.onIdle = { VoiceHud.mode = "idle" }
         live.worker = { job -> turns.execute(job) }
         thread = Thread({
             val rate = 16_000
@@ -56,7 +60,10 @@ class VoiceLoop(
             try {
                 while (running.get()) {
                     val n = rec.read(buf, 0, frame)
-                    if (n == frame) live.onFrame(buf.copyOf())
+                    if (n == frame) {
+                        VoiceHud.level = levelOf(buf)
+                        live.onFrame(buf.copyOf())
+                    }
                 }
             } finally {
                 rec.stop()
@@ -68,8 +75,16 @@ class VoiceLoop(
     fun stop() {
         running.set(false)
         tts.stop()
+        VoiceHud.mode = "idle"
         thread?.join(500)
     }
+}
+
+private fun levelOf(frame: ShortArray): Float {
+    var acc = 0.0
+    for (s in frame) acc += s * s.toDouble()
+    val rms = kotlin.math.sqrt(acc / frame.size)
+    return (rms / 4000.0).toFloat().coerceIn(0f, 1f)
 }
 
 /** Plays each Lemonade clip on AudioTrack if it is PCM WAV, else MediaPlayer. */
@@ -84,6 +99,7 @@ class PlayingTts(
 
     override fun speak(text: String, language: String) {
         cancelled.set(false)
+        VoiceHud.mode = "talk"
         remote.speak(text, language)
         val bytes = remote.lastAudio
         if (bytes.size > 44 && bytes[0] == 'R'.code.toByte()) playWav(bytes) else playFile(bytes)
@@ -119,6 +135,7 @@ class PlayingTts(
         t.write(pcm, 0, pcm.size)
         t.play()
         while (t.playState == AudioTrack.PLAYSTATE_PLAYING && !cancelled.get()) Thread.sleep(20)
+        if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
         t.release()
         track = null
     }
@@ -132,6 +149,7 @@ class PlayingTts(
         mp.prepare()
         mp.start()
         while (mp.isPlaying && !cancelled.get()) Thread.sleep(20)
+        if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
         mp.release()
         player = null
     }

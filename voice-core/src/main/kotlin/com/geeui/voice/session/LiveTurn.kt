@@ -19,6 +19,8 @@ class LiveTurn(
     private val sampleRate: Int = 16_000,
     var onUserText: (String) -> Unit = {},
     var onAnswer: (String) -> Unit = {},
+    var onListen: () -> Unit = {},
+    var onIdle: () -> Unit = {},
 ) {
     var listening: Boolean = false
         private set
@@ -31,13 +33,17 @@ class LiveTurn(
             VadEvent.SpeechStart -> {
                 listening = true
                 tts.stop()
+                onListen()
             }
             is VadEvent.SpeechEnd -> {
                 listening = false
                 val pcm = event.pcm
                 worker {
                     val text = stt.transcribe(pcm16ToWav(pcm, sampleRate), sampleRate).trim()
-                    if (text.isEmpty()) return@worker
+                    if (text.isEmpty()) {
+                        onIdle()
+                        return@worker
+                    }
                     onUserText(text)
                     val answer = session.onUserText(text)
                     if (answer.isNotEmpty()) onAnswer(answer)
