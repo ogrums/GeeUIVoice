@@ -2,6 +2,8 @@ package com.geeui.voice.session
 
 import com.geeui.voice.bus.RobotBus
 import com.geeui.voice.engine.Chat
+import com.geeui.voice.engine.SentenceSplitter
+import com.geeui.voice.engine.StreamingChat
 import com.geeui.voice.engine.TextToSpeech
 import com.geeui.voice.skill.SkillLexicon
 import com.geeui.voice.skill.SkillRouter
@@ -9,8 +11,8 @@ import com.geeui.voice.skill.SkillRouter
 enum class Dialogue { Idle, Listening, Speaking }
 
 /**
- * Same turn as LTPAudioService / BotService, without DUI or Lex:
- * text in → skill or chat → TTS.
+ * One spoken turn. A known phrase hits the robot and does not call the LLM.
+ * Otherwise the answer is spoken clause by clause when the chat can stream.
  */
 class VoiceSession(
     bus: RobotBus,
@@ -30,10 +32,22 @@ class VoiceSession(
             state = Dialogue.Idle
             return ""
         }
-        val answer = chat.reply(text)
         state = Dialogue.Speaking
-        tts.speak(answer, language)
+        val answer = StringBuilder()
+        if (chat is StreamingChat) {
+            val split = SentenceSplitter()
+            chat.stream(text) { delta ->
+                answer.append(delta)
+                for (clause in split.push(delta)) tts.speak(clause, language)
+            }
+            val tail = split.finish()
+            if (tail.isNotEmpty()) tts.speak(tail, language)
+        } else {
+            val whole = chat.reply(text)
+            answer.append(whole)
+            if (whole.isNotBlank()) tts.speak(whole, language)
+        }
         state = Dialogue.Idle
-        return answer
+        return answer.toString()
     }
 }

@@ -33,6 +33,30 @@ openWakeWord has a Kotlin Android port ([openwakeword-android-kt](https://github
 
 Until that model exists, option A stands: Lex / iFlytek VTN wakes the robot. GeeUIVoice does not open the microphone.
 
+## Real-time loop
+
+Lemonade does not stream the microphone. The robot does the endpointing.
+
+```text
+mic 16 kHz, 20 ms
+  → EnergyVad (start 60 ms, hangover 500 ms)
+  → on speech start: stop TTS (barge-in)
+  → on speech end: WAV → POST /audio/transcriptions
+  → skill, or SSE /chat/completions split on . ! ?
+  → POST /audio/speech per clause → speaker
+```
+
+The mic thread never waits on HTTP. STT, chat and playback run on a second thread, so a new word can cut the current answer.
+
+`VoiceService` (module `app`, needs the Android SDK to build):
+
+```text
+adb shell am startservice -n com.geeui.voice/.VoiceService \
+  -e host http://<pc>:13305/api/v1
+```
+
+Lex and this service cannot share the mic. Stop Lex's recorder before starting the loop, or the `AudioRecord` fails.
+
 ## Layout
 
 `voice-core` is plain Kotlin (JDK 17). The Android service that binds `ILetianpaiService` comes after this module. It will play the WAV bytes from `LemonadeTts` and send `controlMotion` for a skill.

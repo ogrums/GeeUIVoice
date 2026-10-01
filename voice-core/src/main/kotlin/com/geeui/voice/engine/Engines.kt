@@ -7,6 +7,7 @@ interface WakeWord {
 }
 
 interface SpeechToText {
+    /** [pcm16le] is a WAV blob when it comes from [com.geeui.voice.session.LiveTurn]. */
     fun transcribe(pcm16le: ByteArray, sampleRate: Int): String
 }
 
@@ -17,6 +18,11 @@ interface TextToSpeech {
 
 interface Chat {
     fun reply(userText: String): String
+}
+
+/** Optional. [VoiceSession] speaks each clause as it arrives. */
+interface StreamingChat : Chat {
+    fun stream(userText: String, onDelta: (String) -> Unit)
 }
 
 class NoWake : WakeWord {

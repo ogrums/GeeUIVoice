@@ -56,6 +56,31 @@ class LemonadeClient(
         return postBytes("/audio/speech", "application/json", body.toByteArray())
     }
 
+    /** SSE chat. [onDelta] fires per token so TTS can start on the first sentence. */
+    fun chatStream(userText: String, onDelta: (String) -> Unit) {
+        val body = """{"model":"$chatModel","stream":true,"messages":[{"role":"user","content":${json(userText)}}]}"""
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(baseUrl.trimEnd('/') + "/chat/completions"))
+            .timeout(Duration.ofSeconds(120))
+            .header("Authorization", "Bearer $apiKey")
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(body))
+            .build()
+        val response = http.send(request, HttpResponse.BodyHandlers.ofLines())
+        if (response.statusCode() !in 200..299) {
+            throw IllegalStateException("lemonade ${response.statusCode()}")
+        }
+        response.body().forEach { line ->
+            val data = line.removePrefix("data:").trim()
+            if (data.isEmpty() || data == "[DONE]") return@forEach
+            val marker = "\"content\":"
+            val at = data.indexOf(marker)
+            if (at < 0) return@forEach
+            val piece = unquote(data.substring(at + marker.length).trimStart())
+            if (piece.isNotEmpty() && piece != "null") onDelta(piece)
+        }
+    }
+
     private fun post(path: String, contentType: String, body: ByteArray): String =
         String(postBytes(path, contentType, body))
 
@@ -96,8 +121,12 @@ class LemonadeClient(
     }
 }
 
-class LemonadeChat(private val client: LemonadeClient) : Chat {
+class LemonadeChat(private val client: LemonadeClient) : Chat, StreamingChat {
     override fun reply(userText: String): String = client.chat(userText)
+
+    override fun stream(userText: String, onDelta: (String) -> Unit) {
+        client.chatStream(userText, onDelta)
+    }
 }
 
 class LemonadeTts(private val client: LemonadeClient) : TextToSpeech {
