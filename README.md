@@ -57,6 +57,26 @@ adb shell am startservice -n com.geeui.voice/.VoiceService \
 
 Lex and this service cannot share the mic. Stop Lex's recorder before starting the loop, or the `AudioRecord` fails.
 
+## VAD (desk)
+
+Defaults in `VadConfig`, overridable at start:
+
+| extra | default | meaning |
+|---|---|---|
+| `vad_threshold` | 800 | RMS. Raise if the fan opens turns alone |
+| `vad_start_ms` | 80 | loud time before a turn starts |
+| `vad_hangover_ms` | 600 | quiet time before the turn is sent |
+| `vad_min_ms` | 280 | shorter than this is dropped |
+| `vad_max_ms` | 8000 | force-cut |
+
+```text
+adb shell am startservice -n com.geeui.voice/.VoiceService \
+  -e host http://<pc>:13305/api/v1 \
+  -e vad_threshold 800 -e vad_hangover_ms 600
+```
+
+`voice-core` tests: 9 OK (skills, VAD, one live turn). The APK is not built here: no Android SDK in this environment. `app/` is the service, the foreground mic notification, and the AIDL bus. Build it on a machine with SDK 30.
+
 ## Layout
 
 `voice-core` is plain Kotlin (JDK 17). The Android service that binds `ILetianpaiService` comes after this module. It will play the WAV bytes from `LemonadeTts` and send `controlMotion` for a skill.

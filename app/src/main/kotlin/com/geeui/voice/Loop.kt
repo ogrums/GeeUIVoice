@@ -6,6 +6,7 @@ import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import com.geeui.voice.audio.EnergyVad
+import com.geeui.voice.audio.VadConfig
 import com.geeui.voice.engine.LemonadeChat
 import com.geeui.voice.engine.LemonadeClient
 import com.geeui.voice.engine.LemonadeStt
@@ -26,11 +27,12 @@ class VoiceLoop(
     private val bus: com.geeui.voice.bus.RobotBus,
     baseUrl: String,
     private val cacheDir: File,
+    vad: EnergyVad = VadConfig().toVad(),
 ) {
     private val client = LemonadeClient(baseUrl)
     private val tts = PlayingTts(LemonadeTts(client), cacheDir)
     private val session = VoiceSession(bus, tts, LemonadeChat(client))
-    private val live = LiveTurn(EnergyVad(), LemonadeStt(client), tts, session)
+    private val live = LiveTurn(vad, LemonadeStt(client), tts, session)
     private val turns = Executors.newSingleThreadExecutor()
     private val running = AtomicBoolean(false)
     private var thread: Thread? = null

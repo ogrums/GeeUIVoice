@@ -17,7 +17,9 @@ class LiveTurnTest {
         val bus = RecordingBus()
         val tts = EchoTts()
         val session = VoiceSession(bus, tts, FixedChat())
-        val stt = SpeechToText { _, _ -> "avance" }
+        val stt = object : SpeechToText {
+            override fun transcribe(pcm16le: ByteArray, sampleRate: Int) = "avance"
+        }
         val live = LiveTurn(EnergyVad(), stt, tts, session)
         val loud = ShortArray(320) { 4000 }
         val quiet = ShortArray(320)
@@ -40,7 +42,9 @@ class LiveTurnTest {
         session.onUserText("bonjour")
         val live = LiveTurn(
             EnergyVad(startFrames = 1),
-            SpeechToText { _, _ -> "" },
+            object : SpeechToText {
+                override fun transcribe(pcm16le: ByteArray, sampleRate: Int) = ""
+            },
             stopping,
             session,
         )

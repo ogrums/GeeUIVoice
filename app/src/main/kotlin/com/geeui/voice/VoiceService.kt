@@ -1,25 +1,36 @@
 package com.geeui.voice
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.os.Build
 import android.os.IBinder
+import com.geeui.voice.audio.VadConfig
 
 /**
- * adb shell am startservice -n com.geeui.voice/.VoiceService -e host http://192.168.1.10:13305/api/v1
- * Stop: am stopservice -n com.geeui.voice/.VoiceService
+ * Foreground: Android 11 drops the mic if this is a background service.
+ *
+ * adb shell am startservice -n com.geeui.voice/.VoiceService \
+ *   -e host http://192.168.1.10:13305/api/v1 \
+ *   -e vad_threshold 800 \
+ *   -e vad_hangover_ms 600 \
+ *   -e vad_start_ms 80 \
+ *   -e vad_min_ms 280
  */
 class VoiceService : Service() {
     private var loop: VoiceLoop? = null
-    private var bus: AidlBus? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForeground(1, note())
         val host = intent?.getStringExtra("host") ?: "http://127.0.0.1:13305/api/v1"
+        val extras = listOf("vad_threshold", "vad_start_ms", "vad_hangover_ms", "vad_min_ms", "vad_max_ms")
+            .associateWith { intent?.getStringExtra(it) }
         if (loop == null) {
-            val bound = AidlBus(this)
-            bus = bound
-            loop = VoiceLoop(bound, host, cacheDir).also { it.start() }
+            loop = VoiceLoop(AidlBus(this), host, cacheDir, VadConfig.from(extras).toVad()).also { it.start() }
         }
         return START_STICKY
     }
@@ -28,5 +39,19 @@ class VoiceService : Service() {
         loop?.stop()
         loop = null
         super.onDestroy()
+    }
+
+    private fun note(): Notification {
+        val mgr = getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= 26) {
+            mgr.createNotificationChannel(
+                NotificationChannel("voice", "GeeUIVoice", NotificationManager.IMPORTANCE_LOW),
+            )
+        }
+        return Notification.Builder(this, "voice")
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setContentTitle("GeeUIVoice")
+            .setContentText("micro ouvert")
+            .build()
     }
 }
