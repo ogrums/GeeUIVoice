@@ -37,7 +37,7 @@ class VoiceService : Service() {
                 val chat = intent.getStringExtra("chat") ?: ""
                 val tts = intent.getStringExtra("tts") ?: "kokoro"
                 loop = VoiceLoop(
-                    AidlBus(this), host, cacheDir, VadConfig.from(extras).toVad(), model, chat, tts,
+                    AidlBus(this), host, cacheDir, VadConfig.from(extras).toVad(), model, chat, tts, this,
                 )
             }
             loop?.start()

@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.text.TextUtils
 
 /** Home: scanner, status, mic on and mic off. Recording starts only on the button. */
 class VoiceActivity : Activity() {
@@ -43,49 +44,56 @@ class VoiceActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.BLACK)
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(32, 24, 32, 24)
+            setPadding(24, 12, 24, 12)
         }
         val title = TextView(this).apply {
             setTextColor(Color.rgb(255, 48, 36))
-            textSize = 22f
+            textSize = 16f
             gravity = Gravity.CENTER
             text = "GeeUI Voice"
         }
         status = TextView(this).apply {
-            setTextColor(Color.rgb(255, 48, 36))
-            textSize = 28f
+            setTextColor(Color.rgb(255, 64, 48))
+            textSize = 22f
             gravity = Gravity.CENTER
             text = "VEILLE"
         }
         caption = TextView(this).apply {
-            setTextColor(Color.rgb(180, 180, 180))
-            textSize = 16f
-            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(210, 170, 160))
+            textSize = 14f
+            gravity = Gravity.CENTER_HORIZONTAL
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
             text = "micro coupé"
-        }
-        val scan = ScannerView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                180,
+                0,
+                1f,
             )
+        }
+        val scan = ScannerView(this).apply {
+            val h = (density() * 96).toInt()
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, h)
         }
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        on = button("Activer le micro") { askMic() }
-        off = button("Couper le micro") { send(VoiceService.ACTION_STOP) }
+        on = button("Activer") { askMic() }
+        off = button("Couper") { send(VoiceService.ACTION_STOP) }
         off.isEnabled = false
         row.addView(on)
         row.addView(off)
         root.addView(title)
-        root.addView(scan)
         root.addView(status)
+        root.addView(scan)
         root.addView(caption)
         root.addView(row)
         setContentView(root)
         VoiceHud.line = "micro coupé"
     }
+
+    private fun density(): Float = resources.displayMetrics.density
 
     private fun button(label: String, click: () -> Unit): Button {
         return Button(this).apply {

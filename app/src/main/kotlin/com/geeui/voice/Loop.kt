@@ -1,10 +1,13 @@
 package com.geeui.voice
 
+import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.content.Context
 import com.geeui.voice.audio.EnergyVad
 import com.geeui.voice.audio.VadConfig
 import com.geeui.voice.engine.LemonadeChat
@@ -31,6 +34,7 @@ class VoiceLoop(
     sttModel: String = "whisper-base",
     chatModel: String = "",
     ttsModel: String = "kokoro",
+    audio: Context,
 ) {
     private val client = LemonadeClient(
         baseUrl,
@@ -38,7 +42,7 @@ class VoiceLoop(
         chatModel = chatModel,
         ttsModel = ttsModel,
     )
-    private val tts = PlayingTts(LemonadeTts(client), cacheDir)
+    private val tts = PlayingTts(LemonadeTts(client), cacheDir, audio)
     private val session = VoiceSession(bus, tts, LemonadeChat(client))
     private val live = LiveTurn(vad, LemonadeStt(client), tts, session)
     private val turns = Executors.newSingleThreadExecutor()
@@ -137,6 +141,7 @@ private fun levelOf(frame: ShortArray): Float {
 class PlayingTts(
     private val remote: LemonadeTts,
     private val cacheDir: File,
+    private val audio: Context,
 ) : TextToSpeech {
     private var player: MediaPlayer? = null
     private var track: AudioTrack? = null
@@ -146,6 +151,7 @@ class PlayingTts(
     override fun speak(text: String, language: String) {
         cancelled.set(false)
         VoiceHud.mode = "talk"
+        armSpeaker()
         remote.speak(text, language)
         val bytes = remote.lastAudio
         if (bytes.isEmpty() || bytes[0] == '{'.code.toByte()) {
@@ -178,6 +184,24 @@ class PlayingTts(
         }
     }
 
+    private fun speechAttrs(): AudioAttributes =
+        AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+
+    /** Same stream Lex uses (STREAM_MUSIC). Raise it if the robot is muted. */
+    private fun armSpeaker() {
+        val am = audio.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        am.mode = AudioManager.MODE_NORMAL
+        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        if (am.getStreamVolume(AudioManager.STREAM_MUSIC) < max / 2) {
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, (max * 3) / 4, 0)
+        }
+        @Suppress("DEPRECATION")
+        am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+    }
+
     private fun releaseTrack() {
         val t = track
         track = null
@@ -194,36 +218,42 @@ class PlayingTts(
     }
 
     private fun playWav(wav: ByteArray) {
-        val rate = (wav[24].toInt() and 0xff) or ((wav[25].toInt() and 0xff) shl 8)
-        val pcm = wav.copyOfRange(44, wav.size)
+        val rate = leInt(wav, 24).takeIf { it in 8_000..48_000 } ?: 24_000
+        val pcm = wavData(wav) ?: wav.copyOfRange(44, wav.size)
+        val min = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val t = AudioTrack.Builder()
+            .setAudioAttributes(speechAttrs())
             .setAudioFormat(
                 AudioFormat.Builder()
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(if (rate > 0) rate else 24000)
+                    .setSampleRate(rate)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build(),
             )
-            .setBufferSizeInBytes(pcm.size.coerceAtLeast(4096))
-            .setTransferMode(AudioTrack.MODE_STATIC)
+            .setBufferSizeInBytes(min.coerceAtLeast(pcm.size.coerceAtMost(min.coerceAtLeast(4096) * 4)))
+            .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
+        if (t.state != AudioTrack.STATE_INITIALIZED) {
+            VoiceHud.line = "haut-parleur non initialisé"
+            t.release()
+            return
+        }
         track = t
-        t.write(pcm, 0, pcm.size)
         try {
             t.play()
         } catch (_: IllegalStateException) {
-            synchronized(gate) {
-                if (track === t) releaseTrack()
-            }
+            VoiceHud.line = "lecture impossible"
+            synchronized(gate) { if (track === t) releaseTrack() }
             return
         }
-        while (!cancelled.get()) {
-            val playing = try {
-                synchronized(gate) { track === t && t.playState == AudioTrack.PLAYSTATE_PLAYING }
-            } catch (_: IllegalStateException) {
-                false
-            }
-            if (!playing) break
+        var off = 0
+        while (off < pcm.size && !cancelled.get()) {
+            val n = t.write(pcm, off, pcm.size - off)
+            if (n <= 0) break
+            off += n
+        }
+        val frames = off / 2
+        while (!cancelled.get() && t.playState == AudioTrack.PLAYSTATE_PLAYING && t.playbackHeadPosition < frames) {
             Thread.sleep(20)
         }
         if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
@@ -243,6 +273,8 @@ class PlayingTts(
                     return
                 }
                 player = mp
+                mp.setAudioAttributes(speechAttrs())
+                mp.setVolume(1f, 1f)
                 mp.setDataSource(file.absolutePath)
                 mp.prepare()
                 mp.start()
@@ -256,12 +288,36 @@ class PlayingTts(
                 if (!playing) break
                 Thread.sleep(20)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            VoiceHud.line = "audio: ${e.javaClass.simpleName}"
         } finally {
             if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
             synchronized(gate) {
                 if (player === mp) releasePlayer()
             }
         }
+    }
+
+    private fun wavData(wav: ByteArray): ByteArray? {
+        var i = 12
+        while (i + 8 <= wav.size) {
+            val id = String(wav, i, 4, Charsets.US_ASCII)
+            val size = leInt(wav, i + 4)
+            val start = i + 8
+            if (id == "data" && size > 0 && start < wav.size) {
+                return wav.copyOfRange(start, (start + size).coerceAtMost(wav.size))
+            }
+            if (size < 0) break
+            i = start + size
+        }
+        return null
+    }
+
+    private fun leInt(b: ByteArray, at: Int): Int {
+        if (at + 3 >= b.size) return 0
+        return (b[at].toInt() and 0xff) or
+            ((b[at + 1].toInt() and 0xff) shl 8) or
+            ((b[at + 2].toInt() and 0xff) shl 16) or
+            ((b[at + 3].toInt() and 0xff) shl 24)
     }
 }
