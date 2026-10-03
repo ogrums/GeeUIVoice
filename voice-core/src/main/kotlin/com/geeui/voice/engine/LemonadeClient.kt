@@ -89,7 +89,7 @@ class LemonadeClient(
         val marker = "\"content\":"
         val at = raw.indexOf(marker)
         if (at < 0) return raw
-        return unquote(raw.substring(at + marker.length).trimStart())
+        return contentText(raw.substring(at + marker.length)) ?: ""
     }
 
     fun transcribe(wav: ByteArray): String {
@@ -156,10 +156,14 @@ class LemonadeClient(
                 if (data.isEmpty()) continue
                 if (data == "[DONE]") break
                 val marker = "\"content\":"
-                val at = data.indexOf(marker)
-                if (at < 0) continue
-                val piece = unquote(data.substring(at + marker.length).trimStart())
-                if (piece.isNotEmpty() && piece != "null") onDelta(piece)
+                var from = 0
+                while (from < data.length) {
+                    val at = data.indexOf(marker, from)
+                    if (at < 0) break
+                    val piece = contentText(data.substring(at + marker.length))
+                    if (piece != null) onDelta(piece)
+                    from = at + marker.length
+                }
             }
         }
     }
@@ -217,6 +221,18 @@ class LemonadeClient(
     companion object {
         const val FALLBACK_STT = "whisper-base"
         const val FALLBACK_TTS = "kokoro"
+    }
+
+    /** Only a quoted message. `null`, finish_reason and token counts are not speech. */
+    private fun contentText(raw: String): String? {
+        val s = raw.trimStart()
+        if (s.isEmpty() || s[0] != '"') return null
+        val text = unquote(s)
+        if (text.isBlank()) return null
+        if (text.contains("finish_reason") || text.contains("completion_tokens") || text.contains("prompt_tokens")) {
+            return null
+        }
+        return text
     }
 
     private fun json(value: String): String =
