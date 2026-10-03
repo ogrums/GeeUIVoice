@@ -2,7 +2,6 @@ package com.geeui.voice.session
 
 import com.geeui.voice.bus.RobotBus
 import com.geeui.voice.engine.Chat
-import com.geeui.voice.engine.SentenceSplitter
 import com.geeui.voice.engine.StreamingChat
 import com.geeui.voice.engine.TextToSpeech
 import com.geeui.voice.skill.SkillLexicon
@@ -12,7 +11,7 @@ enum class Dialogue { Idle, Listening, Speaking }
 
 /**
  * One spoken turn. A known phrase hits the robot and does not call the LLM.
- * Otherwise the answer is spoken clause by clause when the chat can stream.
+ * Otherwise the whole answer is spoken in one clip, so it is not chopped.
  */
 class VoiceSession(
     bus: RobotBus,
@@ -35,18 +34,12 @@ class VoiceSession(
         state = Dialogue.Speaking
         val answer = StringBuilder()
         if (chat is StreamingChat) {
-            val split = SentenceSplitter()
-            chat.stream(text) { delta ->
-                answer.append(delta)
-                for (clause in split.push(delta)) tts.speak(clause, language)
-            }
-            val tail = split.finish()
-            if (tail.isNotEmpty()) tts.speak(tail, language)
+            chat.stream(text) { delta -> answer.append(delta) }
         } else {
-            val whole = chat.reply(text)
-            answer.append(whole)
-            if (whole.isNotBlank()) tts.speak(whole, language)
+            answer.append(chat.reply(text))
         }
+        val whole = answer.toString().trim()
+        if (whole.isNotEmpty()) tts.speak(whole, language)
         state = Dialogue.Idle
         return answer.toString()
     }
