@@ -9,7 +9,7 @@ import android.view.View
 
 /**
  * 24 bars. Idle is a comet that leaves the screen before turning back.
- * While the robot speaks, bars bloom from the center and shrink again.
+ * While the robot speaks, four bars grow each side of the center, then shrink.
  * Hearing lights from the center. Thinking pulses.
  */
 class ScannerView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
@@ -30,17 +30,22 @@ class ScannerView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private var tick = 0
     private var head = 0
     private var dir = 1
+    private var talkRadius = 0
+    private var talkDir = 1
 
-    /** Lit width grows and shrinks from the middle. Center stays the hottest. */
+    /** Four bars each side of the center, mirrored, then back. */
     private fun talkLevel(i: Int, center: Float): Int {
-        val t = tick * 0.22f
-        val breath = 0.58f + 0.42f * kotlin.math.sin(t)
-        val syll = 0.14f * kotlin.math.sin(t * 2.6f)
-        val radius = (breath + syll).coerceIn(0.08f, 1f) * center
-        val d = kotlin.math.abs(i - center)
-        if (d > radius) return 0
-        val fall = d / radius.coerceAtLeast(0.01f)
-        return (5f - fall * 4f).toInt().coerceIn(1, 5)
+        val step = (kotlin.math.abs(i - center) - 0.5f).toInt().coerceAtLeast(0)
+        if (step > talkRadius) return 0
+        return (5 - step).coerceIn(1, 5)
+    }
+
+    private fun advanceTalk() {
+        tick++
+        if (tick % 5 != 0) return
+        talkRadius += talkDir
+        if (talkRadius >= 4) talkDir = -1
+        else if (talkRadius <= 0) talkDir = 1
     }
     private fun brightness(i: Int): Int {
         val behind = if (dir > 0) head - i else i - head
@@ -80,7 +85,8 @@ class ScannerView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             }
             canvas.drawRoundRect(left, top, left + w, top + h, 8f, 8f, paint)
         }
-        if (comet) advance(n, 6)
+        if (VoiceHud.mode == "talk") advanceTalk()
+        else if (comet) advance(n, 6)
         else tick++
         postInvalidateOnAnimation()
     }
