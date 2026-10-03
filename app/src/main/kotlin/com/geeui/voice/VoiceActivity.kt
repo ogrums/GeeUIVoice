@@ -16,7 +16,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.text.TextUtils
 
-/** Home: scanner, status, mic on and mic off. Recording starts only on the button. */
+/** 480×480 round screen. The top 30 px is the robot battery strip: draw only, never a control. */
 class VoiceActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var status: TextView
@@ -46,27 +46,16 @@ class VoiceActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.BLACK)
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(24, 12, 24, 12)
+            // Top 30 px: battery icon and robot menu. Nothing here receives clicks.
+            // Side and bottom insets keep the buttons inside the circle.
+            setPadding(64, 30, 64, 88)
+            isClickable = false
         }
-        val title = TextView(this).apply {
-            setTextColor(Color.rgb(255, 48, 36))
-            textSize = 16f
-            gravity = Gravity.CENTER
-            text = "GeeUI Voice"
-        }
-        status = TextView(this).apply {
-            setTextColor(Color.rgb(255, 64, 48))
-            textSize = 22f
-            gravity = Gravity.CENTER
-            text = "VEILLE"
-        }
-        caption = TextView(this).apply {
-            setTextColor(Color.rgb(210, 170, 160))
-            textSize = 14f
-            gravity = Gravity.CENTER_HORIZONTAL
+        val title = label("GeeUI Voice", 13f, Color.rgb(180, 40, 32))
+        status = label("VEILLE", 20f, Color.rgb(255, 64, 48))
+        caption = label("micro coupé", 13f, Color.rgb(210, 170, 160)).apply {
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
-            text = "micro coupé"
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
@@ -74,8 +63,9 @@ class VoiceActivity : Activity() {
             )
         }
         val scan = ScannerView(this).apply {
-            val h = (density() * 96).toInt()
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, h)
+            isClickable = false
+            isFocusable = false
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 120)
         }
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -95,7 +85,16 @@ class VoiceActivity : Activity() {
         VoiceHud.line = "micro coupé"
     }
 
-    private fun density(): Float = resources.displayMetrics.density
+    private fun label(text: String, size: Float, color: Int): TextView {
+        return TextView(this).apply {
+            this.text = text
+            textSize = size
+            setTextColor(color)
+            gravity = Gravity.CENTER
+            isClickable = false
+            isFocusable = false
+        }
+    }
 
     private fun button(label: String, click: () -> Unit): Button {
         return Button(this).apply {
@@ -103,7 +102,7 @@ class VoiceActivity : Activity() {
             setTextColor(Color.rgb(255, 48, 36))
             setBackgroundColor(Color.rgb(24, 0, 0))
             setOnClickListener { click() }
-            val pad = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            val pad = LinearLayout.LayoutParams(0, 64, 1f)
             pad.setMargins(12, 24, 12, 0)
             layoutParams = pad
         }
