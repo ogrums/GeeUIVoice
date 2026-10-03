@@ -29,8 +29,9 @@ class VoiceLoop(
     private val cacheDir: File,
     vad: EnergyVad = VadConfig().toVad(),
     sttModel: String = "whisper-base",
+    chatModel: String = "",
 ) {
-    private val client = LemonadeClient(baseUrl, sttModel = sttModel)
+    private val client = LemonadeClient(baseUrl, sttModel = sttModel, chatModel = chatModel)
     private val tts = PlayingTts(LemonadeTts(client), cacheDir)
     private val session = VoiceSession(bus, tts, LemonadeChat(client))
     private val live = LiveTurn(vad, LemonadeStt(client), tts, session)
@@ -51,7 +52,12 @@ class VoiceLoop(
             } catch (_: Exception) {
                 "whisper-base"
             }
-            VoiceHud.line = "stt $used"
+            val llm = try {
+                client.resolveChat().ifBlank { "aucun" }
+            } catch (_: Exception) {
+                "aucun"
+            }
+            VoiceHud.line = "stt $used · llm $llm"
             val rate = 16_000
             val frame = 320
             val min = AudioRecord.getMinBufferSize(

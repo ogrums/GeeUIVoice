@@ -13,11 +13,12 @@ import java.net.URL
 class LemonadeClient(
     val baseUrl: String,
     private val apiKey: String = "lemonade",
-    private val chatModel: String = "llama",
+    private val chatModel: String = "",
     private val sttModel: String = "whisper-base",
     private val ttsModel: String = "kokoro",
 ) {
     @Volatile private var resolvedStt: String? = null
+    @Volatile private var resolvedChat: String? = null
 
     /** Model id actually sent to /audio/transcriptions. Falls back to whisper-base. */
     fun resolveStt(): String {
@@ -34,8 +35,35 @@ class LemonadeClient(
         resolvedStt = picked
         return picked
     }
+
+    /**
+     * Chat model from `-e chat`. Empty means the first installed model that is
+     * not whisper and not kokoro. Never sends the placeholder name "llama".
+     */
+    fun resolveChat(): String {
+        resolvedChat?.let { return it }
+        val names = listModels()
+        val asked = chatModel.trim()
+        val hit = if (asked.isEmpty()) null else match(asked, names)
+        val picked = hit
+            ?: names.firstOrNull { isChat(it) }
+            ?: ""
+        resolvedChat = picked
+        return picked
+    }
+
+    private fun match(asked: String, names: List<String>): String? =
+        names.firstOrNull { it.equals(asked, ignoreCase = true) }
+            ?: names.firstOrNull {
+                it.endsWith("/$asked", ignoreCase = true) || it.endsWith(":$asked", ignoreCase = true)
+            }
+
+    private fun isChat(id: String): Boolean {
+        val n = id.lowercase()
+        return !n.contains("whisper") && !n.contains("kokoro") && !n.contains("tts")
+    }
     fun chat(userText: String): String {
-        val body = """{"model":"$chatModel","messages":[{"role":"user","content":${json(userText)}}]}"""
+        val body = """{"model":"${resolveChat()}","messages":[{"role":"user","content":${json(userText)}}]}"""
         val raw = post("/chat/completions", "application/json", body.toByteArray())
         val marker = "\"content\":"
         val at = raw.indexOf(marker)
@@ -75,7 +103,12 @@ class LemonadeClient(
 
     /** SSE chat. [onDelta] fires per token so TTS can start on the first sentence. */
     fun chatStream(userText: String, onDelta: (String) -> Unit) {
-        val body = """{"model":"$chatModel","stream":true,"messages":[{"role":"user","content":${json(userText)}}]}"""
+        val model = resolveChat()
+        if (model.isBlank()) {
+            onDelta("Pas de modèle de chat sur le serveur.")
+            return
+        }
+        val body = """{"model":"$model","stream":true,"messages":[{"role":"user","content":${json(userText)}}]}"""
         val conn = open("/chat/completions", "application/json")
         conn.doOutput = true
         conn.outputStream.use { it.write(body.toByteArray()) }
@@ -83,7 +116,8 @@ class LemonadeClient(
         val stream = if (code in 200..299) conn.inputStream else conn.errorStream
         if (code !in 200..299) {
             val err = stream?.readBytes()?.let { String(it) } ?: ""
-            throw IllegalStateException("lemonade $code $err")
+            onDelta(err.ifBlank { "lemonade $code" })
+            return
         }
         BufferedReader(InputStreamReader(stream)).use { reader ->
             while (true) {
