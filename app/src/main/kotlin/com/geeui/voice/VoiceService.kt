@@ -26,13 +26,30 @@ class VoiceService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(1, note())
-        val host = intent?.getStringExtra("host") ?: "http://127.0.0.1:13305/api/v1"
-        val extras = listOf("vad_threshold", "vad_start_ms", "vad_hangover_ms", "vad_min_ms", "vad_max_ms")
-            .associateWith { intent?.getStringExtra(it) }
-        if (loop == null) {
-            loop = VoiceLoop(AidlBus(this), host, cacheDir, VadConfig.from(extras).toVad()).also { it.start() }
+        if (intent?.action == ACTION_STOP) {
+            stopMic()
+            return START_STICKY
+        }
+        if (intent?.action == ACTION_START) {
+            val host = intent.getStringExtra("host") ?: "http://127.0.0.1:13305/api/v1"
+            val extras = listOf("vad_threshold", "vad_start_ms", "vad_hangover_ms", "vad_min_ms", "vad_max_ms")
+                .associateWith { intent.getStringExtra(it) }
+            if (loop == null) {
+                loop = VoiceLoop(AidlBus(this), host, cacheDir, VadConfig.from(extras).toVad())
+            }
+            loop?.start()
+            VoiceHud.line = ""
         }
         return START_STICKY
+    }
+
+    private fun stopMic() {
+        loop?.stop()
+        loop = null
+        VoiceHud.mode = "idle"
+        VoiceHud.level = 0f
+        VoiceHud.mic = false
+        VoiceHud.line = "micro coupé"
     }
 
     override fun onDestroy() {
@@ -51,7 +68,12 @@ class VoiceService : Service() {
         return Notification.Builder(this, "voice")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle("GeeUIVoice")
-            .setContentText("micro ouvert")
+            .setContentText(if (VoiceHud.mic) "micro ouvert" else "micro coupé")
             .build()
+    }
+
+    companion object {
+        const val ACTION_START = "com.geeui.voice.START"
+        const val ACTION_STOP = "com.geeui.voice.STOP"
     }
 }

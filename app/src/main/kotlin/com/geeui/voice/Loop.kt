@@ -47,7 +47,17 @@ class VoiceLoop(
         thread = Thread({
             val rate = 16_000
             val frame = 320
-            val min = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            val min = AudioRecord.getMinBufferSize(
+                rate,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+            )
+            if (min <= 0) {
+                VoiceHud.line = "micro refusé (taux 16 kHz)"
+                VoiceHud.mic = false
+                running.set(false)
+                return@Thread
+            }
             val rec = AudioRecord(
                 MediaRecorder.AudioSource.MIC,
                 rate,
@@ -55,9 +65,17 @@ class VoiceLoop(
                 AudioFormat.ENCODING_PCM_16BIT,
                 min.coerceAtLeast(frame * 4),
             )
+            if (rec.state != AudioRecord.STATE_INITIALIZED) {
+                VoiceHud.line = "micro non initialisé (permission ou déjà pris)"
+                VoiceHud.mic = false
+                rec.release()
+                running.set(false)
+                return@Thread
+            }
             val buf = ShortArray(frame)
-            rec.startRecording()
             try {
+                rec.startRecording()
+                VoiceHud.mic = true
                 while (running.get()) {
                     val n = rec.read(buf, 0, frame)
                     if (n == frame) {
@@ -66,8 +84,12 @@ class VoiceLoop(
                     }
                 }
             } finally {
-                rec.stop()
+                try {
+                    rec.stop()
+                } catch (_: IllegalStateException) {
+                }
                 rec.release()
+                VoiceHud.mic = false
             }
         }, "geeui-voice").also { it.start() }
     }
