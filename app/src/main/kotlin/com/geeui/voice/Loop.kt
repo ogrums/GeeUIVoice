@@ -65,6 +65,7 @@ class VoiceLoop(
         }
         live.onListen = { VoiceHud.mode = "hear" }
         live.onIdle = { VoiceHud.mode = "idle" }
+        live.allowBargeIn = { !VoiceHud.playing }
         live.worker = { job -> turns.execute(job) }
         thread = Thread({
             val used = try {
@@ -175,11 +176,13 @@ class PlayingTts(
         }
         val bytes = remote.lastAudio
         if (bytes.isEmpty() || bytes[0] == '{'.code.toByte()) {
-            VoiceHud.line = if (bytes.isEmpty()) "tts vide" else String(bytes).take(80)
+            VoiceHud.diag = if (bytes.isEmpty()) "serveur vide" else "serveur: ${String(bytes).take(90)}"
+            VoiceHud.line = VoiceHud.diag
             if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
             return
         }
-        VoiceHud.line = "tts ${bytes.size} o"
+        VoiceHud.diag = "serveur ${bytes.size} o ${kindOf(bytes)}"
+        VoiceHud.line = VoiceHud.diag
         val file = clipFile(bytes)
         playWithPlayer(file)
     }
@@ -292,6 +295,7 @@ class PlayingTts(
     private fun playWithPlayer(file: File) {
         val done = java.util.concurrent.CountDownLatch(1)
         val mp = MediaPlayer()
+        val input = java.io.FileInputStream(file)
         try {
             synchronized(gate) {
                 if (cancelled.get()) {
@@ -302,28 +306,43 @@ class PlayingTts(
                 started = false
                 mp.setOnCompletionListener { done.countDown() }
                 mp.setOnErrorListener { _, what, extra ->
-                    VoiceHud.line = "audio $what/$extra"
+                    VoiceHud.diag = "audio $what/$extra"
+                    VoiceHud.line = VoiceHud.diag
                     done.countDown()
                     true
                 }
-                java.io.FileInputStream(file).use { input ->
-                    mp.setDataSource(input.fd)
-                }
+                mp.setDataSource(input.fd)
                 mp.prepare()
+                VoiceHud.playing = true
                 mp.start()
                 started = true
             }
             while (!cancelled.get() && !done.await(40, java.util.concurrent.TimeUnit.MILLISECONDS)) {
             }
+            if (cancelled.get()) VoiceHud.diag = "coupé (micro)"
         } catch (e: Exception) {
-            VoiceHud.line = "audio: ${e.javaClass.simpleName}"
+            VoiceHud.diag = "audio: ${e.javaClass.simpleName}"
+            VoiceHud.line = VoiceHud.diag
             done.countDown()
         } finally {
+            VoiceHud.playing = false
+            try {
+                input.close()
+            } catch (_: Exception) {
+            }
             if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
             synchronized(gate) {
                 if (player === mp) releasePlayer()
             }
         }
+    }
+
+    private fun kindOf(bytes: ByteArray): String {
+        if (bytes.size >= 4 && bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte()) return "wav"
+        if (bytes.size >= 4 && bytes[0] == 'O'.code.toByte() && bytes[1] == 'g'.code.toByte()) return "ogg"
+        if (bytes.size >= 2 && bytes[0] == 0xFF.toByte() && (bytes[1].toInt() and 0xE0) == 0xE0) return "mp3"
+        if (bytes.size >= 3 && bytes[0] == 'I'.code.toByte() && bytes[1] == 'D'.code.toByte()) return "mp3"
+        return "inconnu"
     }
 
     private fun playPcm(wav: Wav) {

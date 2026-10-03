@@ -7,5 +7,7 @@ object VoiceHud {
     @Volatile var line: String = ""
     @Volatile var heard: String = ""
     @Volatile var answer: String = ""
+    @Volatile var diag: String = ""
+    @Volatile var playing: Boolean = false
     @Volatile var mic: Boolean = false
 }

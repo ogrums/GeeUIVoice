@@ -43,6 +43,10 @@ class VoiceActivity : Activity() {
                     append(VoiceHud.answer)
                 }
                 if (isEmpty()) append(VoiceHud.line)
+                if (VoiceHud.diag.isNotBlank()) {
+                    if (isNotEmpty()) append("\n")
+                    append(VoiceHud.diag)
+                }
             }
             if (mic.isChecked != VoiceHud.mic) {
                 painting = true

@@ -35,7 +35,7 @@ class ScannerView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val h = height * 0.76f
         val level = VoiceHud.level.coerceIn(0f, 1f)
         val center = (n - 1) / 2f
-        val sweep = bounce(n, if (VoiceHud.mode == "talk") 2 else 4)
+        val sweep = bounce(n, if (VoiceHud.mode == "talk") 5 else 8)
         for (i in 0 until n) {
             val left = paddingLeft + i * (w + gap)
             val dist = kotlin.math.abs(i - center) / center
@@ -46,7 +46,9 @@ class ScannerView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 else -> when (fromSweep) {
                     0 -> hot
                     1 -> mid
-                    2 -> tail
+                    2 -> mid
+                    3 -> tail
+                    4 -> tail
                     else -> dim
                 }
             }

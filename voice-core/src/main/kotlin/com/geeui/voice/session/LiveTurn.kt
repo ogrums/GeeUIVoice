@@ -21,6 +21,8 @@ class LiveTurn(
     var onAnswer: (String) -> Unit = {},
     var onListen: () -> Unit = {},
     var onIdle: () -> Unit = {},
+    /** False while the speaker is on, so its own sound is not heard as barge-in. */
+    var allowBargeIn: () -> Boolean = { true },
 ) {
     var listening: Boolean = false
         private set
@@ -31,6 +33,7 @@ class LiveTurn(
         when (val event = vad.push(frame)) {
             VadEvent.None -> Unit
             VadEvent.SpeechStart -> {
+                if (!allowBargeIn()) return
                 listening = true
                 tts.stop()
                 onListen()
