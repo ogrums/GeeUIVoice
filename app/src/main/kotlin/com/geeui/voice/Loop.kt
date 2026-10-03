@@ -169,13 +169,8 @@ class PlayingTts(
             if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
             return
         }
-        val wav = parseWav(bytes)
-        when {
-            wav != null -> playPcm(wav)
-            bytes[0] == 'R'.code.toByte() -> VoiceHud.line = "wav illisible"
-            encoded(bytes) -> playFile(bytes)
-            else -> playPcm(Wav(24_000, 1, bytes, bytes))
-        }
+        val file = clipFile(bytes)
+        playWithPlayer(file)
     }
 
     override fun stop() {
@@ -235,58 +230,56 @@ class PlayingTts(
         }
     }
 
-    private fun playPcm(wav: Wav) {
-        val mask = if (wav.channels == 2) AudioFormat.CHANNEL_OUT_STEREO else AudioFormat.CHANNEL_OUT_MONO
-        val min = AudioTrack.getMinBufferSize(wav.rate, mask, AudioFormat.ENCODING_PCM_16BIT).coerceAtLeast(wav.pcm.size)
-        val t = AudioTrack.Builder()
-            .setAudioAttributes(speechAttrs())
-            .setAudioFormat(
-                AudioFormat.Builder()
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(wav.rate)
-                    .setChannelMask(mask)
-                    .build(),
-            )
-            .setBufferSizeInBytes(min)
-            .setTransferMode(AudioTrack.MODE_STATIC)
-            .build()
-        if (t.state != AudioTrack.STATE_INITIALIZED) {
-            t.release()
-            playFile(wav.raw)
-            return
+    /** Same path as LTPAudioService / LetianpaiPlayer: a file, then MediaPlayer. AudioTrack left the rk817 amp off. */
+    private fun clipFile(bytes: ByteArray): File {
+        if (encoded(bytes)) {
+            val ext = if (bytes[0] == 'O'.code.toByte()) "ogg" else "mp3"
+            return File(cacheDir, "tts.$ext").also { it.writeBytes(bytes) }
         }
-        val wrote = t.write(wav.pcm, 0, wav.pcm.size)
-        if (wrote <= 0) {
-            t.release()
-            playFile(wav.raw)
-            return
+        val wav = parseWav(bytes)
+        val file = File(cacheDir, "tts.wav")
+        val body = when {
+            wav != null -> pcmToWav(wav.pcm, wav.rate, wav.channels)
+            bytes.size > 12 && bytes[0] == 'R'.code.toByte() -> bytes
+            else -> pcmToWav(bytes, 24_000, 1)
         }
-        track = t
-        try {
-            t.play()
-        } catch (_: IllegalStateException) {
-            synchronized(gate) { if (track === t) releaseTrack() }
-            return
-        }
-        val frames = wrote / (2 * wav.channels)
-        while (!cancelled.get() && t.playState == AudioTrack.PLAYSTATE_PLAYING && t.playbackHeadPosition < frames) {
-            Thread.sleep(20)
-        }
-        if (!cancelled.get()) Thread.sleep(80)
-        if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
-        synchronized(gate) {
-            if (track === t) releaseTrack()
-        }
+        file.writeBytes(body)
+        return file
     }
 
-    private fun playFile(bytes: ByteArray) {
-        val ext = when {
-            bytes.size > 3 && bytes[0] == 'R'.code.toByte() -> "wav"
-            bytes.size > 3 && bytes[0] == 'O'.code.toByte() && bytes[1] == 'g'.code.toByte() -> "ogg"
-            else -> "mp3"
+    private fun pcmToWav(pcm: ByteArray, rate: Int, channels: Int): ByteArray {
+        val header = ByteArray(44)
+        val dataSize = pcm.size
+        val block = channels * 2
+        fun put(at: Int, s: String) = s.toByteArray().copyInto(header, at)
+        fun le32(at: Int, v: Int) {
+            header[at] = (v and 0xff).toByte()
+            header[at + 1] = ((v shr 8) and 0xff).toByte()
+            header[at + 2] = ((v shr 16) and 0xff).toByte()
+            header[at + 3] = ((v shr 24) and 0xff).toByte()
         }
-        val file = File(cacheDir, "tts.$ext")
-        file.writeBytes(bytes)
+        fun le16(at: Int, v: Int) {
+            header[at] = (v and 0xff).toByte()
+            header[at + 1] = ((v shr 8) and 0xff).toByte()
+        }
+        put(0, "RIFF")
+        le32(4, 36 + dataSize)
+        put(8, "WAVE")
+        put(12, "fmt ")
+        le32(16, 16)
+        le16(20, 1)
+        le16(22, channels)
+        le32(24, rate)
+        le32(28, rate * block)
+        le16(32, block)
+        le16(34, 16)
+        put(36, "data")
+        le32(40, dataSize)
+        return header + pcm
+    }
+
+    private fun playWithPlayer(file: File) {
+        val done = java.util.concurrent.CountDownLatch(1)
         val mp = MediaPlayer()
         try {
             synchronized(gate) {
@@ -296,11 +289,10 @@ class PlayingTts(
                 }
                 player = mp
                 started = false
-                @Suppress("DEPRECATION")
-                mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
-                mp.setVolume(1f, 1f)
+                mp.setOnCompletionListener { done.countDown() }
                 mp.setOnErrorListener { _, what, extra ->
                     VoiceHud.line = "audio $what/$extra"
+                    done.countDown()
                     true
                 }
                 mp.setDataSource(file.absolutePath)
@@ -308,23 +300,25 @@ class PlayingTts(
                 mp.start()
                 started = true
             }
-            while (!cancelled.get()) {
-                val playing = try {
-                    synchronized(gate) { started && player === mp && mp.isPlaying }
-                } catch (_: IllegalStateException) {
-                    false
-                }
-                if (!playing) break
-                Thread.sleep(20)
+            while (!cancelled.get() && !done.await(40, java.util.concurrent.TimeUnit.MILLISECONDS)) {
             }
         } catch (e: Exception) {
             VoiceHud.line = "audio: ${e.javaClass.simpleName}"
+            done.countDown()
         } finally {
             if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
             synchronized(gate) {
                 if (player === mp) releasePlayer()
             }
         }
+    }
+
+    private fun playPcm(wav: Wav) {
+        playWithPlayer(clipFile(wav.raw))
+    }
+
+    private fun playFile(bytes: ByteArray) {
+        playWithPlayer(clipFile(bytes))
     }
 
     private fun parseWav(wav: ByteArray): Wav? {
