@@ -8,8 +8,8 @@ import com.geeui.voice.engine.TextToSpeech
 
 /**
  * Real-time loop. Frames in, one utterance out.
- * If the user starts talking while TTS plays, TTS is stopped (barge-in)
- * and the new turn is transcribed.
+ * While the speaker plays, and for a short tail after, frames are dropped
+ * so the robot does not transcribe its own answer.
  */
 class LiveTurn(
     private val vad: EnergyVad,
@@ -21,7 +21,7 @@ class LiveTurn(
     var onAnswer: (String) -> Unit = {},
     var onListen: () -> Unit = {},
     var onIdle: () -> Unit = {},
-    /** False while the speaker is on, so its own sound is not heard as barge-in. */
+    /** False while the speaker is on, or during the echo tail after it stops. */
     var allowBargeIn: () -> Boolean = { true },
 ) {
     var listening: Boolean = false
@@ -30,6 +30,11 @@ class LiveTurn(
     var worker: (() -> Unit) -> Unit = { it() }
 
     fun onFrame(frame: ShortArray) {
+        if (!allowBargeIn()) {
+            vad.reset()
+            listening = false
+            return
+        }
         when (val event = vad.push(frame)) {
             VadEvent.None -> Unit
             VadEvent.SpeechStart -> {

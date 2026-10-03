@@ -67,7 +67,9 @@ class VoiceLoop(
         }
         live.onListen = { VoiceHud.mode = "hear" }
         live.onIdle = { VoiceHud.mode = "idle" }
-        live.allowBargeIn = { !VoiceHud.playing }
+        live.allowBargeIn = {
+            !VoiceHud.playing && System.currentTimeMillis() >= VoiceHud.hearAfter
+        }
         live.worker = { job -> turns.execute(job) }
         thread = Thread({
             val used = try {
@@ -327,6 +329,7 @@ class PlayingTts(
             VoiceHud.line = VoiceHud.diag
             done.countDown()
         } finally {
+            VoiceHud.hearAfter = System.currentTimeMillis() + 800
             VoiceHud.playing = false
             try {
                 input.close()
