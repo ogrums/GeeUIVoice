@@ -163,7 +163,12 @@ class PlayingTts(
             return
         }
         val wav = parseWav(bytes)
-        if (wav != null) playPcm(wav) else playFile(bytes)
+        when {
+            wav != null -> playPcm(wav)
+            bytes[0] == 'R'.code.toByte() -> VoiceHud.line = "wav illisible"
+            encoded(bytes) -> playFile(bytes)
+            else -> playPcm(Wav(24_000, 1, bytes, bytes))
+        }
     }
 
     override fun stop() {
@@ -192,10 +197,11 @@ class PlayingTts(
         }
     }
 
+    /** This ROM rejects empty AudioAttributes and then mutes the stream. Map the music stream explicitly. */
+    @Suppress("DEPRECATION")
     private fun speechAttrs(): AudioAttributes =
         AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .setLegacyStreamType(AudioManager.STREAM_MUSIC)
             .build()
 
     /** Do not take audio focus: that muted the rest of the robot when playback failed. */
@@ -283,7 +289,8 @@ class PlayingTts(
                 }
                 player = mp
                 started = false
-                mp.setAudioAttributes(speechAttrs())
+                @Suppress("DEPRECATION")
+                mp.setAudioStreamType(AudioManager.STREAM_MUSIC)
                 mp.setVolume(1f, 1f)
                 mp.setOnErrorListener { _, what, extra ->
                     VoiceHud.line = "audio $what/$extra"
@@ -331,6 +338,7 @@ class PlayingTts(
                 channels = leShort(wav, start + 2)
                 rate = leInt(wav, start + 4)
                 bits = leShort(wav, start + 14)
+                if (format == 0xFFFE && start + 26 <= wav.size) format = leShort(wav, start + 24)
             } else if (id == "data" && size > 0) {
                 pcm = wav.copyOfRange(start, (start + size).coerceAtMost(wav.size))
                 break
@@ -338,9 +346,46 @@ class PlayingTts(
             i = start + size + (size and 1)
         }
         val data = pcm ?: return null
-        if (format != 1 || bits != 16 || channels !in 1..2 || rate !in 8_000..48_000) return null
-        if (data.size > 1_000_000) return null
-        return Wav(rate, channels, data, wav)
+        if (channels !in 1..2 || rate !in 8_000..48_000) return null
+        val samples = when {
+            format == 1 && bits == 16 -> data
+            format == 3 && bits == 32 -> floatToS16(data)
+            format == 1 && bits == 32 -> int32ToS16(data)
+            else -> return null
+        }
+        if (samples.isEmpty() || samples.size > 2_000_000) return null
+        return Wav(rate, channels, samples, wav)
+    }
+
+    private fun encoded(bytes: ByteArray): Boolean {
+        if (bytes.size < 4) return false
+        val b0 = bytes[0].toInt() and 0xff
+        val b1 = bytes[1].toInt() and 0xff
+        if (b0 == 0xff && (b1 and 0xe0) == 0xe0) return true
+        val head = String(bytes, 0, 4.coerceAtMost(bytes.size), Charsets.US_ASCII)
+        return head.startsWith("ID3") || head.startsWith("OggS") || head.startsWith("fLaC")
+    }
+
+    private fun floatToS16(src: ByteArray): ByteArray {
+        val n = src.size / 4
+        val out = ByteArray(n * 2)
+        val buf = java.nio.ByteBuffer.wrap(src).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        for (i in 0 until n) {
+            val sample = (buf.getFloat(i * 4).coerceIn(-1f, 1f) * 32767f).toInt()
+            out[i * 2] = (sample and 0xff).toByte()
+            out[i * 2 + 1] = ((sample shr 8) and 0xff).toByte()
+        }
+        return out
+    }
+
+    private fun int32ToS16(src: ByteArray): ByteArray {
+        val n = src.size / 4
+        val out = ByteArray(n * 2)
+        for (i in 0 until n) {
+            out[i * 2] = src[i * 4 + 2]
+            out[i * 2 + 1] = src[i * 4 + 3]
+        }
+        return out
     }
 
     private fun leShort(b: ByteArray, at: Int): Int {
