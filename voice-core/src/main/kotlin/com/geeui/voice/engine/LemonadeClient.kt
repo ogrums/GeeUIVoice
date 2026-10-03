@@ -14,9 +14,26 @@ class LemonadeClient(
     val baseUrl: String,
     private val apiKey: String = "lemonade",
     private val chatModel: String = "llama",
-    private val sttModel: String = "whisper",
+    private val sttModel: String = "whisper-base",
     private val ttsModel: String = "kokoro",
 ) {
+    @Volatile private var resolvedStt: String? = null
+
+    /** Model id actually sent to /audio/transcriptions. Falls back to whisper-base. */
+    fun resolveStt(): String {
+        resolvedStt?.let { return it }
+        val names = listModels()
+        val asked = sttModel.ifBlank { FALLBACK_STT }
+        val hit = names.firstOrNull { it.equals(asked, ignoreCase = true) }
+            ?: names.firstOrNull { it.endsWith("/$asked", ignoreCase = true) || it.endsWith(":$asked", ignoreCase = true) }
+        val picked = when {
+            names.isEmpty() -> asked
+            hit != null -> hit
+            else -> names.firstOrNull { it.contains(FALLBACK_STT, ignoreCase = true) } ?: FALLBACK_STT
+        }
+        resolvedStt = picked
+        return picked
+    }
     fun chat(userText: String): String {
         val body = """{"model":"$chatModel","messages":[{"role":"user","content":${json(userText)}}]}"""
         val raw = post("/chat/completions", "application/json", body.toByteArray())
@@ -30,7 +47,7 @@ class LemonadeClient(
         val boundary = "----geeui${System.nanoTime()}"
         val head = (
             "--$boundary\r\n" +
-                "Content-Disposition: form-data; name=\"model\"\r\n\r\n$sttModel\r\n" +
+                "Content-Disposition: form-data; name=\"model\"\r\n\r\n${resolveStt()}\r\n" +
                 "--$boundary\r\n" +
                 "Content-Disposition: form-data; name=\"file\"; filename=\"turn.wav\"\r\n" +
                 "Content-Type: audio/wav\r\n\r\n"
@@ -41,6 +58,10 @@ class LemonadeClient(
         wav.copyInto(payload, head.size)
         tail.copyInto(payload, head.size + wav.size)
         val raw = post("/audio/transcriptions", "multipart/form-data; boundary=$boundary", payload)
+        if (raw.startsWith("ERR ") && resolveStt() != FALLBACK_STT) {
+            resolvedStt = FALLBACK_STT
+            return transcribe(wav)
+        }
         val marker = "\"text\":"
         val at = raw.indexOf(marker)
         if (at < 0) return raw
@@ -79,8 +100,34 @@ class LemonadeClient(
         }
     }
 
-    private fun post(path: String, contentType: String, body: ByteArray): String =
-        String(postBytes(path, contentType, body))
+    private fun post(path: String, contentType: String, body: ByteArray): String {
+        return try {
+            String(postBytes(path, contentType, body))
+        } catch (e: IllegalStateException) {
+            "ERR " + (e.message ?: "")
+        }
+    }
+
+    private fun listModels(): List<String> {
+        return try {
+            val conn = open("/models", "application/json", "GET")
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else return emptyList()
+            val raw = stream.readBytes().toString(Charsets.UTF_8)
+            val out = ArrayList<String>()
+            var at = 0
+            val key = "\"id\":"
+            while (true) {
+                val i = raw.indexOf(key, at)
+                if (i < 0) break
+                out += unquote(raw.substring(i + key.length).trimStart())
+                at = i + key.length
+            }
+            out
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
     private fun postBytes(path: String, contentType: String, body: ByteArray): ByteArray {
         val conn = open(path, contentType)
@@ -93,14 +140,18 @@ class LemonadeClient(
         return bytes
     }
 
-    private fun open(path: String, contentType: String): HttpURLConnection {
+    private fun open(path: String, contentType: String, method: String = "POST"): HttpURLConnection {
         val conn = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
-        conn.requestMethod = "POST"
+        conn.requestMethod = method
         conn.connectTimeout = 5_000
         conn.readTimeout = 120_000
         conn.setRequestProperty("Authorization", "Bearer $apiKey")
         conn.setRequestProperty("Content-Type", contentType)
         return conn
+    }
+
+    companion object {
+        const val FALLBACK_STT = "whisper-base"
     }
 
     private fun json(value: String): String =

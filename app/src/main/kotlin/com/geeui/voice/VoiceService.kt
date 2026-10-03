@@ -10,14 +10,10 @@ import android.os.IBinder
 import com.geeui.voice.audio.VadConfig
 
 /**
- * Foreground: Android 11 drops the mic if this is a background service.
- *
- * adb shell am startservice -n com.geeui.voice/.VoiceService \
+ * adb shell am start -n com.geeui.voice/.VoiceActivity \
  *   -e host http://192.168.1.10:13305/api/v1 \
- *   -e vad_threshold 800 \
- *   -e vad_hangover_ms 600 \
- *   -e vad_start_ms 80 \
- *   -e vad_min_ms 280
+ *   -e model whisper-small
+ * Unknown STT id falls back to whisper-base.
  */
 class VoiceService : Service() {
     private var loop: VoiceLoop? = null
@@ -35,10 +31,10 @@ class VoiceService : Service() {
             val extras = listOf("vad_threshold", "vad_start_ms", "vad_hangover_ms", "vad_min_ms", "vad_max_ms")
                 .associateWith { intent.getStringExtra(it) }
             if (loop == null) {
-                loop = VoiceLoop(AidlBus(this), host, cacheDir, VadConfig.from(extras).toVad())
+                val model = intent.getStringExtra("model") ?: "whisper-base"
+                loop = VoiceLoop(AidlBus(this), host, cacheDir, VadConfig.from(extras).toVad(), model)
             }
             loop?.start()
-            VoiceHud.line = ""
         }
         return START_STICKY
     }
