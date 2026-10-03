@@ -35,6 +35,7 @@ class VoiceLoop(
     chatModel: String = "",
     ttsModel: String = "kokoro",
     voice: String = "",
+    prompt: String = com.geeui.voice.engine.LemonadeClient.SPOKEN,
     audio: Context,
 ) {
     private val client = LemonadeClient(
@@ -42,6 +43,7 @@ class VoiceLoop(
         sttModel = sttModel,
         chatModel = chatModel,
         ttsModel = ttsModel,
+        systemPrompt = prompt,
     )
     private val tts = PlayingTts(LemonadeTts(client, voice), cacheDir, audio)
     private val session = VoiceSession(bus, tts, LemonadeChat(client))

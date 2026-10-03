@@ -15,7 +15,8 @@ import com.geeui.voice.audio.VadConfig
  *   -e model whisper-small \
  *   -e chat <id-du-llm> \
  *   -e tts kokoro \
- *   -e voice ff_siwis
+ *   -e voice ff_siwis \
+ *   -e prompt "Réponds en une phrase, sans markdown."
  * STT inconnu → whisper-base. TTS inconnu → kokoro, sinon le premier modèle speech.
  * Une nouvelle commande START réapplique les extras présents. Un extra absent ne les efface pas.
  */
@@ -26,6 +27,7 @@ class VoiceService : Service() {
     private var chat = ""
     private var tts = "kokoro"
     private var voice = ""
+    private var prompt = com.geeui.voice.engine.LemonadeClient.SPOKEN
     private val vad = mutableMapOf<String, String?>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -42,10 +44,11 @@ class VoiceService : Service() {
             intent.getStringExtra("chat")?.let { chat = it }
             intent.getStringExtra("tts")?.let { tts = it }
             intent.getStringExtra("voice")?.let { voice = it }
+            intent.getStringExtra("prompt")?.let { prompt = it }
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
             loop?.stop()
             loop = VoiceLoop(
-                AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, this,
+                AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
             )
             loop?.start()
         }

@@ -38,9 +38,18 @@ class VoiceSession(
         } else {
             answer.append(chat.reply(text))
         }
-        val whole = answer.toString().trim()
+        val whole = spoken(answer.toString())
         if (whole.isNotEmpty()) tts.speak(whole, language)
         state = Dialogue.Idle
-        return answer.toString()
+        return whole
+    }
+
+    /** Kokoro reads '*' aloud. Keep letters, spaces and normal punctuation. */
+    private fun spoken(raw: String): String {
+        var s = raw.replace(Regex("\\[([^\\]]+)]\\([^)]*\\)")) { it.groupValues[1] }
+        s = s.replace(Regex("(?m)^#{1,6}\\s*"), "")
+        s = s.replace(Regex("[*_`~]+"), "")
+        s = s.replace(Regex("\\s+"), " ").trim()
+        return s
     }
 }

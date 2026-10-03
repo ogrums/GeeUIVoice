@@ -16,6 +16,7 @@ class LemonadeClient(
     private val chatModel: String = "",
     private val sttModel: String = "whisper-base",
     private val ttsModel: String = "kokoro",
+    private val systemPrompt: String = SPOKEN,
 ) {
     @Volatile private var resolvedStt: String? = null
     @Volatile private var resolvedChat: String? = null
@@ -84,7 +85,7 @@ class LemonadeClient(
         return n.contains("kokoro") || n.contains("piper") || n.contains("tts") || n.contains("speech")
     }
     fun chat(userText: String): String {
-        val body = """{"model":"${resolveChat()}","messages":[{"role":"user","content":${json(userText)}}]}"""
+        val body = messages(userText, stream = false)
         val raw = post("/chat/completions", "application/json", body.toByteArray())
         val marker = "\"content\":"
         val at = raw.indexOf(marker)
@@ -138,7 +139,7 @@ class LemonadeClient(
             onDelta("Pas de modèle de chat sur le serveur.")
             return
         }
-        val body = """{"model":"$model","stream":true,"messages":[{"role":"user","content":${json(userText)}}]}"""
+        val body = messages(userText, stream = true)
         val conn = open("/chat/completions", "application/json")
         conn.doOutput = true
         conn.outputStream.use { it.write(body.toByteArray()) }
@@ -221,6 +222,14 @@ class LemonadeClient(
     companion object {
         const val FALLBACK_STT = "whisper-base"
         const val FALLBACK_TTS = "kokoro"
+        const val SPOKEN = "Tu es la voix d'un petit robot. Réponds en français parlé, en une ou deux phrases courtes. Pas de markdown, pas d'étoiles, pas de listes, pas de titres."
+    }
+
+    private fun messages(userText: String, stream: Boolean): String {
+        val sys = systemPrompt.trim()
+        val system = if (sys.isEmpty()) "" else """{"role":"system","content":${json(sys)}},"""
+        val flag = if (stream) ""","stream":true""" else ""
+        return """{"model":"${resolveChat()}"$flag,"messages":[$system{"role":"user","content":${json(userText)}}]}"""
     }
 
     /** Only a quoted message. `null`, finish_reason and token counts are not speech. */
