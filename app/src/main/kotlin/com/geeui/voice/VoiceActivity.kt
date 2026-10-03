@@ -5,7 +5,9 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -120,7 +122,12 @@ class VoiceActivity : Activity() {
         if (code == 1 && grants.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
             send(VoiceService.ACTION_START)
         } else {
-            VoiceHud.line = "permission micro refusée"
+            VoiceHud.line = "autorise le micro dans les réglages"
+            val settings = Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", packageName, null),
+            )
+            startActivity(settings)
         }
     }
 
