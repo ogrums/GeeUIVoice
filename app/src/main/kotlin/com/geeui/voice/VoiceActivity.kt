@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.os.Handler
 import android.os.Looper
+import android.media.MediaPlayer
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
@@ -76,11 +77,21 @@ class VoiceActivity : Activity() {
         off.isEnabled = false
         row.addView(on)
         row.addView(off)
+        val sample = Button(this).apply {
+            text = "Test audio"
+            setTextColor(Color.rgb(255, 48, 36))
+            setBackgroundColor(Color.rgb(24, 0, 0))
+            setOnClickListener { playSample() }
+            val pad = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 56)
+            pad.setMargins(12, 12, 12, 0)
+            layoutParams = pad
+        }
         root.addView(title)
         root.addView(status)
         root.addView(scan)
         root.addView(caption)
         root.addView(row)
+        root.addView(sample)
         setContentView(root)
         VoiceHud.line = "micro coupé"
     }
@@ -105,6 +116,41 @@ class VoiceActivity : Activity() {
             val pad = LinearLayout.LayoutParams(0, 64, 1f)
             pad.setMargins(12, 24, 12, 0)
             layoutParams = pad
+        }
+    }
+
+    private var sample: MediaPlayer? = null
+
+    /** Bundled clip, same MediaPlayer path as LTPAudioService. No mic, no Lemonade. */
+    private fun playSample() {
+        sample?.release()
+        sample = null
+        val mp = MediaPlayer()
+        sample = mp
+        try {
+            assets.openFd("olivier.mp3").use { afd ->
+                mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            }
+            mp.setOnCompletionListener {
+                VoiceHud.line = "test audio fini"
+                if (sample === it) {
+                    it.release()
+                    sample = null
+                }
+            }
+            mp.setOnErrorListener { player, what, extra ->
+                VoiceHud.line = "test audio $what/$extra"
+                player.release()
+                if (sample === player) sample = null
+                true
+            }
+            mp.prepare()
+            mp.start()
+            VoiceHud.line = "test audio"
+        } catch (e: Exception) {
+            mp.release()
+            sample = null
+            VoiceHud.line = "test: ${e.javaClass.simpleName}"
         }
     }
 
@@ -139,6 +185,12 @@ class VoiceActivity : Activity() {
         val intent = Intent(this, VoiceService::class.java).setAction(action)
         intent.putExtras(getIntent())
         startForegroundService(intent)
+    }
+
+    override fun onDestroy() {
+        sample?.release()
+        sample = null
+        super.onDestroy()
     }
 
     override fun onResume() {
