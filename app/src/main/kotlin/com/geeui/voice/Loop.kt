@@ -34,6 +34,7 @@ class VoiceLoop(
     sttModel: String = "whisper-base",
     chatModel: String = "",
     ttsModel: String = "kokoro",
+    voice: String = "",
     audio: Context,
 ) {
     private val client = LemonadeClient(
@@ -42,7 +43,7 @@ class VoiceLoop(
         chatModel = chatModel,
         ttsModel = ttsModel,
     )
-    private val tts = PlayingTts(LemonadeTts(client), cacheDir, audio)
+    private val tts = PlayingTts(LemonadeTts(client, voice), cacheDir, audio)
     private val session = VoiceSession(bus, tts, LemonadeChat(client))
     private val live = LiveTurn(vad, LemonadeStt(client), tts, session)
     private val turns = Executors.newSingleThreadExecutor()
@@ -156,7 +157,13 @@ class PlayingTts(
         cancelled.set(false)
         VoiceHud.mode = "talk"
         ensureVolume()
-        remote.speak(text, language)
+        try {
+            remote.speak(text, language)
+        } catch (e: Exception) {
+            VoiceHud.line = e.message?.take(80) ?: "tts erreur"
+            VoiceHud.mode = "idle"
+            return
+        }
         val bytes = remote.lastAudio
         if (bytes.isEmpty() || bytes[0] == '{'.code.toByte()) {
             if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"

@@ -124,20 +124,10 @@ class LemonadeClient(
         return try {
             postBytes("/audio/speech", "application/json", wavBody.toByteArray())
         } catch (e: IllegalStateException) {
-            if (e.message?.contains("response_format") == true || e.message?.contains("400") == true) {
-                val plain = """{"model":"$model","input":${json(text)},"voice":${json(voice)}}"""
-                return try {
-                    postBytes("/audio/speech", "application/json", plain.toByteArray())
-                } catch (_: IllegalStateException) {
-                    ByteArray(0)
-                }
-            }
-            if (resolvedTts != FALLBACK_TTS) {
-                resolvedTts = FALLBACK_TTS
-                speech(text, voice)
-            } else {
-                ByteArray(0)
-            }
+            val msg = e.message.orEmpty()
+            if (!msg.contains("response_format") && !msg.contains("400")) throw e
+            val plain = """{"model":"$model","input":${json(text)},"voice":${json(voice)}}"""
+            postBytes("/audio/speech", "application/json", plain.toByteArray())
         }
     }
 
@@ -259,13 +249,16 @@ class LemonadeChat(private val client: LemonadeClient) : Chat, StreamingChat {
     }
 }
 
-class LemonadeTts(private val client: LemonadeClient) : TextToSpeech {
+class LemonadeTts(
+    private val client: LemonadeClient,
+    private val voice: String = "",
+) : TextToSpeech {
     var lastAudio: ByteArray = ByteArray(0)
         private set
 
     override fun speak(text: String, language: String) {
-        val voice = if (language == "en") "af_heart" else "ff_siwis"
-        lastAudio = client.speech(text, voice)
+        val chosen = voice.ifBlank { if (language == "en") "af_heart" else "ff_siwis" }
+        lastAudio = client.speech(text, chosen)
     }
 
     override fun stop() {

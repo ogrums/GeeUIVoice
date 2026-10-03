@@ -130,6 +130,11 @@ class VoiceActivity : Activity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
     private fun send(action: String) {
         val intent = Intent(this, VoiceService::class.java).setAction(action)
         intent.putExtras(getIntent())

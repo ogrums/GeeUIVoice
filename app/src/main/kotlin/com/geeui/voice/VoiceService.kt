@@ -14,11 +14,19 @@ import com.geeui.voice.audio.VadConfig
  *   -e host http://192.168.1.10:13305/api/v1 \
  *   -e model whisper-small \
  *   -e chat <id-du-llm> \
- *   -e tts kokoro
+ *   -e tts kokoro \
+ *   -e voice ff_siwis
  * STT inconnu → whisper-base. TTS inconnu → kokoro, sinon le premier modèle speech.
+ * Une nouvelle commande START réapplique les extras présents. Un extra absent ne les efface pas.
  */
 class VoiceService : Service() {
     private var loop: VoiceLoop? = null
+    private var host = "http://127.0.0.1:13305/api/v1"
+    private var model = "whisper-base"
+    private var chat = ""
+    private var tts = "kokoro"
+    private var voice = ""
+    private val vad = mutableMapOf<String, String?>()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -29,17 +37,16 @@ class VoiceService : Service() {
             return START_STICKY
         }
         if (intent?.action == ACTION_START) {
-            val host = intent.getStringExtra("host") ?: "http://127.0.0.1:13305/api/v1"
-            val extras = listOf("vad_threshold", "vad_start_ms", "vad_hangover_ms", "vad_min_ms", "vad_max_ms")
-                .associateWith { intent.getStringExtra(it) }
-            if (loop == null) {
-                val model = intent.getStringExtra("model") ?: "whisper-base"
-                val chat = intent.getStringExtra("chat") ?: ""
-                val tts = intent.getStringExtra("tts") ?: "kokoro"
-                loop = VoiceLoop(
-                    AidlBus(this), host, cacheDir, VadConfig.from(extras).toVad(), model, chat, tts, this,
-                )
-            }
+            intent.getStringExtra("host")?.let { host = it }
+            intent.getStringExtra("model")?.let { model = it }
+            intent.getStringExtra("chat")?.let { chat = it }
+            intent.getStringExtra("tts")?.let { tts = it }
+            intent.getStringExtra("voice")?.let { voice = it }
+            for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
+            loop?.stop()
+            loop = VoiceLoop(
+                AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, this,
+            )
             loop?.start()
         }
         return START_STICKY
@@ -77,5 +84,6 @@ class VoiceService : Service() {
     companion object {
         const val ACTION_START = "com.geeui.voice.START"
         const val ACTION_STOP = "com.geeui.voice.STOP"
+        private val VAD_KEYS = listOf("vad_threshold", "vad_start_ms", "vad_hangover_ms", "vad_min_ms", "vad_max_ms")
     }
 }

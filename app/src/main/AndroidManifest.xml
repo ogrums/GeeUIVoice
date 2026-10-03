@@ -12,6 +12,7 @@
         <activity
             android:name=".VoiceActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
