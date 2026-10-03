@@ -140,27 +140,57 @@ class PlayingTts(
 ) : TextToSpeech {
     private var player: MediaPlayer? = null
     private var track: AudioTrack? = null
-
     private val cancelled = AtomicBoolean(false)
+    private val gate = Any()
 
     override fun speak(text: String, language: String) {
         cancelled.set(false)
         VoiceHud.mode = "talk"
         remote.speak(text, language)
         val bytes = remote.lastAudio
+        if (bytes.isEmpty() || bytes[0] == '{'.code.toByte()) {
+            if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
+            return
+        }
         if (bytes.size > 44 && bytes[0] == 'R'.code.toByte()) playWav(bytes) else playFile(bytes)
     }
 
     override fun stop() {
         cancelled.set(true)
         remote.stop()
-        player?.stop()
-        player?.release()
+        synchronized(gate) {
+            releasePlayer()
+            releaseTrack()
+        }
+    }
+
+    private fun releasePlayer() {
+        val mp = player
         player = null
-        track?.pause()
-        track?.flush()
-        track?.release()
+        if (mp == null) return
+        try {
+            mp.stop()
+        } catch (_: IllegalStateException) {
+        }
+        try {
+            mp.release()
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun releaseTrack() {
+        val t = track
         track = null
+        if (t == null) return
+        try {
+            t.pause()
+            t.flush()
+        } catch (_: IllegalStateException) {
+        }
+        try {
+            t.release()
+        } catch (_: Exception) {
+        }
     }
 
     private fun playWav(wav: ByteArray) {
@@ -179,24 +209,59 @@ class PlayingTts(
             .build()
         track = t
         t.write(pcm, 0, pcm.size)
-        t.play()
-        while (t.playState == AudioTrack.PLAYSTATE_PLAYING && !cancelled.get()) Thread.sleep(20)
+        try {
+            t.play()
+        } catch (_: IllegalStateException) {
+            synchronized(gate) {
+                if (track === t) releaseTrack()
+            }
+            return
+        }
+        while (!cancelled.get()) {
+            val playing = try {
+                synchronized(gate) { track === t && t.playState == AudioTrack.PLAYSTATE_PLAYING }
+            } catch (_: IllegalStateException) {
+                false
+            }
+            if (!playing) break
+            Thread.sleep(20)
+        }
         if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
-        t.release()
-        track = null
+        synchronized(gate) {
+            if (track === t) releaseTrack()
+        }
     }
 
     private fun playFile(bytes: ByteArray) {
         val file = File(cacheDir, "tts.mp3")
         file.writeBytes(bytes)
         val mp = MediaPlayer()
-        player = mp
-        mp.setDataSource(file.absolutePath)
-        mp.prepare()
-        mp.start()
-        while (mp.isPlaying && !cancelled.get()) Thread.sleep(20)
-        if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
-        mp.release()
-        player = null
+        try {
+            synchronized(gate) {
+                if (cancelled.get()) {
+                    mp.release()
+                    return
+                }
+                player = mp
+                mp.setDataSource(file.absolutePath)
+                mp.prepare()
+                mp.start()
+            }
+            while (!cancelled.get()) {
+                val playing = try {
+                    synchronized(gate) { player === mp && mp.isPlaying }
+                } catch (_: IllegalStateException) {
+                    false
+                }
+                if (!playing) break
+                Thread.sleep(20)
+            }
+        } catch (_: Exception) {
+        } finally {
+            if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
+            synchronized(gate) {
+                if (player === mp) releasePlayer()
+            }
+        }
     }
 }
