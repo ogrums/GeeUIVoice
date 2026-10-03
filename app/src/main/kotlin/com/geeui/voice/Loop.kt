@@ -52,8 +52,17 @@ class VoiceLoop(
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
-        live.onUserText = { VoiceHud.line = it; VoiceHud.mode = "think" }
-        live.onAnswer = { VoiceHud.line = it; VoiceHud.mode = "talk" }
+        live.onUserText = {
+            VoiceHud.heard = it
+            VoiceHud.answer = ""
+            VoiceHud.line = it
+            VoiceHud.mode = "think"
+        }
+        live.onAnswer = {
+            VoiceHud.answer = it
+            VoiceHud.line = it
+            VoiceHud.mode = "talk"
+        }
         live.onListen = { VoiceHud.mode = "hear" }
         live.onIdle = { VoiceHud.mode = "idle" }
         live.worker = { job -> turns.execute(job) }
@@ -166,9 +175,11 @@ class PlayingTts(
         }
         val bytes = remote.lastAudio
         if (bytes.isEmpty() || bytes[0] == '{'.code.toByte()) {
+            VoiceHud.line = if (bytes.isEmpty()) "tts vide" else String(bytes).take(80)
             if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
             return
         }
+        VoiceHud.line = "tts ${bytes.size} o"
         val file = clipFile(bytes)
         playWithPlayer(file)
     }
@@ -295,7 +306,9 @@ class PlayingTts(
                     done.countDown()
                     true
                 }
-                mp.setDataSource(file.absolutePath)
+                java.io.FileInputStream(file).use { input ->
+                    mp.setDataSource(input.fd)
+                }
                 mp.prepare()
                 mp.start()
                 started = true

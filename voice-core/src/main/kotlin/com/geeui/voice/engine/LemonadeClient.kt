@@ -120,9 +120,9 @@ class LemonadeClient(
     fun speech(text: String, voice: String): ByteArray {
         val model = resolveTts()
         if (model.isBlank()) return ByteArray(0)
-        val wavBody = """{"model":"$model","input":${json(text)},"voice":${json(voice)},"response_format":"wav"}"""
+        val mp3Body = """{"model":"$model","input":${json(text)},"voice":${json(voice)},"response_format":"mp3"}"""
         return try {
-            postBytes("/audio/speech", "application/json", wavBody.toByteArray())
+            postBytes("/audio/speech", "application/json", mp3Body.toByteArray())
         } catch (e: IllegalStateException) {
             val msg = e.message.orEmpty()
             if (!msg.contains("response_format") && !msg.contains("400")) throw e

@@ -13,7 +13,9 @@ import android.os.Looper
 import android.media.MediaPlayer
 import android.view.Gravity
 import android.widget.Button
+import android.widget.CompoundButton
 import android.widget.LinearLayout
+import android.widget.Switch
 import android.widget.TextView
 import android.text.TextUtils
 
@@ -22,8 +24,8 @@ class VoiceActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var status: TextView
     private lateinit var caption: TextView
-    private lateinit var on: Button
-    private lateinit var off: Button
+    private lateinit var mic: Switch
+    private var painting = false
     private val refresh = object : Runnable {
         override fun run() {
             status.text = when {
@@ -34,9 +36,19 @@ class VoiceActivity : Activity() {
                 VoiceHud.mic -> "MICRO OUVERT"
                 else -> "VEILLE"
             }
-            caption.text = VoiceHud.line
-            on.isEnabled = !VoiceHud.mic
-            off.isEnabled = VoiceHud.mic
+            caption.text = buildString {
+                if (VoiceHud.heard.isNotBlank()) append("« ").append(VoiceHud.heard).append(" »")
+                if (VoiceHud.answer.isNotBlank()) {
+                    if (isNotEmpty()) append("\n")
+                    append(VoiceHud.answer)
+                }
+                if (isEmpty()) append(VoiceHud.line)
+            }
+            if (mic.isChecked != VoiceHud.mic) {
+                painting = true
+                mic.isChecked = VoiceHud.mic
+                painting = false
+            }
             handler.postDelayed(this, 120)
         }
     }
@@ -47,16 +59,15 @@ class VoiceActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.BLACK)
             gravity = Gravity.CENTER_HORIZONTAL
-            // Top 30 px: battery icon and robot menu. Nothing here receives clicks.
-            // Side and bottom insets keep the buttons inside the circle.
-            setPadding(64, 30, 64, 88)
+            setPadding(0, 30, 0, 72)
             isClickable = false
         }
-        val title = label("GeeUI Voice", 13f, Color.rgb(180, 40, 32))
-        status = label("VEILLE", 20f, Color.rgb(255, 64, 48))
-        caption = label("micro coupé", 13f, Color.rgb(210, 170, 160)).apply {
-            maxLines = 2
+        val title = label("GeeUI Voice", 13f, Color.rgb(180, 40, 32)).apply { sidePad() }
+        status = label("VEILLE", 20f, Color.rgb(255, 64, 48)).apply { sidePad() }
+        caption = label("", 15f, Color.rgb(230, 190, 180)).apply {
+            maxLines = 6
             ellipsize = TextUtils.TruncateAt.END
+            sidePad()
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
@@ -66,31 +77,36 @@ class VoiceActivity : Activity() {
         val scan = ScannerView(this).apply {
             isClickable = false
             isFocusable = false
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 120)
+            layoutParams = LinearLayout.LayoutParams(480, 150)
         }
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+        mic = Switch(this).apply {
+            text = "Micro"
+            setTextColor(Color.rgb(255, 48, 36))
+            setOnCheckedChangeListener { _: CompoundButton, checked: Boolean ->
+                if (painting) return@setOnCheckedChangeListener
+                if (checked) askMic() else send(VoiceService.ACTION_STOP)
+            }
+            val pad = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
+            pad.setMargins(72, 8, 72, 0)
+            layoutParams = pad
         }
-        on = button("Activer") { askMic() }
-        off = button("Couper") { send(VoiceService.ACTION_STOP) }
-        off.isEnabled = false
-        row.addView(on)
-        row.addView(off)
         val sample = Button(this).apply {
             text = "Test audio"
             setTextColor(Color.rgb(255, 48, 36))
             setBackgroundColor(Color.rgb(24, 0, 0))
             setOnClickListener { playSample() }
-            val pad = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 56)
-            pad.setMargins(12, 12, 12, 0)
+            val pad = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 52)
+            pad.setMargins(72, 8, 72, 0)
             layoutParams = pad
         }
         root.addView(title)
         root.addView(status)
         root.addView(scan)
         root.addView(caption)
-        root.addView(row)
+        root.addView(mic)
         root.addView(sample)
         setContentView(root)
         VoiceHud.line = "micro coupé"
@@ -107,16 +123,9 @@ class VoiceActivity : Activity() {
         }
     }
 
-    private fun button(label: String, click: () -> Unit): Button {
-        return Button(this).apply {
-            text = label
-            setTextColor(Color.rgb(255, 48, 36))
-            setBackgroundColor(Color.rgb(24, 0, 0))
-            setOnClickListener { click() }
-            val pad = LinearLayout.LayoutParams(0, 64, 1f)
-            pad.setMargins(12, 24, 12, 0)
-            layoutParams = pad
-        }
+    private fun TextView.sidePad() {
+        val pad = 72
+        setPadding(pad, 0, pad, 0)
     }
 
     private var sample: MediaPlayer? = null
@@ -132,6 +141,7 @@ class VoiceActivity : Activity() {
                 mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }
             mp.setOnCompletionListener {
+                VoiceHud.mode = "idle"
                 VoiceHud.line = "test audio fini"
                 if (sample === it) {
                     it.release()
@@ -146,7 +156,10 @@ class VoiceActivity : Activity() {
             }
             mp.prepare()
             mp.start()
+            VoiceHud.heard = "Olivier, il fait beau aujourd'hui, n'est-ce pas ?"
+            VoiceHud.answer = "Ah ah ah !"
             VoiceHud.line = "test audio"
+            VoiceHud.mode = "talk"
         } catch (e: Exception) {
             mp.release()
             sample = null
