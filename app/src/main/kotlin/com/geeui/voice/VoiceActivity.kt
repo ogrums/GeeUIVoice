@@ -93,21 +93,21 @@ class VoiceActivity : Activity() {
             pad.setMargins(72, 8, 72, 0)
             layoutParams = pad
         }
-        val sample = Button(this).apply {
-            text = "Test audio"
-            setTextColor(Color.rgb(255, 48, 36))
-            setBackgroundColor(Color.rgb(24, 0, 0))
-            setOnClickListener { playSample() }
+        val tests = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
             val pad = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 52)
-            pad.setMargins(72, 8, 72, 0)
+            pad.setMargins(48, 8, 48, 0)
             layoutParams = pad
         }
+        tests.addView(testButton("MP3") { playSample("olivier.mp3") })
+        tests.addView(testButton("WAV") { playSample("olivier.wav") })
         root.addView(title)
         root.addView(status)
         root.addView(scan)
         root.addView(caption)
         root.addView(mic)
-        root.addView(sample)
+        root.addView(tests)
         setContentView(root)
         VoiceHud.line = "micro coupé"
     }
@@ -130,26 +130,38 @@ class VoiceActivity : Activity() {
 
     private var sample: MediaPlayer? = null
 
+    private fun testButton(label: String, click: () -> Unit): Button {
+        return Button(this).apply {
+            text = label
+            setTextColor(Color.rgb(255, 48, 36))
+            setBackgroundColor(Color.rgb(24, 0, 0))
+            setOnClickListener { click() }
+            val pad = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            pad.setMargins(6, 0, 6, 0)
+            layoutParams = pad
+        }
+    }
+
     /** Bundled clip, same MediaPlayer path as LTPAudioService. No mic, no Lemonade. */
-    private fun playSample() {
+    private fun playSample(asset: String) {
         sample?.release()
         sample = null
         val mp = MediaPlayer()
         sample = mp
         try {
-            assets.openFd("olivier.mp3").use { afd ->
+            assets.openFd(asset).use { afd ->
                 mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }
             mp.setOnCompletionListener {
                 VoiceHud.mode = "idle"
-                VoiceHud.line = "test audio fini"
+                VoiceHud.line = "$asset fini"
                 if (sample === it) {
                     it.release()
                     sample = null
                 }
             }
             mp.setOnErrorListener { player, what, extra ->
-                VoiceHud.line = "test audio $what/$extra"
+                VoiceHud.line = "$asset $what/$extra"
                 player.release()
                 if (sample === player) sample = null
                 true
@@ -158,12 +170,12 @@ class VoiceActivity : Activity() {
             mp.start()
             VoiceHud.heard = "Olivier, il fait beau aujourd'hui, n'est-ce pas ?"
             VoiceHud.answer = "Ah ah ah !"
-            VoiceHud.line = "test audio"
+            VoiceHud.line = asset
             VoiceHud.mode = "talk"
         } catch (e: Exception) {
             mp.release()
             sample = null
-            VoiceHud.line = "test: ${e.javaClass.simpleName}"
+            VoiceHud.line = "$asset: ${e.javaClass.simpleName}"
         }
     }
 
