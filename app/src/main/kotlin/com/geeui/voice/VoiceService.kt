@@ -13,8 +13,9 @@ import com.geeui.voice.audio.VadConfig
  * adb shell am start -n com.geeui.voice/.VoiceActivity \
  *   -e host http://192.168.1.10:13305/api/v1 \
  *   -e model whisper-small \
- *   -e chat <id-du-llm>
- * STT inconnu → whisper-base. Chat vide → premier modèle du serveur qui n'est pas whisper ni kokoro.
+ *   -e chat <id-du-llm> \
+ *   -e tts kokoro
+ * STT inconnu → whisper-base. TTS inconnu → kokoro, sinon le premier modèle speech.
  */
 class VoiceService : Service() {
     private var loop: VoiceLoop? = null
@@ -34,8 +35,9 @@ class VoiceService : Service() {
             if (loop == null) {
                 val model = intent.getStringExtra("model") ?: "whisper-base"
                 val chat = intent.getStringExtra("chat") ?: ""
+                val tts = intent.getStringExtra("tts") ?: "kokoro"
                 loop = VoiceLoop(
-                    AidlBus(this), host, cacheDir, VadConfig.from(extras).toVad(), model, chat,
+                    AidlBus(this), host, cacheDir, VadConfig.from(extras).toVad(), model, chat, tts,
                 )
             }
             loop?.start()

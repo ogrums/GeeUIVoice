@@ -19,6 +19,7 @@ class LemonadeClient(
 ) {
     @Volatile private var resolvedStt: String? = null
     @Volatile private var resolvedChat: String? = null
+    @Volatile private var resolvedTts: String? = null
 
     /** Model id actually sent to /audio/transcriptions. Falls back to whisper-base. */
     fun resolveStt(): String {
@@ -60,7 +61,27 @@ class LemonadeClient(
 
     private fun isChat(id: String): Boolean {
         val n = id.lowercase()
-        return !n.contains("whisper") && !n.contains("kokoro") && !n.contains("tts")
+        return !n.contains("whisper") && !n.contains("kokoro") && !n.contains("tts") && !isTts(id)
+    }
+
+    /** TTS model from `-e tts`. Unknown id falls back to kokoro, or the first speech model. */
+    fun resolveTts(): String {
+        resolvedTts?.let { return it }
+        val names = listModels()
+        val asked = ttsModel.ifBlank { FALLBACK_TTS }
+        val hit = match(asked, names)
+        val picked = when {
+            hit != null -> hit
+            names.isEmpty() -> asked
+            else -> names.firstOrNull { isTts(it) } ?: FALLBACK_TTS
+        }
+        resolvedTts = picked
+        return picked
+    }
+
+    private fun isTts(id: String): Boolean {
+        val n = id.lowercase()
+        return n.contains("kokoro") || n.contains("piper") || n.contains("tts") || n.contains("speech")
     }
     fun chat(userText: String): String {
         val body = """{"model":"${resolveChat()}","messages":[{"role":"user","content":${json(userText)}}]}"""
@@ -97,8 +118,19 @@ class LemonadeClient(
     }
 
     fun speech(text: String, voice: String): ByteArray {
-        val body = """{"model":"$ttsModel","input":${json(text)},"voice":${json(voice)}}"""
-        return postBytes("/audio/speech", "application/json", body.toByteArray())
+        val model = resolveTts()
+        if (model.isBlank()) return ByteArray(0)
+        val body = """{"model":"$model","input":${json(text)},"voice":${json(voice)}}"""
+        return try {
+            postBytes("/audio/speech", "application/json", body.toByteArray())
+        } catch (_: IllegalStateException) {
+            if (resolvedTts != FALLBACK_TTS) {
+                resolvedTts = FALLBACK_TTS
+                speech(text, voice)
+            } else {
+                ByteArray(0)
+            }
+        }
     }
 
     /** SSE chat. [onDelta] fires per token so TTS can start on the first sentence. */
@@ -186,6 +218,7 @@ class LemonadeClient(
 
     companion object {
         const val FALLBACK_STT = "whisper-base"
+        const val FALLBACK_TTS = "kokoro"
     }
 
     private fun json(value: String): String =
