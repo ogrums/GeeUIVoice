@@ -24,7 +24,7 @@ class VoiceService : Service() {
     private var loop: VoiceLoop? = null
     private var host = "http://nimbus:13305/api/v1"
     private var model = "whisper-small"
-    private var chat = ""
+    private var chat = "gemma4e-flash-e2b-FLM"
     private var tts = "kokoro-v1"
     private var voice = ""
     private var prompt = com.geeui.voice.engine.LemonadeClient.SPOKEN

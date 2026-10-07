@@ -13,7 +13,7 @@ import java.net.URL
 class LemonadeClient(
     val baseUrl: String,
     private val apiKey: String = "lemonade",
-    private val chatModel: String = "",
+    private val chatModel: String = "gemma4e-flash-e2b-FLM",
     private val sttModel: String = "whisper-base",
     private val ttsModel: String = "kokoro",
     private val systemPrompt: String = SPOKEN,
@@ -47,9 +47,7 @@ class LemonadeClient(
         val names = listModels()
         val asked = chatModel.trim()
         val hit = if (asked.isEmpty()) null else match(asked, names)
-        val picked = hit
-            ?: names.firstOrNull { isChat(it) }
-            ?: ""
+        val picked = hit ?: asked.ifEmpty { names.firstOrNull { isChat(it) } ?: "" }
         resolvedChat = picked
         return picked
     }
