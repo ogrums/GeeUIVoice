@@ -22,10 +22,10 @@ import com.geeui.voice.audio.VadConfig
  */
 class VoiceService : Service() {
     private var loop: VoiceLoop? = null
-    private var host = "http://127.0.0.1:13305/api/v1"
-    private var model = "whisper-base"
+    private var host = "http://nimbus:13305/api/v1"
+    private var model = "whisper-small"
     private var chat = ""
-    private var tts = "kokoro"
+    private var tts = "kokoro-v1"
     private var voice = ""
     private var prompt = com.geeui.voice.engine.LemonadeClient.SPOKEN
     private val vad = mutableMapOf<String, String?>()

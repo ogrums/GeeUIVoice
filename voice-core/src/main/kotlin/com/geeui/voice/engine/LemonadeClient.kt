@@ -220,8 +220,8 @@ class LemonadeClient(
     }
 
     companion object {
-        const val FALLBACK_STT = "whisper-base"
-        const val FALLBACK_TTS = "kokoro"
+        const val FALLBACK_STT = "whisper-small"
+        const val FALLBACK_TTS = "kokoro-v1"
         const val SPOKEN = "Tu es la voix d'un petit robot. Réponds en français parlé, en une ou deux phrases courtes. Pas de markdown, pas d'étoiles, pas de listes, pas de titres."
     }
 
