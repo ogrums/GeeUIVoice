@@ -10,16 +10,23 @@ import android.media.MediaRecorder
 import android.content.Context
 import com.geeui.voice.audio.EnergyVad
 import com.geeui.voice.audio.VadConfig
+import com.geeui.voice.engine.CosyTts
 import com.geeui.voice.engine.LemonadeChat
 import com.geeui.voice.engine.LemonadeClient
 import com.geeui.voice.engine.LemonadeStt
 import com.geeui.voice.engine.LemonadeTts
+import com.geeui.voice.engine.PlannedTts
 import com.geeui.voice.engine.TextToSpeech
+import com.geeui.voice.engine.TtsPlan
 import com.geeui.voice.session.LiveTurn
 import com.geeui.voice.session.VoiceSession
+import com.geeui.voiceemo.Mood
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Mic → VAD → Lemonade STT → skill or streaming chat → Lemonade TTS → speaker.
@@ -37,6 +44,8 @@ class VoiceLoop(
     voice: String = "",
     prompt: String = com.geeui.voice.engine.LemonadeClient.SPOKEN,
     audio: Context,
+    sidecar: String = "",
+    cosyModel: String = CosyTts.MODEL,
 ) {
     private val client = LemonadeClient(
         baseUrl,
@@ -45,8 +54,22 @@ class VoiceLoop(
         ttsModel = ttsModel,
         systemPrompt = prompt,
     )
-    private val tts = PlayingTts(LemonadeTts(client, voice), cacheDir, audio)
-    private val session = VoiceSession(bus, tts, LemonadeChat(client))
+    private val plan = TtsPlan()
+    private val sidecarOk = AtomicLong(0)
+    private val kokoro = LemonadeTts(client, voice)
+    private val cosy = CosyTts(plan) { text, emotion ->
+        postCosy(sidecar, cosyModel, text, emotion)
+    }
+    private val clips = PlannedTts(plan, kokoro, cosy)
+    private val tts = PlayingTts(clips, cacheDir, audio)
+    private val session = VoiceSession(
+        bus,
+        tts,
+        LemonadeChat(client),
+        mood = Mood(),
+        plan = plan,
+        sidecarOkAt = { sidecarOk.get() },
+    )
     private val live = LiveTurn(vad, LemonadeStt(client), tts, session)
     private val turns = Executors.newSingleThreadExecutor()
     private val running = AtomicBoolean(false)
@@ -88,6 +111,7 @@ class VoiceLoop(
                 "aucun"
             }
             VoiceHud.line = "stt $used · llm $llm · tts $voice"
+            if (sidecar.isNotBlank()) pingSidecar(sidecar)
             val rate = 16_000
             val frame = 320
             val min = AudioRecord.getMinBufferSize(
@@ -143,6 +167,33 @@ class VoiceLoop(
         VoiceHud.mode = "idle"
         thread?.join(500)
     }
+
+    private fun pingSidecar(base: String) {
+        val code = try {
+            val conn = URL(base.trimEnd('/') + "/health").openConnection() as HttpURLConnection
+            conn.connectTimeout = 800
+            conn.readTimeout = 800
+            conn.requestMethod = "GET"
+            conn.responseCode
+        } catch (_: Exception) {
+            0
+        }
+        if (code in 200..299) sidecarOk.set(System.currentTimeMillis())
+    }
+}
+
+private fun postCosy(base: String, model: String, text: String, emotion: String): ByteArray {
+    if (base.isBlank()) return ByteArray(0)
+    val conn = URL(base.trimEnd('/') + "/v1/audio/speech").openConnection() as HttpURLConnection
+    conn.connectTimeout = 2_000
+    conn.readTimeout = 60_000
+    conn.requestMethod = "POST"
+    conn.doOutput = true
+    conn.setRequestProperty("Content-Type", "application/json")
+    val body = CosyTts.body(text, emotion, model)
+    conn.outputStream.use { it.write(body.toByteArray()) }
+    if (conn.responseCode !in 200..299) return ByteArray(0)
+    return conn.inputStream.use { it.readBytes() }
 }
 
 private fun levelOf(frame: ShortArray): Float {
@@ -154,9 +205,9 @@ private fun levelOf(frame: ShortArray): Float {
 
 private data class Wav(val rate: Int, val channels: Int, val pcm: ByteArray, val raw: ByteArray)
 
-/** Plays each Lemonade clip on AudioTrack if it is PCM WAV, else MediaPlayer. */
+/** Plays each clip on AudioTrack if it is PCM WAV, else MediaPlayer. */
 class PlayingTts(
-    private val remote: LemonadeTts,
+    private val remote: com.geeui.voice.engine.ClipTts,
     private val cacheDir: File,
     private val audio: Context,
 ) : TextToSpeech {

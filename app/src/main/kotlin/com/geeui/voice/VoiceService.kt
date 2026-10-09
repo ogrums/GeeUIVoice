@@ -16,8 +16,9 @@ import com.geeui.voice.audio.VadConfig
  *   -e chat <id-du-llm> \
  *   -e tts kokoro \
  *   -e voice ff_siwis \
- *   -e prompt "Réponds en une phrase, sans markdown."
- * STT inconnu → whisper-base. TTS inconnu → kokoro, sinon le premier modèle speech.
+ *   -e sidecar http://192.168.1.10:13306 \
+ *   -e cosy_model Fun-CosyVoice3-0.5B-2512
+ * Kokoro stays on Lemonade. A short non-neutral line uses the sidecar when /health answered.
  * Une nouvelle commande START réapplique les extras présents. Un extra absent ne les efface pas.
  */
 class VoiceService : Service() {
@@ -28,6 +29,8 @@ class VoiceService : Service() {
     private var tts = "kokoro-v1"
     private var voice = ""
     private var prompt = com.geeui.voice.engine.LemonadeClient.SPOKEN
+    private var sidecar = ""
+    private var cosyModel = com.geeui.voice.engine.CosyTts.MODEL
     private val vad = mutableMapOf<String, String?>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -45,10 +48,13 @@ class VoiceService : Service() {
             intent.getStringExtra("tts")?.let { tts = it }
             intent.getStringExtra("voice")?.let { voice = it }
             intent.getStringExtra("prompt")?.let { prompt = it }
+            intent.getStringExtra("sidecar")?.let { sidecar = it }
+            intent.getStringExtra("cosy_model")?.let { cosyModel = it }
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
+                sidecar, cosyModel,
             )
             loop?.start()
         }

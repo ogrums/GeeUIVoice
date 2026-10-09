@@ -16,6 +16,11 @@ interface TextToSpeech {
     fun stop()
 }
 
+/** A TTS that also keeps the last audio clip, so the Android player can read it. */
+interface ClipTts : TextToSpeech {
+    val lastAudio: ByteArray
+}
+
 interface Chat {
     fun reply(userText: String): String
 }

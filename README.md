@@ -77,9 +77,26 @@ adb shell am startservice -n com.geeui.voice/.VoiceService \
 
 `voice-core` tests: 9 OK (skills, VAD, one live turn). The APK is not built here: no Android SDK in this environment. `app/` is the service, the foreground mic notification, and the AIDL bus. Build it on a machine with SDK 30.
 
+## CosyVoice3
+
+Kokoro stays the default, on Lemonade. A short line that is not neutral goes to one FastAPI process on the PC. The weights are `FunAudioLLM/Fun-CosyVoice3-0.5B-2512`. The speech runtime is the CosyVoice git repo. Without it, `/health` stays up and `/v1/audio/speech` returns 503, and the robot falls back to Kokoro.
+
+```text
+cd sidecar
+./run.sh
+```
+
+```text
+adb shell am startservice -n com.geeui.voice/.VoiceService \
+  -e host http://<pc>:13305/api/v1 \
+  -e sidecar http://<pc>:13306
+```
+
+`POST /v1/audio/speech` takes `input`, `voice` (`happy`, `sad`, `angry`, `fear`, `surprise`) and returns WAV. `POST /route` is the same rule as `TtsRoute`.
+
 ## Layout
 
-`voice-core` is plain Kotlin (JDK 17). The Android service that binds `ILetianpaiService` comes after this module. It will play the WAV bytes from `LemonadeTts` and send `controlMotion` for a skill.
+`voice-core` is plain Kotlin (JDK 17). `emotion-core` decides the pose and whether the line is CosyVoice or Kokoro. `app/` is the Android service.
 
 ```text
 ./gradlew :voice-core:test

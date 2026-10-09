@@ -275,8 +275,8 @@ class LemonadeChat(private val client: LemonadeClient) : Chat, StreamingChat {
 class LemonadeTts(
     private val client: LemonadeClient,
     private val voice: String = "",
-) : TextToSpeech {
-    var lastAudio: ByteArray = ByteArray(0)
+) : ClipTts {
+    override var lastAudio: ByteArray = ByteArray(0)
         private set
 
     override fun speak(text: String, language: String) {

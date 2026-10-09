@@ -4,6 +4,7 @@ import com.geeui.voice.bus.RobotBus
 import com.geeui.voice.engine.Chat
 import com.geeui.voice.engine.StreamingChat
 import com.geeui.voice.engine.TextToSpeech
+import com.geeui.voice.engine.TtsPlan
 import com.geeui.voice.skill.SkillLexicon
 import com.geeui.voice.skill.SkillRouter
 import com.geeui.voiceemo.Affect
@@ -29,6 +30,7 @@ class VoiceSession(
     private val audioAffect: () -> Affect = { Affect.UNKNOWN },
     private val now: () -> Long = { System.currentTimeMillis() },
     private val sidecarOkAt: () -> Long = { 0L },
+    private val plan: TtsPlan? = null,
 ) {
     private val skills = SkillRouter(bus, charging)
     var state: Dialogue = Dialogue.Idle
@@ -49,19 +51,20 @@ class VoiceSession(
             answer.append(chat.reply(text))
         }
         val whole = spoken(answer.toString())
-        if (whole.isNotEmpty()) tts.speak(whole, language)
         if (mood != null) {
-            onEmotion?.invoke(
-                EmotionPipeline.turn(
-                    say = whole,
-                    audio = audioAffect(),
-                    text = TextAffect.of(text),
-                    mood = mood,
-                    now = now(),
-                    sidecarOkAt = sidecarOkAt(),
-                )
+            val turn = EmotionPipeline.turn(
+                say = whole,
+                audio = audioAffect(),
+                text = TextAffect.of(text),
+                mood = mood,
+                now = now(),
+                sidecarOkAt = sidecarOkAt(),
             )
+            plan?.engine = turn.engine
+            plan?.emotion = turn.mood.emotion.name.lowercase()
+            onEmotion?.invoke(turn)
         }
+        if (whole.isNotEmpty()) tts.speak(whole, language)
         state = Dialogue.Idle
         return whole
     }

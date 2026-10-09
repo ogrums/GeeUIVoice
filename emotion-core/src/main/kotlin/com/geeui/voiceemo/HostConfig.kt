@@ -23,7 +23,7 @@ data class HostConfig(
         const val KOKORO = "kokoro-v1"
         const val VOICE_FR = "ff_siwis"
         const val VOICE_EN = "af_heart"
-        const val COSY = "cosyvoice2"
+        const val COSY = "Fun-CosyVoice3-0.5B-2512"
         const val AUDIO = "emotion2vec"
         const val STT = "whisper-small"
         const val CHAT = "gemma4e-flash-e2b-FLM"
