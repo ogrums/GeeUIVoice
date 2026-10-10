@@ -1,6 +1,7 @@
 package com.geeui.voice.engine
 
 import com.geeui.voiceemo.TtsEngine
+import com.geeui.voiceemo.TtsRoute
 
 /** Filled by VoiceSession just before it speaks. The player reads it. */
 class TtsPlan {
@@ -52,7 +53,7 @@ class CosyTts(
         private set
 
     override fun speak(text: String, language: String) {
-        lastAudio = post(text, plan.emotion)
+        lastAudio = post(TtsRoute.clip(text), plan.emotion)
     }
 
     override fun stop() {

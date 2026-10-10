@@ -1,6 +1,7 @@
 package com.geeui.voice.session
 
 import com.geeui.voice.bus.RobotBus
+import com.geeui.voice.bus.applyPose
 import com.geeui.voice.engine.Chat
 import com.geeui.voice.engine.StreamingChat
 import com.geeui.voice.engine.TextToSpeech
@@ -20,7 +21,7 @@ enum class Dialogue { Idle, Listening, Speaking }
  * or the emotion pose. Otherwise the answer is spoken in one clip.
  */
 class VoiceSession(
-    bus: RobotBus,
+    private val bus: RobotBus,
     private val tts: TextToSpeech,
     private val chat: Chat,
     private val language: String = "fr",
@@ -62,6 +63,7 @@ class VoiceSession(
             )
             plan?.engine = turn.engine
             plan?.emotion = turn.mood.emotion.name.lowercase()
+            bus.applyPose(turn.pose)
             onEmotion?.invoke(turn)
         }
         if (whole.isNotEmpty()) tts.speak(whole, language)

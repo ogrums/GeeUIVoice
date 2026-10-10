@@ -3,8 +3,9 @@ package com.geeui.voiceemo
 enum class TtsEngine { KOKORO, COSYVOICE }
 
 /**
- * CosyVoice only when the line is short, the emotion is not neutral,
- * and the sidecar answered recently. Otherwise Kokoro on Lemonade.
+ * CosyVoice when the sidecar answered recently and the emotion is not neutral.
+ * A long answer is clipped to [MAX_CHARS] by [clip], not sent to Kokoro.
+ * Otherwise Kokoro on Lemonade.
  */
 object TtsRoute {
     const val MAX_CHARS = 180
@@ -17,7 +18,16 @@ object TtsRoute {
         now: Long,
     ): TtsEngine {
         val healthy = sidecarOkAt > 0L && now - sidecarOkAt <= HEALTH_MS
-        val expressive = emotion != Emotion.NEUTRAL && text.trim().length in 1..MAX_CHARS
-        return if (healthy && expressive) TtsEngine.COSYVOICE else TtsEngine.KOKORO
+        if (!healthy || emotion == Emotion.NEUTRAL || text.isBlank()) return TtsEngine.KOKORO
+        return TtsEngine.COSYVOICE
+    }
+
+    /** The sidecar rejects more than [MAX_CHARS]. Cut on a sentence end when there is one. */
+    fun clip(text: String): String {
+        val clean = text.trim()
+        if (clean.length <= MAX_CHARS) return clean
+        val window = clean.substring(0, MAX_CHARS)
+        val cut = window.lastIndexOfAny(charArrayOf('.', '!', '?', '…'))
+        return if (cut >= 40) window.substring(0, cut + 1).trim() else window.trim()
     }
 }

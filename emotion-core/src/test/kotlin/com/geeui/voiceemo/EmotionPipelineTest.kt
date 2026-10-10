@@ -48,7 +48,7 @@ class EmotionPipelineTest {
     }
 
     @Test
-    fun long_line_or_dead_sidecar_stays_on_kokoro() {
+    fun long_line_still_uses_cosyvoice_but_a_dead_sidecar_stays_on_kokoro() {
         val mood = Mood(now = 0L)
         val long = EmotionPipeline.turn(
             say = "a".repeat(200),
@@ -58,7 +58,8 @@ class EmotionPipelineTest {
             now = 1_000L,
             sidecarOkAt = 900L,
         )
-        assertEquals(TtsEngine.KOKORO, long.engine)
+        assertEquals(TtsEngine.COSYVOICE, long.engine)
+        assertTrue(TtsRoute.clip(long.say).length <= TtsRoute.MAX_CHARS)
 
         val down = EmotionPipeline.turn(
             say = "salut",

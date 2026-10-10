@@ -68,7 +68,11 @@ class VoiceLoop(
         LemonadeChat(client),
         mood = Mood(),
         plan = plan,
-        sidecarOkAt = { sidecarOk.get() },
+        sidecarOkAt = {
+            val now = System.currentTimeMillis()
+            if (sidecar.isNotBlank() && now - sidecarOk.get() > 5_000L) pingSidecar(sidecar)
+            sidecarOk.get()
+        },
     )
     private val live = LiveTurn(vad, LemonadeStt(client), tts, session)
     private val turns = Executors.newSingleThreadExecutor()

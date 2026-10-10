@@ -172,13 +172,14 @@ class VoiceActivity : Activity() {
     }
 
     private fun poseBody(cmd: Int, step: Int, speedMs: Int, angle: Int, color: Int, motion: Int?): Boolean {
-        val ears = bus.ears(cmd, step, speedMs, angle)
-        val lamp = bus.light(color)
-        if (motion != null) bus.controlMotion(motion, 1, 3)
-        if (!ears || !lamp) {
+        if (!bus.connected()) {
             VoiceHud.line = "bus pas prêt"
             return false
         }
+        bus.ears(cmd, step, speedMs, angle)
+        bus.antennaLight(true, color)
+        if (motion != null) bus.controlMotion(motion, 1, 3)
+        VoiceHud.diag = "oreilles $cmd lumière $color pied ${motion ?: "-"}"
         return true
     }
 

@@ -36,6 +36,8 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
         api?.setTTS("speakText", text)
     }
 
+    fun connected(): Boolean = api != null
+
     override fun controlMotion(number: Int, step: Int, speed: Int) {
         val svc = api ?: return
         openMotor(svc)
@@ -45,31 +47,29 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
         )
     }
 
-    /** Ear swing. cmd 1 left, 2 right, 3 left and right. Angle is 0..90. */
-    fun ears(cmd: Int, step: Int, speedMs: Int, angle: Int): Boolean {
-        val svc = api ?: return false
+    override fun ears(cmd: Int, step: Int, speedMs: Int, angle: Int) {
+        val svc = api ?: return
         openMotor(svc)
         svc.setMcuCommand(
             "controlAntennaMotion",
             """{"cmd":$cmd,"step":$step,"speed":$speedMs,"angle":$angle}""",
         )
-        return true
     }
 
-    /** Color ids: 3 blue, 6 yellow. Same numbers as AntennaLight. */
-    fun light(color: Int): Boolean {
-        val svc = api ?: return false
-        openMotor(svc)
+    override fun antennaLight(on: Boolean, color: Int) {
+        val svc = api ?: return
+        val state = if (on) "on" else "off"
         svc.setMcuCommand(
             "controlAntennaLight",
-            """{"antenna_light":"on","antenna_light_color":$color}""",
+            """{"antenna_light":"$state","antenna_light_color":$color}""",
         )
-        return true
     }
 
+    /** Function 3 is the leg rail. Function 5 is the cliff rail. The face service turns both on. */
     private fun openMotor(svc: ILetianpaiService) {
         if (!motorOn) {
             svc.setMcuCommand("powerControl", """{"function":3,"status":1}""")
+            svc.setMcuCommand("powerControl", """{"function":5,"status":1}""")
             motorOn = true
         }
     }
