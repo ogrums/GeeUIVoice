@@ -47,6 +47,10 @@ class CosyRouteTest {
         assertTrue(bus.events.contains("light 6"))
         assertTrue(bus.events.contains("motion 77 1 3"))
         assertTrue(bus.events.contains("face h0006"))
+        assertEquals(
+            listOf("light off", "ears 3 1 400 15", "motion 0 1 1"),
+            bus.events.takeLast(3),
+        )
     }
 
     @Test
@@ -92,8 +96,11 @@ class CosyRouteTest {
         assertEquals(TtsEngine.KOKORO, plan.engine)
         assertEquals(0, cosy.calls)
         assertEquals(1, kokoro.calls)
-        assertTrue(bus.events.none { it.startsWith("motion") })
-        assertTrue(bus.events.contains("light off"))
+        assertTrue(bus.events.none { it.startsWith("motion 77") })
+        assertEquals(
+            listOf("light off", "ears 3 1 400 15", "motion 0 1 1"),
+            bus.events.takeLast(3),
+        )
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.geeui.voice.session
 
 import com.geeui.voice.bus.RobotBus
 import com.geeui.voice.bus.applyPose
+import com.geeui.voice.bus.standAtAttention
 import com.geeui.voice.engine.Chat
 import com.geeui.voice.engine.StreamingChat
 import com.geeui.voice.engine.TextToSpeech
@@ -67,6 +68,7 @@ class VoiceSession(
             onEmotion?.invoke(turn)
         }
         if (whole.isNotEmpty()) tts.speak(whole, language)
+        bus.standAtAttention()
         state = Dialogue.Idle
         return whole
     }

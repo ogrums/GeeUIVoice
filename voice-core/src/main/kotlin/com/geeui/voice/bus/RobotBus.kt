@@ -38,6 +38,13 @@ fun RobotBus.applyPose(pose: SdkPose) {
     if (action != null) controlMotion(action, 1, 3)
 }
 
+/** 立正. Motion 0 is AT+MOVEW,0. Angle 0 is rewritten to 90 by the firmware, so the ears come back to 15. */
+fun RobotBus.standAtAttention() {
+    antennaLight(false, 0)
+    ears(3, 1, 400, 15)
+    controlMotion(0, 1, 1)
+}
+
 class RecordingBus : RobotBus {
     val events = mutableListOf<String>()
 

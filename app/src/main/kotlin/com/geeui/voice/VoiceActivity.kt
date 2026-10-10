@@ -19,6 +19,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
+import com.geeui.voice.bus.standAtAttention
 import com.geeui.voiceemo.Emotion
 import com.geeui.voiceemo.HostConfig
 import com.geeui.voiceemo.SdkMap
@@ -198,6 +199,7 @@ class VoiceActivity : Activity() {
             }
             handler.post {
                 if (audio.isEmpty()) {
+                    standDown()
                     VoiceHud.mode = "idle"
                     VoiceHud.line = "cosy $emotion: pas de son ($base)"
                 } else {
@@ -217,6 +219,7 @@ class VoiceActivity : Activity() {
         try {
             mp.setDataSource(file.absolutePath)
             mp.setOnCompletionListener {
+                standDown()
                 VoiceHud.mode = "idle"
                 VoiceHud.line = "$label fini"
                 if (sample === it) {
@@ -225,6 +228,7 @@ class VoiceActivity : Activity() {
                 }
             }
             mp.setOnErrorListener { player, what, extra ->
+                standDown()
                 VoiceHud.line = "$label $what/$extra"
                 player.release()
                 if (sample === player) sample = null
@@ -235,10 +239,17 @@ class VoiceActivity : Activity() {
             VoiceHud.line = label
             VoiceHud.mode = "talk"
         } catch (e: Exception) {
+            standDown()
             mp.release()
             sample = null
             VoiceHud.line = "$label: ${e.javaClass.simpleName}"
         }
+    }
+
+    private fun standDown() {
+        if (!::bus.isInitialized || !bus.connected()) return
+        bus.standAtAttention()
+        VoiceHud.diag = "lumière off, garde-à-vous"
     }
 
     /** Bundled clip, same MediaPlayer path as LTPAudioService. No mic, no Lemonade. */
