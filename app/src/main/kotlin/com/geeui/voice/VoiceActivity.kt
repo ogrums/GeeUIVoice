@@ -19,14 +19,15 @@ import android.widget.FrameLayout
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.VideoView
+import java.io.File
 import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
 import com.geeui.voice.bus.PoseTiming
+import com.geeui.voice.bus.faceFile
 import com.geeui.voice.bus.standAtAttention
 import com.geeui.voiceemo.Emotion
 import com.geeui.voiceemo.HostConfig
 import com.geeui.voiceemo.SdkMap
-import java.io.File
 
 /** 480×480 round screen. The top 30 px is the robot battery strip: draw only, never a control. */
 class VoiceActivity : Activity() {
@@ -279,7 +280,7 @@ class VoiceActivity : Activity() {
         val path = facePath(id)
         val view = video
         if (path == null || view == null) {
-            VoiceHud.diag = "visage $id sans fichier"
+            VoiceHud.diag = "visage $id absent (/sdcard/assets/video/$id.mp4)"
             return
         }
         view.setOnPreparedListener { player ->
@@ -293,23 +294,39 @@ class VoiceActivity : Activity() {
         view.setVideoPath(path)
     }
 
-    /** Same query as GeeUIFace. The selection is the column name, not a SQL clause. */
+    /** Provider first, then the sdcard path GeeUIFace uses when the provider is missing. */
     private fun facePath(id: String): String? {
+        providerPath(id)?.let { return it }
+        providerPath("$id.mp4")?.let { return it }
+        return faceFile(id) { File(it).isFile }
+    }
+
+    private fun providerPath(name: String): String? {
+        if (packageManager.resolveContentProvider("com.letianpai.robot.resources.provider", 0) == null) {
+            return null
+        }
         return try {
             contentResolver.query(
                 Uri.parse("content://com.letianpai.robot.resources.provider/expression"),
                 arrayOf("fileName", "filePath", "fileTag", "defaultPath"),
                 "fileName",
-                arrayOf(id),
+                arrayOf(name),
                 null,
             )?.use { cursor ->
                 if (!cursor.moveToFirst()) return null
-                val index = cursor.getColumnIndex("filePath")
-                if (index < 0) null else cursor.getString(index)?.takeIf { it.isNotBlank() }
+                val file = cursor.column("filePath")
+                val fallback = cursor.column("defaultPath")
+                file ?: fallback
             }
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun android.database.Cursor.column(name: String): String? {
+        val index = getColumnIndex(name)
+        if (index < 0) return null
+        return getString(index)?.takeIf { it.isNotBlank() }
     }
 
     private fun standDown() {
