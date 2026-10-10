@@ -15,8 +15,10 @@ import android.view.Gravity
 import android.widget.Button
 import android.widget.CompoundButton
 import android.widget.LinearLayout
+import android.widget.FrameLayout
 import android.widget.Switch
 import android.widget.TextView
+import android.widget.VideoView
 import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
 import com.geeui.voice.bus.PoseTiming
@@ -34,6 +36,8 @@ class VoiceActivity : Activity() {
     private lateinit var mic: Switch
     private lateinit var bus: AidlBus
     private var painting = false
+    private var video: VideoView? = null
+    private var shownFace = ""
     private val refresh = object : Runnable {
         override fun run() {
             status.text = when {
@@ -61,6 +65,8 @@ class VoiceActivity : Activity() {
                 mic.isChecked = VoiceHud.mic
                 painting = false
             }
+            val face = VoiceHud.face
+            if (face.isNotBlank() && face != shownFace) playFace(face)
             handler.postDelayed(this, 120)
         }
     }
@@ -70,7 +76,7 @@ class VoiceActivity : Activity() {
         bus = AidlBus(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(Color.TRANSPARENT)
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(0, 30, 0, 72)
             isClickable = false
@@ -122,7 +128,17 @@ class VoiceActivity : Activity() {
         root.addView(caption)
         root.addView(mic)
         root.addView(tests)
-        setContentView(root)
+        val screen = FrameLayout(this)
+        video = VideoView(this).apply {
+            setBackgroundColor(Color.BLACK)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            )
+        }
+        screen.addView(video)
+        screen.addView(root)
+        setContentView(screen)
         VoiceHud.line = "micro coupé"
     }
 
@@ -162,7 +178,7 @@ class VoiceActivity : Activity() {
         if (!busReady()) return
         val pose = SdkMap.pose(Emotion.SAD)
         playCosy("sad", "Je suis triste.") {
-            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 3, null)
+            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 3, null, pose.faceId)
         }
     }
 
@@ -171,7 +187,7 @@ class VoiceActivity : Activity() {
         if (!busReady()) return
         val pose = SdkMap.pose(Emotion.HAPPY)
         playCosy("happy", "Je suis content.") {
-            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 6, 11)
+            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 6, 11, pose.faceId)
         }
     }
 
@@ -181,11 +197,12 @@ class VoiceActivity : Activity() {
         return false
     }
 
-    private fun poseBody(cmd: Int, step: Int, speedMs: Int, angle: Int, color: Int, motion: Int?) {
+    private fun poseBody(cmd: Int, step: Int, speedMs: Int, angle: Int, color: Int, motion: Int?, faceId: String) {
+        bus.showFace(faceId)
         bus.ears(cmd, step, speedMs, angle)
         bus.antennaLight(true, color)
         if (motion != null) bus.controlMotion(motion, 1, 3)
-        VoiceHud.diag = "oreilles $cmd lumière $color pied ${motion ?: "-"}"
+        VoiceHud.diag = "visage $faceId oreilles $cmd lumière $color pied ${motion ?: "-"}"
     }
 
     private fun playCosy(emotion: String, line: String, onStart: () -> Unit) {
@@ -255,6 +272,44 @@ class VoiceActivity : Activity() {
             if (ticket != restTicket) return@postDelayed
             standDown()
         }, PoseTiming.REST_AFTER_MS)
+    }
+
+    private fun playFace(id: String) {
+        shownFace = id
+        val path = facePath(id)
+        val view = video
+        if (path == null || view == null) {
+            VoiceHud.diag = "visage $id sans fichier"
+            return
+        }
+        view.setOnPreparedListener { player ->
+            player.isLooping = id == "h0059"
+            player.start()
+        }
+        view.setOnErrorListener { _, what, extra ->
+            VoiceHud.diag = "visage $id $what/$extra"
+            true
+        }
+        view.setVideoPath(path)
+    }
+
+    /** Same query as GeeUIFace. The selection is the column name, not a SQL clause. */
+    private fun facePath(id: String): String? {
+        return try {
+            contentResolver.query(
+                Uri.parse("content://com.letianpai.robot.resources.provider/expression"),
+                arrayOf("fileName", "filePath", "fileTag", "defaultPath"),
+                "fileName",
+                arrayOf(id),
+                null,
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) return null
+                val index = cursor.getColumnIndex("filePath")
+                if (index < 0) null else cursor.getString(index)?.takeIf { it.isNotBlank() }
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun standDown() {

@@ -42,12 +42,17 @@ fun RobotBus.applyPose(pose: SdkPose) {
 object PoseTiming {
     const val REST_AFTER_MS = 3_000L
 }
-/** Motion 0 is AT+MOVEW,0 (立正). Angle 0 is rewritten to 90 by the firmware, so the ears come back to 15. */
+/** Motion 0 is AT+MOVEW,0 (立正). The idle face is h0059. Angle 0 is rewritten to 90, so the ears come back to 15. */
 fun RobotBus.standAtAttention() {
+    showFace("h0059")
     antennaLight(false, 0)
     ears(3, 1, 400, 15)
     controlMotion(0, 1, 1)
 }
+
+/** What GeeUIFace and the task service both accept for controlFace. */
+fun faceCommand(id: String): String =
+    """{"face":"$id","filePrefix":null,"times":null,"desc":null,"id":0,"is24HourGesture":false}"""
 
 class RecordingBus : RobotBus {
     val events = mutableListOf<String>()

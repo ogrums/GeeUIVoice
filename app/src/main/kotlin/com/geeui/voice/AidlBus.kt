@@ -9,6 +9,7 @@ import android.os.Parcel
 import android.util.Log
 import com.geeui.voice.bus.LtpApi
 import com.geeui.voice.bus.RobotBus
+import com.geeui.voice.bus.faceCommand
 
 /** Forwards skills to the robot process. Motion opens the servo rail first. */
 class AidlBus(context: Context) : RobotBus, ServiceConnection {
@@ -81,7 +82,8 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
     }
 
     override fun showFace(faceId: String) {
-        call("setExpression", "controlFace", faceId)
+        VoiceHud.face = faceId
+        call("setExpression", "controlFace", faceCommand(faceId))
     }
 
     private fun call(method: String, command: String, data: String) {
