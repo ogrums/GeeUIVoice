@@ -44,7 +44,7 @@ class VoiceLoop(
     voice: String = "",
     prompt: String = com.geeui.voice.engine.LemonadeClient.SPOKEN,
     audio: Context,
-    private val sidecar: String = "",
+    private val sidecar: String = com.geeui.voiceemo.HostConfig.SIDECAR,
     cosyModel: String = CosyTts.MODEL,
 ) {
     private val client = LemonadeClient(
@@ -182,7 +182,7 @@ class VoiceLoop(
     }
 }
 
-private fun postCosy(base: String, model: String, text: String, emotion: String): ByteArray {
+internal fun postCosy(base: String, model: String, text: String, emotion: String): ByteArray {
     if (base.isBlank()) return ByteArray(0)
     val conn = URL(base.trimEnd('/') + "/v1/audio/speech").openConnection() as HttpURLConnection
     conn.connectTimeout = 2_000

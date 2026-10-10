@@ -79,17 +79,18 @@ adb shell am startservice -n com.geeui.voice/.VoiceService \
 
 ## CosyVoice3
 
-Kokoro stays the default, on Lemonade. A short line that is not neutral goes to one FastAPI process on the PC. The weights are `FunAudioLLM/Fun-CosyVoice3-0.5B-2512`. The speech runtime is the CosyVoice git repo. Without it, `/health` stays up and `/v1/audio/speech` returns 503, and the robot falls back to Kokoro.
+Kokoro stays the default, on Lemonade. A short line that is not neutral goes to one FastAPI process. The weights are `FunAudioLLM/Fun-CosyVoice3-0.5B-2512`. If that snapshot has no `asset/zero_shot_prompt.wav`, `run.sh` fetches it from the CosyVoice git repo. The speech runtime is still that repo (`pip install -e .`). Without it, `/health` stays up and `/v1/audio/speech` returns 503, and the robot falls back to Kokoro.
 
 ```text
 cd sidecar
 ./run.sh
 ```
 
+An empty `sidecar` extra means `http://nimbus:13306`. Pass another URL only to override it.
+
 ```text
 adb shell am startservice -n com.geeui.voice/.VoiceService \
-  -e host http://<pc>:13305/api/v1 \
-  -e sidecar http://<pc>:13306
+  -e host http://nimbus:13305/api/v1
 ```
 
 `POST /v1/audio/speech` takes `input`, `voice` (`happy`, `sad`, `angry`, `fear`, `surprise`) and returns WAV. `POST /route` is the same rule as `TtsRoute`.

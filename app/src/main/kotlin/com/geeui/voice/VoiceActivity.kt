@@ -18,6 +18,11 @@ import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import android.text.TextUtils
+import com.geeui.voice.engine.CosyTts
+import com.geeui.voiceemo.Emotion
+import com.geeui.voiceemo.HostConfig
+import com.geeui.voiceemo.SdkMap
+import java.io.File
 
 /** 480×480 round screen. The top 30 px is the robot battery strip: draw only, never a control. */
 class VoiceActivity : Activity() {
@@ -25,6 +30,7 @@ class VoiceActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var caption: TextView
     private lateinit var mic: Switch
+    private lateinit var bus: AidlBus
     private var painting = false
     private val refresh = object : Runnable {
         override fun run() {
@@ -59,6 +65,7 @@ class VoiceActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        bus = AidlBus(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.BLACK)
@@ -104,8 +111,9 @@ class VoiceActivity : Activity() {
             pad.setMargins(48, 8, 48, 0)
             layoutParams = pad
         }
-        tests.addView(testButton("MP3") { playSample("olivier.mp3") })
         tests.addView(testButton("WAV") { playSample("olivier.wav") })
+        tests.addView(testButton("Triste") { sad() })
+        tests.addView(testButton("Joyeux") { happy() })
         root.addView(title)
         root.addView(status)
         root.addView(scan)
@@ -143,6 +151,92 @@ class VoiceActivity : Activity() {
             val pad = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
             pad.setMargins(6, 0, 6, 0)
             layoutParams = pad
+        }
+    }
+
+    /** Sad pose: blue light, ears left. Then a short CosyVoice line. */
+    private fun sad() {
+        val pose = SdkMap.pose(Emotion.SAD)
+        if (!poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 3, null)) return
+        playCosy("sad", "Je suis triste.")
+    }
+
+    /**
+     * Happy pose, plus gesture 11: left crossed foot (左跷脚 / upLeftFoot).
+     * 12 is the right one. The catalog called these "foot up".
+     */
+    private fun happy() {
+        val pose = SdkMap.pose(Emotion.HAPPY)
+        if (!poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 6, 11)) return
+        playCosy("happy", "Je suis content.")
+    }
+
+    private fun poseBody(cmd: Int, step: Int, speedMs: Int, angle: Int, color: Int, motion: Int?): Boolean {
+        val ears = bus.ears(cmd, step, speedMs, angle)
+        val lamp = bus.light(color)
+        if (motion != null) bus.controlMotion(motion, 1, 3)
+        if (!ears || !lamp) {
+            VoiceHud.line = "bus pas prêt"
+            return false
+        }
+        return true
+    }
+
+    private fun playCosy(emotion: String, line: String) {
+        VoiceHud.mode = "think"
+        VoiceHud.line = "cosy $emotion"
+        val base = intent.getStringExtra("sidecar")?.trim()?.trimEnd('/')
+            .orEmpty()
+            .ifBlank { HostConfig.SIDECAR }
+        Thread {
+            val audio = try {
+                postCosy(base, CosyTts.MODEL, line, emotion)
+            } catch (e: Exception) {
+                VoiceHud.diag = e.javaClass.simpleName
+                ByteArray(0)
+            }
+            handler.post {
+                if (audio.isEmpty()) {
+                    VoiceHud.mode = "idle"
+                    VoiceHud.line = "cosy $emotion: pas de son ($base)"
+                } else {
+                    playBytes(audio, "cosy $emotion")
+                }
+            }
+        }.start()
+    }
+
+    private fun playBytes(wav: ByteArray, label: String) {
+        val file = File(cacheDir, "cosy-test.wav")
+        file.writeBytes(wav)
+        sample?.release()
+        sample = null
+        val mp = MediaPlayer()
+        sample = mp
+        try {
+            mp.setDataSource(file.absolutePath)
+            mp.setOnCompletionListener {
+                VoiceHud.mode = "idle"
+                VoiceHud.line = "$label fini"
+                if (sample === it) {
+                    it.release()
+                    sample = null
+                }
+            }
+            mp.setOnErrorListener { player, what, extra ->
+                VoiceHud.line = "$label $what/$extra"
+                player.release()
+                if (sample === player) sample = null
+                true
+            }
+            mp.prepare()
+            mp.start()
+            VoiceHud.line = label
+            VoiceHud.mode = "talk"
+        } catch (e: Exception) {
+            mp.release()
+            sample = null
+            VoiceHud.line = "$label: ${e.javaClass.simpleName}"
         }
     }
 

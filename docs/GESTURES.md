@@ -19,8 +19,8 @@ Do not send 98 through `robotActionCommand`.
 | 8 | shake right leg | step=1, delay=2 | |
 | 9 | shake left foot | step=2, delay=3 | |
 | 10 | shake right foot | step=2, delay=3 | |
-| 11 | left foot up | step=1, delay=1 | |
-| 12 | right foot up | step=1, delay=1 | |
+| 11 | left crossed foot (左跷脚, upLeftFoot) | step=1, speed=3 | happy test button |
+| 12 | right crossed foot (右跷脚, upRightFoot) | step=1, speed=3 | |
 | 13 | lean left | step=1, delay=6 | |
 | 14 | lean right | step=1, delay=6 | |
 | 15 | stomp left | step=1, delay=3 | angry pose |
