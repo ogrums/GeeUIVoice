@@ -79,7 +79,7 @@ adb shell am startservice -n com.geeui.voice/.VoiceService \
 
 ## CosyVoice3
 
-Kokoro stays the default, on Lemonade. A short line that is not neutral goes to one FastAPI process. The weights are `FunAudioLLM/Fun-CosyVoice3-0.5B-2512`. If that snapshot has no `asset/zero_shot_prompt.wav`, `run.sh` fetches it from the CosyVoice git repo. The speech runtime is still that repo, installed into the sidecar venv with Python 3.10 (`pip install -e .`). The sidecar writes the WAV itself and does not import torchaudio. Without the runtime, `/health` stays up and `/v1/audio/speech` returns 503, and the robot falls back to Kokoro.
+Kokoro stays the default, on Lemonade. A short line that is not neutral goes to one FastAPI process. The weights are `FunAudioLLM/Fun-CosyVoice3-0.5B-2512`. If that snapshot has no `asset/zero_shot_prompt.wav`, `run.sh` fetches it from the CosyVoice git repo. The speech runtime is still that repo, cloned next to this script (`sidecar/CosyVoice`) and installed with `pip install -r requirements.txt` in a Python 3.10 venv. It has no `setup.py`: `run.sh` puts it on `PYTHONPATH`. Do not `pip install -e .`. The sidecar writes the WAV itself and does not import torchaudio. Without the runtime, `/health` stays up and `/v1/audio/speech` returns 503, and the robot falls back to Kokoro.
 
 ```text
 cd sidecar
