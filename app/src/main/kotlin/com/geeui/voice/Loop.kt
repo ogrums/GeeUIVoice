@@ -44,7 +44,7 @@ class VoiceLoop(
     voice: String = "",
     prompt: String = com.geeui.voice.engine.LemonadeClient.SPOKEN,
     audio: Context,
-    sidecar: String = "",
+    private val sidecar: String = "",
     cosyModel: String = CosyTts.MODEL,
 ) {
     private val client = LemonadeClient(
