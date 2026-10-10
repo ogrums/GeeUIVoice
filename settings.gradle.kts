@@ -13,4 +13,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "GeeUIVoice"
 include(":voice-core")
+include(":emotion-core")
 include(":app")

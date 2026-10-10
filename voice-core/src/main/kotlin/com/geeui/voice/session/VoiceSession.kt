@@ -4,14 +4,20 @@ import com.geeui.voice.bus.RobotBus
 import com.geeui.voice.engine.Chat
 import com.geeui.voice.engine.StreamingChat
 import com.geeui.voice.engine.TextToSpeech
+import com.geeui.voice.engine.TtsPlan
 import com.geeui.voice.skill.SkillLexicon
 import com.geeui.voice.skill.SkillRouter
+import com.geeui.voiceemo.Affect
+import com.geeui.voiceemo.EmotionPipeline
+import com.geeui.voiceemo.EmotionTurn
+import com.geeui.voiceemo.Mood
+import com.geeui.voiceemo.TextAffect
 
 enum class Dialogue { Idle, Listening, Speaking }
 
 /**
- * One spoken turn. A known phrase hits the robot and does not call the LLM.
- * Otherwise the whole answer is spoken in one clip, so it is not chopped.
+ * One spoken turn. A known phrase hits the robot and does not call the LLM
+ * or the emotion pose. Otherwise the answer is spoken in one clip.
  */
 class VoiceSession(
     bus: RobotBus,
@@ -19,6 +25,12 @@ class VoiceSession(
     private val chat: Chat,
     private val language: String = "fr",
     charging: () -> Boolean = { false },
+    private val mood: Mood? = null,
+    private val onEmotion: ((EmotionTurn) -> Unit)? = null,
+    private val audioAffect: () -> Affect = { Affect.UNKNOWN },
+    private val now: () -> Long = { System.currentTimeMillis() },
+    private val sidecarOkAt: () -> Long = { 0L },
+    private val plan: TtsPlan? = null,
 ) {
     private val skills = SkillRouter(bus, charging)
     var state: Dialogue = Dialogue.Idle
@@ -39,6 +51,19 @@ class VoiceSession(
             answer.append(chat.reply(text))
         }
         val whole = spoken(answer.toString())
+        if (mood != null) {
+            val turn = EmotionPipeline.turn(
+                say = whole,
+                audio = audioAffect(),
+                text = TextAffect.of(text),
+                mood = mood,
+                now = now(),
+                sidecarOkAt = sidecarOkAt(),
+            )
+            plan?.engine = turn.engine
+            plan?.emotion = turn.mood.emotion.name.lowercase()
+            onEmotion?.invoke(turn)
+        }
         if (whole.isNotEmpty()) tts.speak(whole, language)
         state = Dialogue.Idle
         return whole

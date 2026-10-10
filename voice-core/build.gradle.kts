@@ -7,5 +7,6 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":emotion-core"))
     testImplementation(kotlin("test"))
 }
