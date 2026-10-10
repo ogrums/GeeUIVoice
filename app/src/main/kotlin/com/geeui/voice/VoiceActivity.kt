@@ -12,13 +12,14 @@ import android.os.Handler
 import android.os.Looper
 import android.media.MediaPlayer
 import android.view.Gravity
+import android.view.Surface
+import android.view.TextureView
 import android.widget.Button
 import android.widget.CompoundButton
 import android.widget.LinearLayout
 import android.widget.FrameLayout
 import android.widget.Switch
 import android.widget.TextView
-import android.widget.VideoView
 import java.io.File
 import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
@@ -37,7 +38,10 @@ class VoiceActivity : Activity() {
     private lateinit var mic: Switch
     private lateinit var bus: AidlBus
     private var painting = false
-    private var video: VideoView? = null
+    private var faceView: TextureView? = null
+    private var facePlayer: MediaPlayer? = null
+    private var faceSurface: Surface? = null
+    private var pendingFace: String? = null
     private var shownFace = ""
     private val refresh = object : Runnable {
         override fun run() {
@@ -129,15 +133,30 @@ class VoiceActivity : Activity() {
         root.addView(caption)
         root.addView(mic)
         root.addView(tests)
-        val screen = FrameLayout(this)
-        video = VideoView(this).apply {
-            setBackgroundColor(Color.BLACK)
+        val screen = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        faceView = TextureView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT,
             )
+            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, w: Int, h: Int) {
+                    faceSurface?.release()
+                    faceSurface = Surface(surface)
+                    pendingFace?.let { startFace(it) }
+                }
+
+                override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, w: Int, h: Int) = Unit
+
+                override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean {
+                    releaseFace()
+                    return true
+                }
+
+                override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
+            }
         }
-        screen.addView(video)
+        screen.addView(faceView)
         screen.addView(root)
         setContentView(screen)
         VoiceHud.line = "micro coupé"
@@ -277,35 +296,43 @@ class VoiceActivity : Activity() {
 
     private fun playFace(id: String) {
         shownFace = id
-        val view = video ?: return
-        val path = assetFace(id)
-        if (path == null) {
-            VoiceHud.diag = "visage $id absent de l'apk"
-            return
-        }
-        view.setOnPreparedListener { player ->
-            player.isLooping = id == "h0059"
-            player.start()
-        }
-        view.setOnErrorListener { _, what, extra ->
-            VoiceHud.diag = "visage $id $what/$extra"
-            true
-        }
-        view.setVideoPath(path)
+        val view = faceView
+        if (view != null && view.isAvailable && faceSurface != null) startFace(id)
+        else pendingFace = id
     }
 
-    /** VideoView only plays a file. Copy the APK asset into the cache once. */
-    private fun assetFace(id: String): String? {
-        val out = File(cacheDir, "$id.mp4")
-        if (out.isFile && out.length() > 0L) return out.absolutePath
-        return try {
-            assets.open(bundledFace(id)).use { input ->
-                out.outputStream().use { input.copyTo(it) }
+    /** TextureView, not VideoView: a SurfaceView covers the controls, and VideoView pauses when speech starts. */
+    private fun startFace(id: String) {
+        pendingFace = null
+        val surface = faceSurface ?: return
+        facePlayer?.release()
+        val mp = MediaPlayer()
+        facePlayer = mp
+        try {
+            assets.openFd(bundledFace(id)).use { afd ->
+                mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }
-            out.absolutePath
-        } catch (_: Exception) {
-            null
+            mp.setSurface(surface)
+            mp.setVolume(0f, 0f)
+            mp.isLooping = true
+            mp.setOnErrorListener { _, what, extra ->
+                VoiceHud.diag = "visage $id $what/$extra"
+                true
+            }
+            mp.prepare()
+            mp.start()
+        } catch (e: Exception) {
+            VoiceHud.diag = "visage $id ${e.javaClass.simpleName}"
+            mp.release()
+            if (facePlayer === mp) facePlayer = null
         }
+    }
+
+    private fun releaseFace() {
+        facePlayer?.release()
+        facePlayer = null
+        faceSurface?.release()
+        faceSurface = null
     }
 
     private fun standDown() {
@@ -387,6 +414,7 @@ class VoiceActivity : Activity() {
     override fun onDestroy() {
         sample?.release()
         sample = null
+        releaseFace()
         super.onDestroy()
     }
 
