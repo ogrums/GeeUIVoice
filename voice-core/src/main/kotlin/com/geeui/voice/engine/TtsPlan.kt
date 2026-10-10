@@ -19,9 +19,14 @@ class PlannedTts(
     private val cosy: ClipTts,
 ) : ClipTts {
     private var used: ClipTts = kokoro
+    private var audible: (() -> Unit)? = null
 
     override val lastAudio: ByteArray
         get() = used.lastAudio
+
+    override fun whenAudible(action: (() -> Unit)?) {
+        audible = action
+    }
 
     override fun speak(text: String, language: String) {
         if (plan.engine == TtsEngine.COSYVOICE) {
@@ -29,6 +34,7 @@ class PlannedTts(
                 cosy.speak(text, language)
                 if (cosy.lastAudio.isNotEmpty()) {
                     used = cosy
+                    heard()
                     return
                 }
             } catch (_: Exception) {
@@ -36,6 +42,13 @@ class PlannedTts(
         }
         used = kokoro
         kokoro.speak(text, language)
+        heard()
+    }
+
+    private fun heard() {
+        val action = audible
+        audible = null
+        action?.invoke()
     }
 
     override fun stop() {

@@ -7,6 +7,7 @@ import com.geeui.voice.engine.FixedChat
 import com.geeui.voice.engine.PlannedTts
 import com.geeui.voice.engine.TtsPlan
 import com.geeui.voice.session.VoiceSession
+import com.geeui.voice.bus.PoseTiming
 import com.geeui.voiceemo.Mood
 import com.geeui.voiceemo.TtsEngine
 import com.geeui.voiceemo.TtsRoute
@@ -29,6 +30,7 @@ class CosyRouteTest {
         val kokoro = MemoryClip()
         val cosy = MemoryClip()
         val bus = RecordingBus()
+        var waited = 0L
         val session = VoiceSession(
             bus,
             PlannedTts(plan, kokoro, cosy),
@@ -37,6 +39,7 @@ class CosyRouteTest {
             plan = plan,
             now = { 1_000L },
             sidecarOkAt = { 1_000L },
+            pause = { waited = it },
         )
         session.onUserText("je suis content")
         assertEquals(TtsEngine.COSYVOICE, plan.engine)
@@ -51,6 +54,7 @@ class CosyRouteTest {
             listOf("light off", "ears 3 1 400 15", "motion 0 1 1"),
             bus.events.takeLast(3),
         )
+        assertEquals(PoseTiming.REST_AFTER_MS, waited)
     }
 
     @Test
@@ -91,6 +95,7 @@ class CosyRouteTest {
             plan = plan,
             now = { 1_000L },
             sidecarOkAt = { 1_000L },
+            pause = {},
         )
         session.onUserText("bonjour")
         assertEquals(TtsEngine.KOKORO, plan.engine)
@@ -115,6 +120,7 @@ class CosyRouteTest {
             plan = plan,
             now = { 1_000L },
             sidecarOkAt = { 1_000L },
+            pause = {},
         )
         session.onUserText("avance")
         assertEquals(0, cosy.calls)

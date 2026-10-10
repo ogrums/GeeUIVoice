@@ -19,6 +19,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
+import com.geeui.voice.bus.PoseTiming
 import com.geeui.voice.bus.standAtAttention
 import com.geeui.voiceemo.Emotion
 import com.geeui.voiceemo.HostConfig
@@ -142,6 +143,7 @@ class VoiceActivity : Activity() {
     }
 
     private var sample: MediaPlayer? = null
+    private var restTicket = 0
 
     private fun testButton(label: String, click: () -> Unit): Button {
         return Button(this).apply {
@@ -155,36 +157,39 @@ class VoiceActivity : Activity() {
         }
     }
 
-    /** Sad pose: blue light, ears left. Then a short CosyVoice line. */
+    /** Sad pose starts when the clip starts: blue light, ears left. */
     private fun sad() {
+        if (!busReady()) return
         val pose = SdkMap.pose(Emotion.SAD)
-        if (!poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 3, null)) return
-        playCosy("sad", "Je suis triste.")
-    }
-
-    /**
-     * Happy pose, plus gesture 11: left crossed foot (左跷脚 / upLeftFoot).
-     * 12 is the right one. The catalog called these "foot up".
-     */
-    private fun happy() {
-        val pose = SdkMap.pose(Emotion.HAPPY)
-        if (!poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 6, 11)) return
-        playCosy("happy", "Je suis content.")
-    }
-
-    private fun poseBody(cmd: Int, step: Int, speedMs: Int, angle: Int, color: Int, motion: Int?): Boolean {
-        if (!bus.connected()) {
-            VoiceHud.line = "bus pas prêt"
-            return false
+        playCosy("sad", "Je suis triste.") {
+            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 3, null)
         }
+    }
+
+    /** Happy pose starts with the clip, plus gesture 11, the left crossed foot. */
+    private fun happy() {
+        if (!busReady()) return
+        val pose = SdkMap.pose(Emotion.HAPPY)
+        playCosy("happy", "Je suis content.") {
+            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 6, 11)
+        }
+    }
+
+    private fun busReady(): Boolean {
+        if (bus.connected()) return true
+        VoiceHud.line = "bus pas prêt"
+        return false
+    }
+
+    private fun poseBody(cmd: Int, step: Int, speedMs: Int, angle: Int, color: Int, motion: Int?) {
         bus.ears(cmd, step, speedMs, angle)
         bus.antennaLight(true, color)
         if (motion != null) bus.controlMotion(motion, 1, 3)
         VoiceHud.diag = "oreilles $cmd lumière $color pied ${motion ?: "-"}"
-        return true
     }
 
-    private fun playCosy(emotion: String, line: String) {
+    private fun playCosy(emotion: String, line: String, onStart: () -> Unit) {
+        restTicket += 1
         VoiceHud.mode = "think"
         VoiceHud.line = "cosy $emotion"
         val base = intent.getStringExtra("sidecar")?.trim()?.trimEnd('/')
@@ -199,17 +204,16 @@ class VoiceActivity : Activity() {
             }
             handler.post {
                 if (audio.isEmpty()) {
-                    standDown()
                     VoiceHud.mode = "idle"
                     VoiceHud.line = "cosy $emotion: pas de son ($base)"
                 } else {
-                    playBytes(audio, "cosy $emotion")
+                    playBytes(audio, "cosy $emotion", onStart)
                 }
             }
         }.start()
     }
 
-    private fun playBytes(wav: ByteArray, label: String) {
+    private fun playBytes(wav: ByteArray, label: String, onStart: () -> Unit) {
         val file = File(cacheDir, "cosy-test.wav")
         file.writeBytes(wav)
         sample?.release()
@@ -219,16 +223,15 @@ class VoiceActivity : Activity() {
         try {
             mp.setDataSource(file.absolutePath)
             mp.setOnCompletionListener {
-                standDown()
                 VoiceHud.mode = "idle"
                 VoiceHud.line = "$label fini"
                 if (sample === it) {
                     it.release()
                     sample = null
                 }
+                restLater()
             }
             mp.setOnErrorListener { player, what, extra ->
-                standDown()
                 VoiceHud.line = "$label $what/$extra"
                 player.release()
                 if (sample === player) sample = null
@@ -236,14 +239,22 @@ class VoiceActivity : Activity() {
             }
             mp.prepare()
             mp.start()
+            onStart()
             VoiceHud.line = label
             VoiceHud.mode = "talk"
         } catch (e: Exception) {
-            standDown()
             mp.release()
             sample = null
             VoiceHud.line = "$label: ${e.javaClass.simpleName}"
         }
+    }
+
+    private fun restLater() {
+        val ticket = restTicket
+        handler.postDelayed({
+            if (ticket != restTicket) return@postDelayed
+            standDown()
+        }, PoseTiming.REST_AFTER_MS)
     }
 
     private fun standDown() {

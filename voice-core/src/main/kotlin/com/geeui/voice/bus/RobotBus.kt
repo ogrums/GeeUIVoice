@@ -38,7 +38,11 @@ fun RobotBus.applyPose(pose: SdkPose) {
     if (action != null) controlMotion(action, 1, 3)
 }
 
-/** 立正. Motion 0 is AT+MOVEW,0. Angle 0 is rewritten to 90 by the firmware, so the ears come back to 15. */
+/** How long the pose stays after the clip ends, before 立正. */
+object PoseTiming {
+    const val REST_AFTER_MS = 3_000L
+}
+/** Motion 0 is AT+MOVEW,0 (立正). Angle 0 is rewritten to 90 by the firmware, so the ears come back to 15. */
 fun RobotBus.standAtAttention() {
     antennaLight(false, 0)
     ears(3, 1, 400, 15)

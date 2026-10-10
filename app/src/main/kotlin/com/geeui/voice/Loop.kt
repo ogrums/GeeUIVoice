@@ -219,8 +219,12 @@ class PlayingTts(
     private var track: AudioTrack? = null
     private val cancelled = AtomicBoolean(false)
     private val gate = Any()
-
     private var started = false
+    private var audible: (() -> Unit)? = null
+
+    override fun whenAudible(action: (() -> Unit)?) {
+        audible = action
+    }
 
     override fun speak(text: String, language: String) {
         cancelled.set(false)
@@ -375,6 +379,9 @@ class PlayingTts(
                 VoiceHud.playing = true
                 mp.start()
                 started = true
+                val action = audible
+                audible = null
+                action?.invoke()
             }
             while (!cancelled.get() && !done.await(40, java.util.concurrent.TimeUnit.MILLISECONDS)) {
             }
