@@ -14,6 +14,9 @@ interface SpeechToText {
 interface TextToSpeech {
     fun speak(text: String, language: String)
     fun stop()
+
+    /** Called when the clip actually starts, not when the bytes arrive. */
+    fun whenAudible(action: (() -> Unit)?) {}
 }
 
 /** A TTS that also keeps the last audio clip, so the Android player can read it. */

@@ -7,8 +7,10 @@ import com.geeui.voice.engine.FixedChat
 import com.geeui.voice.engine.PlannedTts
 import com.geeui.voice.engine.TtsPlan
 import com.geeui.voice.session.VoiceSession
+import com.geeui.voice.bus.PoseTiming
 import com.geeui.voiceemo.Mood
 import com.geeui.voiceemo.TtsEngine
+import com.geeui.voiceemo.TtsRoute
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -27,20 +29,46 @@ class CosyRouteTest {
         val plan = TtsPlan()
         val kokoro = MemoryClip()
         val cosy = MemoryClip()
+        val bus = RecordingBus()
+        var waited = 0L
         val session = VoiceSession(
-            RecordingBus(),
+            bus,
             PlannedTts(plan, kokoro, cosy),
             FixedChat(),
             mood = Mood(now = 0),
             plan = plan,
             now = { 1_000L },
             sidecarOkAt = { 1_000L },
+            pause = { waited = it },
         )
         session.onUserText("je suis content")
         assertEquals(TtsEngine.COSYVOICE, plan.engine)
         assertEquals("happy", plan.emotion)
         assertEquals(1, cosy.calls)
         assertEquals(0, kokoro.calls)
+        assertTrue(bus.events.contains("ears 3 2 250 60"))
+        assertTrue(bus.events.contains("light 6"))
+        assertTrue(bus.events.contains("motion 77 1 3"))
+        assertTrue(bus.events.contains("face h0006"))
+        assertEquals(
+            listOf("light off", "ears 3 1 400 15", "motion 0 1 1"),
+            bus.events.takeLast(3),
+        )
+        assertEquals(PoseTiming.REST_AFTER_MS, waited)
+    }
+
+    @Test
+    fun longAnswerIsClippedBeforeTheCosyPost() {
+        val plan = TtsPlan()
+        plan.engine = TtsEngine.COSYVOICE
+        plan.emotion = "sad"
+        var sent = ""
+        CosyTts(plan) { text, _ ->
+            sent = text
+            byteArrayOf(1)
+        }.speak("Ceci est une phrase assez longue pour le decoupage. " + "b".repeat(200), "fr")
+        assertTrue(sent.length <= TtsRoute.MAX_CHARS)
+        assertTrue(sent.endsWith("."))
     }
 
     @Test
@@ -51,6 +79,33 @@ class CosyRouteTest {
         val cosy = MemoryClip(ByteArray(0))
         PlannedTts(plan, kokoro, cosy).speak("salut", "fr")
         assertEquals(1, kokoro.calls)
+    }
+
+    @Test
+    fun plainTalkStaysOnKokoroAndDoesNotStep() {
+        val plan = TtsPlan()
+        val kokoro = MemoryClip()
+        val cosy = MemoryClip()
+        val bus = RecordingBus()
+        val session = VoiceSession(
+            bus,
+            PlannedTts(plan, kokoro, cosy),
+            FixedChat(),
+            mood = Mood(now = 0),
+            plan = plan,
+            now = { 1_000L },
+            sidecarOkAt = { 1_000L },
+            pause = {},
+        )
+        session.onUserText("bonjour")
+        assertEquals(TtsEngine.KOKORO, plan.engine)
+        assertEquals(0, cosy.calls)
+        assertEquals(1, kokoro.calls)
+        assertTrue(bus.events.none { it.startsWith("motion 77") })
+        assertEquals(
+            listOf("light off", "ears 3 1 400 15", "motion 0 1 1"),
+            bus.events.takeLast(3),
+        )
     }
 
     @Test
@@ -65,6 +120,7 @@ class CosyRouteTest {
             plan = plan,
             now = { 1_000L },
             sidecarOkAt = { 1_000L },
+            pause = {},
         )
         session.onUserText("avance")
         assertEquals(0, cosy.calls)

@@ -1,6 +1,9 @@
 package com.geeui.voice.session
 
 import com.geeui.voice.bus.RobotBus
+import com.geeui.voice.bus.PoseTiming
+import com.geeui.voice.bus.applyPose
+import com.geeui.voice.bus.standAtAttention
 import com.geeui.voice.engine.Chat
 import com.geeui.voice.engine.StreamingChat
 import com.geeui.voice.engine.TextToSpeech
@@ -20,7 +23,7 @@ enum class Dialogue { Idle, Listening, Speaking }
  * or the emotion pose. Otherwise the answer is spoken in one clip.
  */
 class VoiceSession(
-    bus: RobotBus,
+    private val bus: RobotBus,
     private val tts: TextToSpeech,
     private val chat: Chat,
     private val language: String = "fr",
@@ -31,6 +34,7 @@ class VoiceSession(
     private val now: () -> Long = { System.currentTimeMillis() },
     private val sidecarOkAt: () -> Long = { 0L },
     private val plan: TtsPlan? = null,
+    private val pause: (Long) -> Unit = { Thread.sleep(it) },
 ) {
     private val skills = SkillRouter(bus, charging)
     var state: Dialogue = Dialogue.Idle
@@ -51,6 +55,7 @@ class VoiceSession(
             answer.append(chat.reply(text))
         }
         val whole = spoken(answer.toString())
+        var moved = false
         if (mood != null) {
             val turn = EmotionPipeline.turn(
                 say = whole,
@@ -63,8 +68,16 @@ class VoiceSession(
             plan?.engine = turn.engine
             plan?.emotion = turn.mood.emotion.name.lowercase()
             onEmotion?.invoke(turn)
+            tts.whenAudible {
+                moved = true
+                bus.applyPose(turn.pose)
+            }
         }
         if (whole.isNotEmpty()) tts.speak(whole, language)
+        if (moved) {
+            pause(PoseTiming.REST_AFTER_MS)
+            bus.standAtAttention()
+        }
         state = Dialogue.Idle
         return whole
     }
