@@ -23,7 +23,7 @@ import java.io.File
 import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
 import com.geeui.voice.bus.PoseTiming
-import com.geeui.voice.bus.faceFile
+import com.geeui.voice.bus.bundledFace
 import com.geeui.voice.bus.standAtAttention
 import com.geeui.voiceemo.Emotion
 import com.geeui.voiceemo.HostConfig
@@ -277,10 +277,10 @@ class VoiceActivity : Activity() {
 
     private fun playFace(id: String) {
         shownFace = id
-        val path = facePath(id)
-        val view = video
-        if (path == null || view == null) {
-            VoiceHud.diag = "visage $id absent (/sdcard/assets/video/$id.mp4)"
+        val view = video ?: return
+        val path = assetFace(id)
+        if (path == null) {
+            VoiceHud.diag = "visage $id absent de l'apk"
             return
         }
         view.setOnPreparedListener { player ->
@@ -294,39 +294,18 @@ class VoiceActivity : Activity() {
         view.setVideoPath(path)
     }
 
-    /** Provider first, then the sdcard path GeeUIFace uses when the provider is missing. */
-    private fun facePath(id: String): String? {
-        providerPath(id)?.let { return it }
-        providerPath("$id.mp4")?.let { return it }
-        return faceFile(id) { File(it).isFile }
-    }
-
-    private fun providerPath(name: String): String? {
-        if (packageManager.resolveContentProvider("com.letianpai.robot.resources.provider", 0) == null) {
-            return null
-        }
+    /** VideoView only plays a file. Copy the APK asset into the cache once. */
+    private fun assetFace(id: String): String? {
+        val out = File(cacheDir, "$id.mp4")
+        if (out.isFile && out.length() > 0L) return out.absolutePath
         return try {
-            contentResolver.query(
-                Uri.parse("content://com.letianpai.robot.resources.provider/expression"),
-                arrayOf("fileName", "filePath", "fileTag", "defaultPath"),
-                "fileName",
-                arrayOf(name),
-                null,
-            )?.use { cursor ->
-                if (!cursor.moveToFirst()) return null
-                val file = cursor.column("filePath")
-                val fallback = cursor.column("defaultPath")
-                file ?: fallback
+            assets.open(bundledFace(id)).use { input ->
+                out.outputStream().use { input.copyTo(it) }
             }
+            out.absolutePath
         } catch (_: Exception) {
             null
         }
-    }
-
-    private fun android.database.Cursor.column(name: String): String? {
-        val index = getColumnIndex(name)
-        if (index < 0) return null
-        return getString(index)?.takeIf { it.isNotBlank() }
     }
 
     private fun standDown() {

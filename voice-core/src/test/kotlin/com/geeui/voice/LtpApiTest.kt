@@ -1,8 +1,8 @@
 package com.geeui.voice
 
 import com.geeui.voice.bus.LtpApi
+import com.geeui.voice.bus.bundledFace
 import com.geeui.voice.bus.faceCommand
-import com.geeui.voice.bus.faceFile
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -23,9 +23,8 @@ class LtpApiTest {
     }
 
     @Test
-    fun faceFileUsesTheSdcardGeeUIFacePlays() {
-        val path = faceFile("h0119") { it == "/sdcard/assets/video/h0119.mp4" }
-        assertEquals("/sdcard/assets/video/h0119.mp4", path)
-        assertEquals(null, faceFile("h0119") { false })
+    fun faceClipIsBundledInTheApk() {
+        assertEquals("video/h0119.mp4", bundledFace("h0119"))
+        assertEquals("video/h0059.mp4", bundledFace("h0059"))
     }
 }

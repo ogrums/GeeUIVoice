@@ -54,16 +54,8 @@ fun RobotBus.standAtAttention() {
 fun faceCommand(id: String): String =
     """{"face":"$id","filePrefix":null,"times":null,"desc":null,"id":0,"is24HourGesture":false}"""
 
-/** GeeUIFace plays `sdcard/assets/video/h0001.mp4`. The resource provider is not on every robot. */
-fun faceFile(id: String, exists: (String) -> Boolean): String? {
-    val candidates = listOf(
-        "/sdcard/assets/video/$id.mp4",
-        "/storage/emulated/0/assets/video/$id.mp4",
-        "/sdcard/video/$id.mp4",
-        "/storage/emulated/0/video/$id.mp4",
-    )
-    return candidates.firstOrNull(exists)
-}
+/** Asset path inside the APK. The robot does not expose these files on disk. */
+fun bundledFace(id: String) = "video/$id.mp4"
 
 class RecordingBus : RobotBus {
     val events = mutableListOf<String>()
