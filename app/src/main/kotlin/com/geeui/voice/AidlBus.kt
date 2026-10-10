@@ -38,14 +38,40 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
 
     override fun controlMotion(number: Int, step: Int, speed: Int) {
         val svc = api ?: return
-        if (!motorOn) {
-            svc.setMcuCommand("powerControl", """{"function":3,"status":1}""")
-            motorOn = true
-        }
+        openMotor(svc)
         svc.setMcuCommand(
             "controlMotion",
             """{"motion":"null","number":$number,"speed":$speed,"desc":"null","id":0,"stepNum":$step}""",
         )
+    }
+
+    /** Ear swing. cmd 1 left, 2 right, 3 left and right. Angle is 0..90. */
+    fun ears(cmd: Int, step: Int, speedMs: Int, angle: Int): Boolean {
+        val svc = api ?: return false
+        openMotor(svc)
+        svc.setMcuCommand(
+            "controlAntennaMotion",
+            """{"cmd":$cmd,"step":$step,"speed":$speedMs,"angle":$angle}""",
+        )
+        return true
+    }
+
+    /** Color ids: 3 blue, 6 yellow. Same numbers as AntennaLight. */
+    fun light(color: Int): Boolean {
+        val svc = api ?: return false
+        openMotor(svc)
+        svc.setMcuCommand(
+            "controlAntennaLight",
+            """{"antenna_light":"on","antenna_light_color":$color}""",
+        )
+        return true
+    }
+
+    private fun openMotor(svc: ILetianpaiService) {
+        if (!motorOn) {
+            svc.setMcuCommand("powerControl", """{"function":3,"status":1}""")
+            motorOn = true
+        }
     }
 
     override fun showFace(faceId: String) {

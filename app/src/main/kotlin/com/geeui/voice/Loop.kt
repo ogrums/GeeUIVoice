@@ -182,7 +182,7 @@ class VoiceLoop(
     }
 }
 
-private fun postCosy(base: String, model: String, text: String, emotion: String): ByteArray {
+internal fun postCosy(base: String, model: String, text: String, emotion: String): ByteArray {
     if (base.isBlank()) return ByteArray(0)
     val conn = URL(base.trimEnd('/') + "/v1/audio/speech").openConnection() as HttpURLConnection
     conn.connectTimeout = 2_000
