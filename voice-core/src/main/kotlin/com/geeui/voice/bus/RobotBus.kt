@@ -57,6 +57,15 @@ fun faceCommand(id: String): String =
 /** Asset path inside the APK. The robot does not expose these files on disk. */
 fun bundledFace(id: String) = "video/$id.mp4"
 
+const val IDLE_FACE = "h0059"
+
+/** The button screen. Anything else is the face, full screen, with the mic open. */
+fun debugLaunch(mode: String?, debug: String? = null): Boolean {
+    if (mode?.trim()?.equals("debug", ignoreCase = true) == true) return true
+    val flag = debug?.trim()?.lowercase()
+    return flag == "1" || flag == "true" || flag == "yes"
+}
+
 class RecordingBus : RobotBus {
     val events = mutableListOf<String>()
 

@@ -2,6 +2,7 @@ package com.geeui.voice
 
 import com.geeui.voice.bus.LtpApi
 import com.geeui.voice.bus.bundledFace
+import com.geeui.voice.bus.debugLaunch
 import com.geeui.voice.bus.faceCommand
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -26,5 +27,13 @@ class LtpApiTest {
     fun faceClipIsBundledInTheApk() {
         assertEquals("video/h0119.mp4", bundledFace("h0119"))
         assertEquals("video/h0059.mp4", bundledFace("h0059"))
+    }
+
+    @Test
+    fun onlyTheDebugExtraKeepsTheButtonScreen() {
+        assertEquals(false, debugLaunch(null))
+        assertEquals(false, debugLaunch("face"))
+        assertEquals(true, debugLaunch("debug"))
+        assertEquals(true, debugLaunch(null, "1"))
     }
 }

@@ -23,8 +23,10 @@ import android.widget.TextView
 import java.io.File
 import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
+import com.geeui.voice.bus.IDLE_FACE
 import com.geeui.voice.bus.PoseTiming
 import com.geeui.voice.bus.bundledFace
+import com.geeui.voice.bus.debugLaunch
 import com.geeui.voice.bus.standAtAttention
 import com.geeui.voiceemo.Emotion
 import com.geeui.voiceemo.HostConfig
@@ -33,11 +35,12 @@ import com.geeui.voiceemo.SdkMap
 /** 480×480 round screen. The top 30 px is the robot battery strip: draw only, never a control. */
 class VoiceActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
-    private lateinit var status: TextView
-    private lateinit var caption: TextView
-    private lateinit var mic: Switch
     private lateinit var bus: AidlBus
+    private var debug = false
     private var painting = false
+    private var status: TextView? = null
+    private var caption: TextView? = null
+    private var mic: Switch? = null
     private var faceView: TextureView? = null
     private var facePlayer: MediaPlayer? = null
     private var faceSurface: Surface? = null
@@ -45,32 +48,8 @@ class VoiceActivity : Activity() {
     private var shownFace = ""
     private val refresh = object : Runnable {
         override fun run() {
-            status.text = when {
-                !VoiceHud.mic && VoiceHud.mode == "idle" -> "VEILLE"
-                VoiceHud.mode == "hear" -> "ÉCOUTE"
-                VoiceHud.mode == "think" -> "CALCUL"
-                VoiceHud.mode == "talk" -> "PAROLE"
-                VoiceHud.mic -> "MICRO OUVERT"
-                else -> "VEILLE"
-            }
-            caption.text = buildString {
-                if (VoiceHud.heard.isNotBlank()) append("« ").append(VoiceHud.heard).append(" »")
-                if (VoiceHud.answer.isNotBlank()) {
-                    if (isNotEmpty()) append("\n")
-                    append(VoiceHud.answer)
-                }
-                if (isEmpty()) append(VoiceHud.line)
-                if (VoiceHud.diag.isNotBlank()) {
-                    if (isNotEmpty()) append("\n")
-                    append(VoiceHud.diag)
-                }
-            }
-            if (mic.isChecked != VoiceHud.mic) {
-                painting = true
-                mic.isChecked = VoiceHud.mic
-                painting = false
-            }
-            val face = VoiceHud.face
+            if (debug) paintDebug()
+            val face = VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
             if (face.isNotBlank() && face != shownFace) playFace(face)
             handler.postDelayed(this, 120)
         }
@@ -78,7 +57,72 @@ class VoiceActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        debug = debugLaunch(intent.getStringExtra("mode"), intent.getStringExtra("debug"))
         bus = AidlBus(this)
+        val screen = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        faceView = TextureView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            )
+            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, w: Int, h: Int) {
+                    faceSurface?.release()
+                    faceSurface = Surface(surface)
+                    pendingFace?.let { startFace(it) }
+                }
+
+                override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, w: Int, h: Int) = Unit
+
+                override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean {
+                    releaseFace()
+                    return true
+                }
+
+                override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
+            }
+        }
+        screen.addView(faceView)
+        if (debug) screen.addView(debugPanel())
+        setContentView(screen)
+        if (debug) {
+            VoiceHud.line = "micro coupé"
+        } else {
+            if (VoiceHud.face.isBlank()) VoiceHud.face = IDLE_FACE
+            askMic()
+        }
+    }
+
+    private fun paintDebug() {
+        status?.text = when {
+            !VoiceHud.mic && VoiceHud.mode == "idle" -> "VEILLE"
+            VoiceHud.mode == "hear" -> "ÉCOUTE"
+            VoiceHud.mode == "think" -> "CALCUL"
+            VoiceHud.mode == "talk" -> "PAROLE"
+            VoiceHud.mic -> "MICRO OUVERT"
+            else -> "VEILLE"
+        }
+        caption?.text = buildString {
+            if (VoiceHud.heard.isNotBlank()) append("« ").append(VoiceHud.heard).append(" »")
+            if (VoiceHud.answer.isNotBlank()) {
+                if (isNotEmpty()) append("\n")
+                append(VoiceHud.answer)
+            }
+            if (isEmpty()) append(VoiceHud.line)
+            if (VoiceHud.diag.isNotBlank()) {
+                if (isNotEmpty()) append("\n")
+                append(VoiceHud.diag)
+            }
+        }
+        val sw = mic
+        if (sw != null && sw.isChecked != VoiceHud.mic) {
+            painting = true
+            sw.isChecked = VoiceHud.mic
+            painting = false
+        }
+    }
+
+    private fun debugPanel(): LinearLayout {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
@@ -133,33 +177,7 @@ class VoiceActivity : Activity() {
         root.addView(caption)
         root.addView(mic)
         root.addView(tests)
-        val screen = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
-        faceView = TextureView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-            )
-            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, w: Int, h: Int) {
-                    faceSurface?.release()
-                    faceSurface = Surface(surface)
-                    pendingFace?.let { startFace(it) }
-                }
-
-                override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, w: Int, h: Int) = Unit
-
-                override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean {
-                    releaseFace()
-                    return true
-                }
-
-                override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
-            }
-        }
-        screen.addView(faceView)
-        screen.addView(root)
-        setContentView(screen)
-        VoiceHud.line = "micro coupé"
+        return root
     }
 
     private fun label(text: String, size: Float, color: Int): TextView {
