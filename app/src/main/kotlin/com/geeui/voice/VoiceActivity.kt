@@ -14,10 +14,13 @@ import android.media.MediaPlayer
 import android.view.Gravity
 import android.view.Surface
 import android.view.TextureView
+import android.view.View
 import android.widget.Button
 import android.widget.CompoundButton
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.FrameLayout
+import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import java.io.File
@@ -46,6 +49,8 @@ class VoiceActivity : Activity() {
     private var faceSurface: Surface? = null
     private var pendingFace: String? = null
     private var shownFace = ""
+    private var menu: ScrollView? = null
+    private val editors = linkedMapOf<String, EditText>()
     private val refresh = object : Runnable {
         override fun run() {
             if (debug) paintDebug()
@@ -84,6 +89,9 @@ class VoiceActivity : Activity() {
         }
         screen.addView(faceView)
         if (debug) screen.addView(debugPanel())
+        menu = settingsMenu()
+        screen.addView(menuBand())
+        screen.addView(menu)
         setContentView(screen)
         if (debug) {
             VoiceHud.line = "micro coupé"
@@ -91,6 +99,70 @@ class VoiceActivity : Activity() {
             if (VoiceHud.face.isBlank()) VoiceHud.face = IDLE_FACE
             askMic()
         }
+    }
+
+    private fun menuBand(): View {
+        return View(this).apply {
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                78,
+                Gravity.BOTTOM,
+            )
+            setOnClickListener { openMenu() }
+        }
+    }
+
+    private fun settingsMenu(): ScrollView {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(36, 24, 36, 24)
+        }
+        box.addView(label("Réglages", 18f, Color.WHITE))
+        for ((key, _) in VoiceSettings.fields) {
+            box.addView(label(VoiceSettings.label(key), 12f, Color.rgb(180, 180, 180)))
+            val edit = EditText(this).apply {
+                setTextColor(Color.WHITE)
+                setSingleLine(true)
+                textSize = 13f
+                setBackgroundColor(Color.rgb(32, 32, 32))
+                setPadding(12, 6, 12, 6)
+            }
+            editors[key] = edit
+            box.addView(edit)
+        }
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                56,
+            ).apply { topMargin = 12 }
+        }
+        row.addView(testButton("Sauvegarder") { saveMenu() })
+        row.addView(testButton("Quitter") { closeMenu() })
+        box.addView(row)
+        return ScrollView(this).apply {
+            setBackgroundColor(Color.argb(235, 0, 0, 0))
+            isClickable = true
+            visibility = View.GONE
+            addView(box)
+        }
+    }
+
+    private fun openMenu() {
+        val values = VoiceSettings.effective(this, intent)
+        for ((key, edit) in editors) edit.setText(values[key].orEmpty())
+        menu?.visibility = View.VISIBLE
+    }
+
+    private fun closeMenu() {
+        menu?.visibility = View.GONE
+    }
+
+    private fun saveMenu() {
+        VoiceSettings.save(this, editors.mapValues { it.value.text.toString() })
+        closeMenu()
+        if (VoiceHud.mic) send(VoiceService.ACTION_START)
     }
 
     private fun paintDebug() {
@@ -424,9 +496,14 @@ class VoiceActivity : Activity() {
     }
 
     private fun send(action: String) {
-        val intent = Intent(this, VoiceService::class.java).setAction(action)
-        intent.putExtras(getIntent())
-        startForegroundService(intent)
+        val next = Intent(this, VoiceService::class.java).setAction(action)
+        next.putExtras(getIntent())
+        if (action == VoiceService.ACTION_START) {
+            for ((key, value) in VoiceSettings.effective(this, getIntent())) {
+                next.putExtra(VoiceSettings.extra(key), value)
+            }
+        }
+        startForegroundService(next)
     }
 
     override fun onDestroy() {

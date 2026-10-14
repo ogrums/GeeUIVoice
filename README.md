@@ -22,7 +22,7 @@ http://<pc>:13305/api/v1
 | Call | Path | Model |
 |---|---|---|
 | Chat | `POST /chat/completions` | llama (GGUF) |
-| STT | `POST /audio/transcriptions` | whisper |
+| STT | `POST /audio/transcriptions` | Whisper-Small |
 | TTS | `POST /audio/speech` | kokoro, voice `ff_siwis` (FR) or `af_heart` (EN) |
 
 `LemonadeClient` speaks that API. `VoiceSession` still does skill-first: « avance » is `AT+MOVEW,98,3,2` and never hits the LLM.

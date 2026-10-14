@@ -12,7 +12,7 @@ import com.geeui.voice.audio.VadConfig
 /**
  * adb shell am start -n com.geeui.voice/.VoiceActivity \
  *   -e host http://192.168.1.10:13305/api/v1 \
- *   -e model whisper-small \
+ *   -e model Whisper-Small \
  *   -e chat <id-du-llm> \
  *   -e tts kokoro \
  *   -e voice ff_siwis \
@@ -24,7 +24,7 @@ import com.geeui.voice.audio.VadConfig
 class VoiceService : Service() {
     private var loop: VoiceLoop? = null
     private var host = "http://nimbus:13305/api/v1"
-    private var model = "whisper-small"
+    private var model = com.geeui.voiceemo.HostConfig.STT
     private var chat = "gemma4e-flash-e2b-FLM"
     private var tts = "kokoro-v1"
     private var voice = ""

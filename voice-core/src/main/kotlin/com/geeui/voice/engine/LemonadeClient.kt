@@ -14,7 +14,7 @@ class LemonadeClient(
     val baseUrl: String,
     private val apiKey: String = "lemonade",
     private val chatModel: String = "gemma4e-flash-e2b-FLM",
-    private val sttModel: String = "whisper-base",
+    private val sttModel: String = "Whisper-Small",
     private val ttsModel: String = "kokoro",
     private val systemPrompt: String = SPOKEN,
 ) {
@@ -22,7 +22,7 @@ class LemonadeClient(
     @Volatile private var resolvedChat: String? = null
     @Volatile private var resolvedTts: String? = null
 
-    /** Model id actually sent to /audio/transcriptions. Falls back to whisper-base. */
+    /** Model id actually sent to /audio/transcriptions. Falls back to Whisper-Small. */
     fun resolveStt(): String {
         resolvedStt?.let { return it }
         val names = listModels()
@@ -218,7 +218,7 @@ class LemonadeClient(
     }
 
     companion object {
-        const val FALLBACK_STT = "whisper-small"
+        const val FALLBACK_STT = "Whisper-Small"
         const val FALLBACK_TTS = "kokoro-v1"
         const val SPOKEN = "Tu es la voix d'un petit robot. Réponds en français parlé, en une ou deux phrases courtes. Pas de markdown, pas d'étoiles, pas de listes, pas de titres."
     }
