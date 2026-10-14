@@ -22,7 +22,7 @@ http://<pc>:13305/api/v1
 | Call | Path | Model |
 |---|---|---|
 | Chat | `POST /chat/completions` | llama (GGUF) |
-| STT | `POST /audio/transcriptions` | whisper |
+| STT | `POST /audio/transcriptions` | Whisper-Small |
 | TTS | `POST /audio/speech` | kokoro, voice `ff_siwis` (FR) or `af_heart` (EN) |
 
 `LemonadeClient` speaks that API. `VoiceSession` still does skill-first: « avance » is `AT+MOVEW,98,3,2` and never hits the LLM.
@@ -31,7 +31,7 @@ http://<pc>:13305/api/v1
 
 openWakeWord has a Kotlin Android port ([openwakeword-android-kt](https://github.com/Re-MENTIA/openwakeword-android-kt), Apache-2.0, ONNX). There is no ready « hi rux » model. Official openWakeWord weights are non-commercial. Training a word is a later step.
 
-Until that model exists, option A stands: Lex / iFlytek VTN wakes the robot. GeeUIVoice does not open the microphone.
+Until that model exists, Lex / iFlytek VTN can still wake the robot. Opening GeeUIVoice from its icon starts the microphone and loops the idle face `h0059`. An emotion clip replaces it for the reply, then `h0059` comes back. Pass `--es mode debug` to keep the buttons and the status lines.
 
 ## Real-time loop
 

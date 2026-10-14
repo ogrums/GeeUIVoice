@@ -9,8 +9,8 @@ android {
 
     defaultConfig {
         applicationId = "com.geeui.voice"
-        minSdk = 30
-        targetSdk = 30
+        minSdk = 29
+        targetSdk = 29
         versionCode = 1
         versionName = "0.1"
     }

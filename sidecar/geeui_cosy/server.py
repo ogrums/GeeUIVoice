@@ -5,6 +5,7 @@ Without the CosyVoice runtime, /health stays up and /v1/audio/speech returns 503
 """
 
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -49,18 +50,58 @@ def _decay(now):
     mood["at"] = now
 
 
+def _add_cosyvoice_path() -> Path:
+    """The git repo has no setup.py. Put it on sys.path next to this sidecar."""
+    root = Path(__file__).resolve().parents[1]
+    src = root / "CosyVoice"
+    for extra in (src, src / "third_party" / "Matcha-TTS"):
+        if extra.is_dir():
+            entry = str(extra)
+            if entry not in sys.path:
+                sys.path.insert(0, entry)
+    return src
+
+
+def _install_soundfile_loader():
+    """CosyVoice loads the prompt with torchaudio.load, which pulls the CUDA TorchCodec wheel."""
+    import torch
+    import torchaudio
+    import soundfile as sf
+    import cosyvoice.utils.file_utils as file_utils
+
+    def load_wav(wav, target_sr, min_sr=16000):
+        audio, sample_rate = sf.read(wav, dtype="float32", always_2d=True)
+        speech = torch.from_numpy(audio.T.copy()).mean(dim=0, keepdim=True)
+        if sample_rate != target_sr:
+            if sample_rate < min_sr:
+                raise RuntimeError(
+                    f"wav sample rate {sample_rate} must be greater than {min_sr}"
+                )
+            speech = torchaudio.transforms.Resample(
+                orig_freq=sample_rate, new_freq=target_sr
+            )(speech)
+        return speech
+
+    file_utils.load_wav = load_wav
+    frontend = sys.modules.get("cosyvoice.cli.frontend")
+    if frontend is not None:
+        frontend.load_wav = load_wav
+
+
 def load_runtime():
     global _runtime
     if _runtime is not None:
         return _runtime
     if not ready(MODEL_DIR):
         raise HTTPException(status_code=503, detail=f"weights missing in {MODEL_DIR}")
+    src = _add_cosyvoice_path()
     try:
+        _install_soundfile_loader()
         from cosyvoice.cli.cosyvoice import AutoModel
     except ImportError as exc:
         raise HTTPException(
             status_code=503,
-            detail="cosyvoice package is not installed. Clone FunAudioLLM/CosyVoice and pip install -e .",
+            detail=f"cannot import cosyvoice ({exc}). Expected {src}/cosyvoice. Do not pip install -e .",
         ) from exc
     _runtime = AutoModel(model_dir=str(MODEL_DIR))
     return _runtime
@@ -85,6 +126,8 @@ def synthesize(text: str, emotion: str) -> bytes:
 def health():
     runtime = False
     try:
+        _add_cosyvoice_path()
+        _install_soundfile_loader()
         import cosyvoice.cli.cosyvoice  # noqa: F401
 
         runtime = True

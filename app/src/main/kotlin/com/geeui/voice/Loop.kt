@@ -38,7 +38,7 @@ class VoiceLoop(
     baseUrl: String,
     private val cacheDir: File,
     vad: EnergyVad = VadConfig().toVad(),
-    sttModel: String = "whisper-base",
+    sttModel: String = "Whisper-Small",
     chatModel: String = "",
     ttsModel: String = "kokoro",
     voice: String = "",
@@ -102,7 +102,7 @@ class VoiceLoop(
             val used = try {
                 client.resolveStt()
             } catch (_: Exception) {
-                "whisper-base"
+                "Whisper-Small"
             }
             val llm = try {
                 client.resolveChat().ifBlank { "aucun" }

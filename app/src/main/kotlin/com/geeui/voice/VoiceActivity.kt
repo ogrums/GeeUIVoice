@@ -12,65 +12,192 @@ import android.os.Handler
 import android.os.Looper
 import android.media.MediaPlayer
 import android.view.Gravity
+import android.view.Surface
+import android.view.TextureView
+import android.view.View
 import android.widget.Button
 import android.widget.CompoundButton
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.FrameLayout
+import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
+import java.io.File
 import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
+import com.geeui.voice.bus.IDLE_FACE
 import com.geeui.voice.bus.PoseTiming
+import com.geeui.voice.bus.bundledFace
+import com.geeui.voice.bus.debugLaunch
 import com.geeui.voice.bus.standAtAttention
 import com.geeui.voiceemo.Emotion
 import com.geeui.voiceemo.HostConfig
 import com.geeui.voiceemo.SdkMap
-import java.io.File
 
 /** 480×480 round screen. The top 30 px is the robot battery strip: draw only, never a control. */
 class VoiceActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
-    private lateinit var status: TextView
-    private lateinit var caption: TextView
-    private lateinit var mic: Switch
     private lateinit var bus: AidlBus
+    private var debug = false
     private var painting = false
+    private var status: TextView? = null
+    private var caption: TextView? = null
+    private var mic: Switch? = null
+    private var faceView: TextureView? = null
+    private var facePlayer: MediaPlayer? = null
+    private var faceSurface: Surface? = null
+    private var pendingFace: String? = null
+    private var shownFace = ""
+    private var menu: ScrollView? = null
+    private val editors = linkedMapOf<String, EditText>()
     private val refresh = object : Runnable {
         override fun run() {
-            status.text = when {
-                !VoiceHud.mic && VoiceHud.mode == "idle" -> "VEILLE"
-                VoiceHud.mode == "hear" -> "ÉCOUTE"
-                VoiceHud.mode == "think" -> "CALCUL"
-                VoiceHud.mode == "talk" -> "PAROLE"
-                VoiceHud.mic -> "MICRO OUVERT"
-                else -> "VEILLE"
-            }
-            caption.text = buildString {
-                if (VoiceHud.heard.isNotBlank()) append("« ").append(VoiceHud.heard).append(" »")
-                if (VoiceHud.answer.isNotBlank()) {
-                    if (isNotEmpty()) append("\n")
-                    append(VoiceHud.answer)
-                }
-                if (isEmpty()) append(VoiceHud.line)
-                if (VoiceHud.diag.isNotBlank()) {
-                    if (isNotEmpty()) append("\n")
-                    append(VoiceHud.diag)
-                }
-            }
-            if (mic.isChecked != VoiceHud.mic) {
-                painting = true
-                mic.isChecked = VoiceHud.mic
-                painting = false
-            }
+            if (debug) paintDebug()
+            val face = VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
+            if (face.isNotBlank() && face != shownFace) playFace(face)
             handler.postDelayed(this, 120)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        debug = debugLaunch(intent.getStringExtra("mode"), intent.getStringExtra("debug"))
         bus = AidlBus(this)
+        val screen = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        faceView = TextureView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            )
+            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, w: Int, h: Int) {
+                    faceSurface?.release()
+                    faceSurface = Surface(surface)
+                    pendingFace?.let { startFace(it) }
+                }
+
+                override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, w: Int, h: Int) = Unit
+
+                override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean {
+                    releaseFace()
+                    return true
+                }
+
+                override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
+            }
+        }
+        screen.addView(faceView)
+        if (debug) screen.addView(debugPanel())
+        menu = settingsMenu()
+        screen.addView(menuBand())
+        screen.addView(menu)
+        setContentView(screen)
+        if (debug) {
+            VoiceHud.line = "micro coupé"
+        } else {
+            if (VoiceHud.face.isBlank()) VoiceHud.face = IDLE_FACE
+            askMic()
+        }
+    }
+
+    private fun menuBand(): View {
+        return View(this).apply {
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                78,
+                Gravity.BOTTOM,
+            )
+            setOnClickListener { openMenu() }
+        }
+    }
+
+    private fun settingsMenu(): ScrollView {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(36, 24, 36, 24)
+        }
+        box.addView(label("Réglages", 18f, Color.WHITE))
+        for ((key, _) in VoiceSettings.fields) {
+            box.addView(label(VoiceSettings.label(key), 12f, Color.rgb(180, 180, 180)))
+            val edit = EditText(this).apply {
+                setTextColor(Color.WHITE)
+                setSingleLine(true)
+                textSize = 13f
+                setBackgroundColor(Color.rgb(32, 32, 32))
+                setPadding(12, 6, 12, 6)
+            }
+            editors[key] = edit
+            box.addView(edit)
+        }
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                56,
+            ).apply { topMargin = 12 }
+        }
+        row.addView(testButton("Sauvegarder") { saveMenu() })
+        row.addView(testButton("Quitter") { closeMenu() })
+        box.addView(row)
+        return ScrollView(this).apply {
+            setBackgroundColor(Color.argb(235, 0, 0, 0))
+            isClickable = true
+            visibility = View.GONE
+            addView(box)
+        }
+    }
+
+    private fun openMenu() {
+        val values = VoiceSettings.effective(this, intent)
+        for ((key, edit) in editors) edit.setText(values[key].orEmpty())
+        menu?.visibility = View.VISIBLE
+    }
+
+    private fun closeMenu() {
+        menu?.visibility = View.GONE
+    }
+
+    private fun saveMenu() {
+        VoiceSettings.save(this, editors.mapValues { it.value.text.toString() })
+        closeMenu()
+        if (VoiceHud.mic) send(VoiceService.ACTION_START)
+    }
+
+    private fun paintDebug() {
+        status?.text = when {
+            !VoiceHud.mic && VoiceHud.mode == "idle" -> "VEILLE"
+            VoiceHud.mode == "hear" -> "ÉCOUTE"
+            VoiceHud.mode == "think" -> "CALCUL"
+            VoiceHud.mode == "talk" -> "PAROLE"
+            VoiceHud.mic -> "MICRO OUVERT"
+            else -> "VEILLE"
+        }
+        caption?.text = buildString {
+            if (VoiceHud.heard.isNotBlank()) append("« ").append(VoiceHud.heard).append(" »")
+            if (VoiceHud.answer.isNotBlank()) {
+                if (isNotEmpty()) append("\n")
+                append(VoiceHud.answer)
+            }
+            if (isEmpty()) append(VoiceHud.line)
+            if (VoiceHud.diag.isNotBlank()) {
+                if (isNotEmpty()) append("\n")
+                append(VoiceHud.diag)
+            }
+        }
+        val sw = mic
+        if (sw != null && sw.isChecked != VoiceHud.mic) {
+            painting = true
+            sw.isChecked = VoiceHud.mic
+            painting = false
+        }
+    }
+
+    private fun debugPanel(): LinearLayout {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(Color.TRANSPARENT)
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(0, 30, 0, 72)
             isClickable = false
@@ -122,8 +249,7 @@ class VoiceActivity : Activity() {
         root.addView(caption)
         root.addView(mic)
         root.addView(tests)
-        setContentView(root)
-        VoiceHud.line = "micro coupé"
+        return root
     }
 
     private fun label(text: String, size: Float, color: Int): TextView {
@@ -162,7 +288,7 @@ class VoiceActivity : Activity() {
         if (!busReady()) return
         val pose = SdkMap.pose(Emotion.SAD)
         playCosy("sad", "Je suis triste.") {
-            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 3, null)
+            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 3, null, pose.faceId)
         }
     }
 
@@ -171,7 +297,7 @@ class VoiceActivity : Activity() {
         if (!busReady()) return
         val pose = SdkMap.pose(Emotion.HAPPY)
         playCosy("happy", "Je suis content.") {
-            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 6, 11)
+            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 6, 11, pose.faceId)
         }
     }
 
@@ -181,11 +307,12 @@ class VoiceActivity : Activity() {
         return false
     }
 
-    private fun poseBody(cmd: Int, step: Int, speedMs: Int, angle: Int, color: Int, motion: Int?) {
+    private fun poseBody(cmd: Int, step: Int, speedMs: Int, angle: Int, color: Int, motion: Int?, faceId: String) {
+        bus.showFace(faceId)
         bus.ears(cmd, step, speedMs, angle)
         bus.antennaLight(true, color)
         if (motion != null) bus.controlMotion(motion, 1, 3)
-        VoiceHud.diag = "oreilles $cmd lumière $color pied ${motion ?: "-"}"
+        VoiceHud.diag = "visage $faceId oreilles $cmd lumière $color pied ${motion ?: "-"}"
     }
 
     private fun playCosy(emotion: String, line: String, onStart: () -> Unit) {
@@ -255,6 +382,47 @@ class VoiceActivity : Activity() {
             if (ticket != restTicket) return@postDelayed
             standDown()
         }, PoseTiming.REST_AFTER_MS)
+    }
+
+    private fun playFace(id: String) {
+        shownFace = id
+        val view = faceView
+        if (view != null && view.isAvailable && faceSurface != null) startFace(id)
+        else pendingFace = id
+    }
+
+    /** TextureView, not VideoView: a SurfaceView covers the controls, and VideoView pauses when speech starts. */
+    private fun startFace(id: String) {
+        pendingFace = null
+        val surface = faceSurface ?: return
+        facePlayer?.release()
+        val mp = MediaPlayer()
+        facePlayer = mp
+        try {
+            assets.openFd(bundledFace(id)).use { afd ->
+                mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            }
+            mp.setSurface(surface)
+            mp.setVolume(0f, 0f)
+            mp.isLooping = true
+            mp.setOnErrorListener { _, what, extra ->
+                VoiceHud.diag = "visage $id $what/$extra"
+                true
+            }
+            mp.prepare()
+            mp.start()
+        } catch (e: Exception) {
+            VoiceHud.diag = "visage $id ${e.javaClass.simpleName}"
+            mp.release()
+            if (facePlayer === mp) facePlayer = null
+        }
+    }
+
+    private fun releaseFace() {
+        facePlayer?.release()
+        facePlayer = null
+        faceSurface?.release()
+        faceSurface = null
     }
 
     private fun standDown() {
@@ -328,14 +496,20 @@ class VoiceActivity : Activity() {
     }
 
     private fun send(action: String) {
-        val intent = Intent(this, VoiceService::class.java).setAction(action)
-        intent.putExtras(getIntent())
-        startForegroundService(intent)
+        val next = Intent(this, VoiceService::class.java).setAction(action)
+        next.putExtras(getIntent())
+        if (action == VoiceService.ACTION_START) {
+            for ((key, value) in VoiceSettings.effective(this, getIntent())) {
+                next.putExtra(VoiceSettings.extra(key), value)
+            }
+        }
+        startForegroundService(next)
     }
 
     override fun onDestroy() {
         sample?.release()
         sample = null
+        releaseFace()
         super.onDestroy()
     }
 

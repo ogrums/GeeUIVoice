@@ -16,6 +16,7 @@ class HostConfigTest {
         assertEquals("af_heart", cfg.kokoroVoiceEn)
         assertFalse(cfg.cosyEnabled)
         assertEquals("Fun-CosyVoice3-0.5B-2512", cfg.cosyVoiceModel)
+        assertEquals("Whisper-Small", HostConfig.STT)
     }
 
     @Test

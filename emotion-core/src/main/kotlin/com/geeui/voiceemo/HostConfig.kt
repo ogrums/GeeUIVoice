@@ -25,7 +25,7 @@ data class HostConfig(
         const val VOICE_EN = "af_heart"
         const val COSY = "Fun-CosyVoice3-0.5B-2512"
         const val AUDIO = "emotion2vec"
-        const val STT = "whisper-small"
+        const val STT = "Whisper-Small"
         const val CHAT = "gemma4e-flash-e2b-FLM"
 
         fun orDefault(raw: String?, fallback: String): String {
