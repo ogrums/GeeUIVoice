@@ -28,6 +28,7 @@ import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
 import com.geeui.voice.bus.IDLE_FACE
 import com.geeui.voice.bus.PoseTiming
+import com.geeui.voice.bus.applyPose
 import com.geeui.voice.bus.bundledFace
 import com.geeui.voice.bus.debugLaunch
 import com.geeui.voice.bus.standAtAttention
@@ -233,22 +234,22 @@ class VoiceActivity : Activity() {
             pad.setMargins(72, 8, 72, 0)
             layoutParams = pad
         }
-        val tests = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            val pad = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 52)
-            pad.setMargins(48, 8, 48, 0)
-            layoutParams = pad
-        }
-        tests.addView(testButton("WAV") { playSample("olivier.wav") })
-        tests.addView(testButton("Triste") { sad() })
-        tests.addView(testButton("Joyeux") { happy() })
         root.addView(title)
         root.addView(status)
         root.addView(scan)
         root.addView(caption)
         root.addView(mic)
-        root.addView(tests)
+        root.addView(testRow(
+            "Joyeux" to { emote(Emotion.HAPPY, "Je suis content.") },
+            "Triste" to { emote(Emotion.SAD, "Je suis triste.") },
+            "Colère" to { emote(Emotion.ANGRY, "Je suis en colère.") },
+        ))
+        root.addView(testRow(
+            "Peur" to { emote(Emotion.FEAR, "J'ai peur.") },
+            "Surprise" to { emote(Emotion.SURPRISE, "Oh, quelle surprise.") },
+            "Calme" to { emote(Emotion.NEUTRAL, "Je reste calme.") },
+        ))
+        root.addView(testRow("WAV" to { playSample("olivier.wav") }))
         return root
     }
 
@@ -283,21 +284,24 @@ class VoiceActivity : Activity() {
         }
     }
 
-    /** Sad pose starts when the clip starts: blue light, ears left. */
-    private fun sad() {
-        if (!busReady()) return
-        val pose = SdkMap.pose(Emotion.SAD)
-        playCosy("sad", "Je suis triste.") {
-            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 3, null, pose.faceId)
+    private fun testRow(vararg buttons: Pair<String, () -> Unit>): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            val pad = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 52)
+            pad.setMargins(24, 4, 24, 0)
+            layoutParams = pad
+            buttons.forEach { (label, click) -> addView(testButton(label, click)) }
         }
     }
 
-    /** Happy pose starts with the clip, plus gesture 11, the left crossed foot. */
-    private fun happy() {
+    /** Same pose the spoken turn uses. The clip and the body start together. */
+    private fun emote(emotion: Emotion, line: String) {
         if (!busReady()) return
-        val pose = SdkMap.pose(Emotion.HAPPY)
-        playCosy("happy", "Je suis content.") {
-            poseBody(pose.earCmd, pose.earStep, pose.earSpeedMs, pose.earAngle, 6, 11, pose.faceId)
+        val pose = SdkMap.pose(emotion)
+        playCosy(emotion.name.lowercase(), line) {
+            bus.applyPose(pose)
+            VoiceHud.diag = "visage ${pose.faceId} geste ${pose.action ?: "-"} son ${pose.sound ?: "-"}"
         }
     }
 
@@ -305,14 +309,6 @@ class VoiceActivity : Activity() {
         if (bus.connected()) return true
         VoiceHud.line = "bus pas prêt"
         return false
-    }
-
-    private fun poseBody(cmd: Int, step: Int, speedMs: Int, angle: Int, color: Int, motion: Int?, faceId: String) {
-        bus.showFace(faceId)
-        bus.ears(cmd, step, speedMs, angle)
-        bus.antennaLight(true, color)
-        if (motion != null) bus.controlMotion(motion, 1, 3)
-        VoiceHud.diag = "visage $faceId oreilles $cmd lumière $color pied ${motion ?: "-"}"
     }
 
     private fun playCosy(emotion: String, line: String, onStart: () -> Unit) {
