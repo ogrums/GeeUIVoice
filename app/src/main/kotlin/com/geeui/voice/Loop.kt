@@ -75,17 +75,21 @@ class VoiceLoop(
             sidecarOk.get()
         },
         paint = { subject ->
-            val prompt = try {
-                client.imagePrompt(subject)
-            } catch (_: Exception) {
-                subject
-            }
-            client.image(prompt.ifBlank { subject }, imageModel.ifBlank { LemonadeClient.IMAGE_MODEL })
+            client.image(subject, imageModel.ifBlank { LemonadeClient.IMAGE_MODEL })
+        },
+        onDrawing = { subject ->
+            VoiceHud.drawing = true
+            VoiceHud.line = "Je dessine $subject"
+            VoiceHud.diag = "POST /images/generations"
         },
         onPicture = { png ->
             VoiceHud.picture = png
             VoiceHud.pictureUntil = System.currentTimeMillis() + VoiceHud.PICTURE_MS
             VoiceHud.diag = "image ${png.size}"
+        },
+        onDrawn = { ok ->
+            VoiceHud.drawing = false
+            if (!ok) VoiceHud.diag = "image refusée"
         },
     )
     private val live = LiveTurn(vad, LemonadeStt(client), tts, session)

@@ -17,6 +17,8 @@ object VoiceHud {
     /** PNG from Lemonade. Shown until [pictureUntil], then the idle face restarts. */
     @Volatile var picture: ByteArray? = null
     @Volatile var pictureUntil: Long = 0L
+    /** True from the moment a draw phrase is heard until the image call returns. */
+    @Volatile var drawing: Boolean = false
 
     const val PICTURE_MS = 7_000L
 }

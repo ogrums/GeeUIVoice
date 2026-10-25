@@ -16,6 +16,8 @@ class DrawAskTest {
     fun frenchDrawKeepsTheSubject() {
         assertEquals("un chat rouge", DrawAsk.subject("Dessine moi un chat rouge"))
         assertEquals("un soleil", DrawAsk.subject("dessine-moi un soleil."))
+        assertEquals("un chat", DrawAsk.subject("peux-tu dessiner un chat"))
+        assertEquals("un chat", DrawAsk.subject("s'il te plaît dessinez-moi un chat"))
         assertNull(DrawAsk.subject("bonjour"))
         assertNull(DrawAsk.subject("dessine"))
     }

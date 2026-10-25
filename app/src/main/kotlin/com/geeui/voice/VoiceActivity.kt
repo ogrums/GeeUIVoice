@@ -49,6 +49,7 @@ class VoiceActivity : Activity() {
     private var mic: Switch? = null
     private var faceView: TextureView? = null
     private var pictureView: ImageView? = null
+    private var drawLine: TextView? = null
     private var shownPicture: ByteArray? = null
     private var facePlayer: MediaPlayer? = null
     private var faceSurface: Surface? = null
@@ -60,6 +61,12 @@ class VoiceActivity : Activity() {
         override fun run() {
             if (debug) paintDebug()
             syncPicture()
+            val note = drawLine
+            if (note != null) {
+                val show = VoiceHud.drawing || VoiceHud.diag == "image refusée"
+                note.visibility = if (show) View.VISIBLE else View.GONE
+                if (show) note.text = VoiceHud.line.ifBlank { VoiceHud.diag }
+            }
             if (shownPicture == null) {
                 val face = VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
                 if (face.isNotBlank() && face != shownFace) playFace(face)
@@ -105,6 +112,20 @@ class VoiceActivity : Activity() {
             )
         }
         screen.addView(pictureView)
+        drawLine = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.argb(180, 0, 0, 0))
+            visibility = View.GONE
+            setPadding(16, 8, 16, 8)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM,
+            ).apply { bottomMargin = 90 }
+        }
+        screen.addView(drawLine)
         if (debug) screen.addView(debugPanel())
         menu = settingsMenu()
         screen.addView(menuBand())

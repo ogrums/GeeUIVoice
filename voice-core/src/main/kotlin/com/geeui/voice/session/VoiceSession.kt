@@ -38,6 +38,8 @@ class VoiceSession(
     private val pause: (Long) -> Unit = { Thread.sleep(it) },
     private val paint: ((String) -> ByteArray)? = null,
     private val onPicture: ((ByteArray) -> Unit)? = null,
+    private val onDrawing: (String) -> Unit = {},
+    private val onDrawn: (Boolean) -> Unit = {},
 ) {
     private val skills = SkillRouter(bus, charging)
     var state: Dialogue = Dialogue.Idle
@@ -51,18 +53,16 @@ class VoiceSession(
             plan?.engine = TtsEngine.KOKORO
             plan?.emotion = "neutral"
             tts.whenAudible(null)
-            val say = "Je te le dessine."
-            tts.speak(say, language)
+            onDrawing(subject)
             val png = try {
                 paint?.invoke(subject) ?: ByteArray(0)
             } catch (_: Exception) {
                 ByteArray(0)
             }
-            if (png.isEmpty()) {
-                tts.speak("Je n'y arrive pas.", language)
-            } else {
-                onPicture?.invoke(png)
-            }
+            val say = if (png.isEmpty()) "Je n'y arrive pas." else "Je te le dessine."
+            if (png.isNotEmpty()) onPicture?.invoke(png)
+            onDrawn(png.isNotEmpty())
+            tts.speak(say, language)
             state = Dialogue.Idle
             return say
         }
