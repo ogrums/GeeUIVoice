@@ -103,9 +103,10 @@ class LemonadeClient(
         return line.take(300).ifBlank { subject }
     }
 
-    /** PNG bytes from Lemonade SD-Turbo. Empty when the server has no image model. */
+    /** PNG bytes. Steps stay on the model default: 4 for SD-Turbo, 8 for Anima-Turbo. */
     fun image(prompt: String, model: String = IMAGE_MODEL): ByteArray {
-        val body = """{"model":${json(model)},"prompt":${json(prompt)},"size":"512x512","steps":4,"n":1,"response_format":"b64_json"}"""
+        val clean = prompt.replace(Regex("\\s+"), " ").trim()
+        val body = """{"model":${json(model)},"prompt":${json(clean)},"size":"512x512","response_format":"b64_json"}"""
         val raw = post("/images/generations", "application/json", body.toByteArray())
         if (raw.startsWith("ERR ")) return ByteArray(0)
         return decodeImageBody(raw)
