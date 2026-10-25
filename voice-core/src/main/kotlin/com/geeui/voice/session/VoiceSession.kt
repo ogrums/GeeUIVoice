@@ -54,15 +54,22 @@ class VoiceSession(
             plan?.emotion = "neutral"
             tts.whenAudible(null)
             onDrawing(subject)
-            val png = try {
-                paint?.invoke(subject) ?: ByteArray(0)
-            } catch (_: Exception) {
-                ByteArray(0)
-            }
-            val say = if (png.isEmpty()) "Je n'y arrive pas." else "Je te le dessine."
-            if (png.isNotEmpty()) onPicture?.invoke(png)
-            onDrawn(png.isNotEmpty())
+            val say = "Je te le dessine."
             tts.speak(say, language)
+            val painter = paint
+            if (painter == null) {
+                state = Dialogue.Idle
+                return say
+            }
+            Thread {
+                val png = try {
+                    painter(subject)
+                } catch (_: Exception) {
+                    ByteArray(0)
+                }
+                if (png.isNotEmpty()) onPicture?.invoke(png)
+                onDrawn(png.isNotEmpty())
+            }.apply { name = "geeui-draw"; isDaemon = true }.start()
             state = Dialogue.Idle
             return say
         }
