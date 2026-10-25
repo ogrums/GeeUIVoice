@@ -46,6 +46,7 @@ class VoiceLoop(
     audio: Context,
     private val sidecar: String = com.geeui.voiceemo.HostConfig.SIDECAR,
     cosyModel: String = CosyTts.MODEL,
+    imageModel: String = com.geeui.voice.engine.LemonadeClient.IMAGE_MODEL,
 ) {
     private val client = LemonadeClient(
         baseUrl,
@@ -79,7 +80,7 @@ class VoiceLoop(
             } catch (_: Exception) {
                 subject
             }
-            client.image(prompt.ifBlank { subject })
+            client.image(prompt.ifBlank { subject }, imageModel.ifBlank { LemonadeClient.IMAGE_MODEL })
         },
         onPicture = { png ->
             VoiceHud.picture = png

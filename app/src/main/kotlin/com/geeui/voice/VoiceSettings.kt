@@ -15,6 +15,7 @@ object VoiceSettings {
         "chat" to HostConfig.CHAT,
         "tts" to HostConfig.KOKORO,
         "cosy" to HostConfig.COSY,
+        "image" to HostConfig.IMAGE,
     )
 
     private val labels = mapOf(
@@ -24,6 +25,7 @@ object VoiceSettings {
         "chat" to "Chat",
         "tts" to "TTS",
         "cosy" to "Modèle Cosy",
+        "image" to "Image",
     )
 
     private val extras = mapOf(
@@ -33,6 +35,7 @@ object VoiceSettings {
         "chat" to "chat",
         "tts" to "tts",
         "cosy" to "cosy_model",
+        "image" to "image",
     )
 
     fun label(key: String): String = labels.getValue(key)

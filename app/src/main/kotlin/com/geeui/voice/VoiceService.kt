@@ -17,7 +17,8 @@ import com.geeui.voice.audio.VadConfig
  *   -e tts kokoro \
  *   -e voice ff_siwis \
  *   -e sidecar http://nimbus:13306 \
- *   -e cosy_model Fun-CosyVoice3-0.5B-2512
+ *   -e cosy_model Fun-CosyVoice3-0.5B-2512 \
+ *   -e image SD-Turbo
  * Kokoro stays on Lemonade. A short non-neutral line uses the sidecar when /health answered.
  * Une nouvelle commande START réapplique les extras présents. Un extra absent ne les efface pas.
  */
@@ -31,6 +32,7 @@ class VoiceService : Service() {
     private var prompt = com.geeui.voice.engine.LemonadeClient.SPOKEN
     private var sidecar = com.geeui.voiceemo.HostConfig.SIDECAR
     private var cosyModel = com.geeui.voice.engine.CosyTts.MODEL
+    private var image = com.geeui.voiceemo.HostConfig.IMAGE
     private val vad = mutableMapOf<String, String?>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -52,11 +54,12 @@ class VoiceService : Service() {
                 sidecar = com.geeui.voiceemo.HostConfig.orDefault(it, com.geeui.voiceemo.HostConfig.SIDECAR)
             }
             intent.getStringExtra("cosy_model")?.let { cosyModel = it }
+            intent.getStringExtra("image")?.let { if (it.isNotBlank()) image = it }
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
-                sidecar, cosyModel,
+                sidecar, cosyModel, image,
             )
             loop?.start()
         }
