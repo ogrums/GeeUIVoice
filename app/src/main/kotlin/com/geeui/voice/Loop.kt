@@ -73,6 +73,19 @@ class VoiceLoop(
             if (sidecar.isNotBlank() && now - sidecarOk.get() > 5_000L) pingSidecar(sidecar)
             sidecarOk.get()
         },
+        paint = { subject ->
+            val prompt = try {
+                client.imagePrompt(subject)
+            } catch (_: Exception) {
+                subject
+            }
+            client.image(prompt.ifBlank { subject })
+        },
+        onPicture = { png ->
+            VoiceHud.picture = png
+            VoiceHud.pictureUntil = System.currentTimeMillis() + VoiceHud.PICTURE_MS
+            VoiceHud.diag = "image ${png.size}"
+        },
     )
     private val live = LiveTurn(vad, LemonadeStt(client), tts, session)
     private val turns = Executors.newSingleThreadExecutor()

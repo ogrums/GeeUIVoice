@@ -14,6 +14,7 @@ import com.geeui.voiceemo.Affect
 import com.geeui.voiceemo.EmotionPipeline
 import com.geeui.voiceemo.EmotionTurn
 import com.geeui.voiceemo.Mood
+import com.geeui.voiceemo.TtsEngine
 import com.geeui.voiceemo.TextAffect
 
 enum class Dialogue { Idle, Listening, Speaking }
@@ -35,6 +36,8 @@ class VoiceSession(
     private val sidecarOkAt: () -> Long = { 0L },
     private val plan: TtsPlan? = null,
     private val pause: (Long) -> Unit = { Thread.sleep(it) },
+    private val paint: ((String) -> ByteArray)? = null,
+    private val onPicture: ((ByteArray) -> Unit)? = null,
 ) {
     private val skills = SkillRouter(bus, charging)
     var state: Dialogue = Dialogue.Idle
@@ -42,6 +45,27 @@ class VoiceSession(
 
     fun onUserText(text: String): String {
         state = Dialogue.Listening
+        val subject = if (paint != null) DrawAsk.subject(text) else null
+        if (subject != null) {
+            state = Dialogue.Speaking
+            plan?.engine = TtsEngine.KOKORO
+            plan?.emotion = "neutral"
+            tts.whenAudible(null)
+            val say = "Je te le dessine."
+            tts.speak(say, language)
+            val png = try {
+                paint?.invoke(subject) ?: ByteArray(0)
+            } catch (_: Exception) {
+                ByteArray(0)
+            }
+            if (png.isEmpty()) {
+                tts.speak("Je n'y arrive pas.", language)
+            } else {
+                onPicture?.invoke(png)
+            }
+            state = Dialogue.Idle
+            return say
+        }
         val hit = SkillLexicon.match(text)
         if (hit != null && skills.handle(hit)) {
             state = Dialogue.Idle

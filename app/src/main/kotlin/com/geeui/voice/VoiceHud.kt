@@ -14,4 +14,9 @@ object VoiceHud {
     @Volatile var mic: Boolean = false
     /** Face id to play, h0006 and the others. Empty until a pose starts. */
     @Volatile var face: String = ""
+    /** PNG from Lemonade. Shown until [pictureUntil], then the idle face restarts. */
+    @Volatile var picture: ByteArray? = null
+    @Volatile var pictureUntil: Long = 0L
+
+    const val PICTURE_MS = 7_000L
 }

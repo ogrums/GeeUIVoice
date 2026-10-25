@@ -60,7 +60,7 @@ class LemonadeClient(
 
     private fun isChat(id: String): Boolean {
         val n = id.lowercase()
-        return !n.contains("whisper") && !n.contains("kokoro") && !n.contains("tts") && !isTts(id)
+        return !n.contains("whisper") && !n.contains("kokoro") && !isTts(id) && !isImage(id)
     }
 
     /** TTS model from `-e tts`. Unknown id falls back to kokoro, or the first speech model. */
@@ -82,6 +82,35 @@ class LemonadeClient(
         val n = id.lowercase()
         return n.contains("kokoro") || n.contains("piper") || n.contains("tts") || n.contains("speech")
     }
+
+    private fun isImage(id: String): Boolean {
+        val n = id.lowercase()
+        return n.contains("sd-") || n.contains("sdxl") || n.contains("stable") || n.contains("turbo")
+    }
+
+    /** One English line for SD-Turbo. The spoken system prompt is not used. */
+    fun imagePrompt(subject: String): String {
+        if (resolveChat().isBlank()) return subject
+        val sys = "Reply with one English text-to-image prompt. No quotes, no explanation."
+        val body = """{"model":"${resolveChat()}","messages":[{"role":"system","content":${json(sys)}},{"role":"user","content":${json(subject)}}]}"""
+        val raw = post("/chat/completions", "application/json", body.toByteArray())
+        if (raw.startsWith("ERR ")) return subject
+        val marker = "\"content\":"
+        val at = raw.indexOf(marker)
+        if (at < 0) return subject
+        val text = contentText(raw.substring(at + marker.length)) ?: return subject
+        val line = text.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.trim('"') ?: subject
+        return line.take(300).ifBlank { subject }
+    }
+
+    /** PNG bytes from Lemonade SD-Turbo. Empty when the server has no image model. */
+    fun image(prompt: String, model: String = IMAGE_MODEL): ByteArray {
+        val body = """{"model":${json(model)},"prompt":${json(prompt)},"size":"512x512","steps":4,"n":1,"response_format":"b64_json"}"""
+        val raw = post("/images/generations", "application/json", body.toByteArray())
+        if (raw.startsWith("ERR ")) return ByteArray(0)
+        return decodeImageBody(raw)
+    }
+
     fun chat(userText: String): String {
         val body = messages(userText, stream = false)
         val raw = post("/chat/completions", "application/json", body.toByteArray())
@@ -220,6 +249,7 @@ class LemonadeClient(
     companion object {
         const val FALLBACK_STT = "Whisper-Small"
         const val FALLBACK_TTS = "kokoro-v1"
+        const val IMAGE_MODEL = "SD-Turbo"
         const val SPOKEN = "Tu es la voix d'un petit robot. Réponds en français parlé, en une ou deux phrases courtes. Pas de markdown, pas d'étoiles, pas de listes, pas de titres."
     }
 
@@ -292,4 +322,36 @@ class LemonadeTts(
 class LemonadeStt(private val client: LemonadeClient) : SpeechToText {
     override fun transcribe(pcm16le: ByteArray, sampleRate: Int): String =
         client.transcribe(pcm16le)
+}
+
+/** Pull the first b64_json value out of a Lemonade image response. */
+internal fun decodeImageBody(raw: String): ByteArray {
+    val key = "\"b64_json\":"
+    val at = raw.indexOf(key)
+    if (at < 0) return ByteArray(0)
+    val b64 = unquoteJson(raw.substring(at + key.length).trimStart())
+    if (b64.isEmpty()) return ByteArray(0)
+    return try {
+        java.util.Base64.getMimeDecoder().decode(b64)
+    } catch (_: IllegalArgumentException) {
+        ByteArray(0)
+    }
+}
+
+private fun unquoteJson(raw: String): String {
+    if (raw.isEmpty() || raw[0] != '"') return ""
+    val out = StringBuilder()
+    var i = 1
+    while (i < raw.length) {
+        val c = raw[i]
+        if (c == '\\' && i + 1 < raw.length) {
+            out.append(raw[i + 1])
+            i += 2
+            continue
+        }
+        if (c == '"') break
+        out.append(c)
+        i++
+    }
+    return out.toString()
 }

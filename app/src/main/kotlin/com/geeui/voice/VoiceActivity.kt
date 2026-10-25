@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -20,6 +21,7 @@ import android.widget.CompoundButton
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
@@ -46,6 +48,8 @@ class VoiceActivity : Activity() {
     private var caption: TextView? = null
     private var mic: Switch? = null
     private var faceView: TextureView? = null
+    private var pictureView: ImageView? = null
+    private var shownPicture: ByteArray? = null
     private var facePlayer: MediaPlayer? = null
     private var faceSurface: Surface? = null
     private var pendingFace: String? = null
@@ -55,8 +59,11 @@ class VoiceActivity : Activity() {
     private val refresh = object : Runnable {
         override fun run() {
             if (debug) paintDebug()
-            val face = VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
-            if (face.isNotBlank() && face != shownFace) playFace(face)
+            syncPicture()
+            if (shownPicture == null) {
+                val face = VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
+                if (face.isNotBlank() && face != shownFace) playFace(face)
+            }
             handler.postDelayed(this, 120)
         }
     }
@@ -89,6 +96,15 @@ class VoiceActivity : Activity() {
             }
         }
         screen.addView(faceView)
+        pictureView = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            )
+        }
+        screen.addView(pictureView)
         if (debug) screen.addView(debugPanel())
         menu = settingsMenu()
         screen.addView(menuBand())
@@ -378,6 +394,40 @@ class VoiceActivity : Activity() {
             if (ticket != restTicket) return@postDelayed
             standDown()
         }, PoseTiming.REST_AFTER_MS)
+    }
+
+    private fun syncPicture() {
+        val png = VoiceHud.picture
+        val showing = png != null && png.isNotEmpty() && System.currentTimeMillis() < VoiceHud.pictureUntil
+        if (showing && png != null) {
+            if (png !== shownPicture) showPicture(png)
+            return
+        }
+        if (shownPicture != null) hidePicture()
+    }
+
+    private fun showPicture(png: ByteArray) {
+        val bmp = BitmapFactory.decodeByteArray(png, 0, png.size) ?: return
+        shownPicture = png
+        facePlayer?.release()
+        facePlayer = null
+        shownFace = ""
+        pictureView?.setImageBitmap(bmp)
+        pictureView?.visibility = View.VISIBLE
+    }
+
+    /** The drawing stays 7 seconds, then the idle face loop starts again. */
+    private fun hidePicture() {
+        val gone = shownPicture
+        pictureView?.setImageDrawable(null)
+        pictureView?.visibility = View.GONE
+        shownPicture = null
+        if (VoiceHud.picture === gone) {
+            VoiceHud.picture = null
+            VoiceHud.pictureUntil = 0L
+        }
+        VoiceHud.face = IDLE_FACE
+        playFace(IDLE_FACE)
     }
 
     private fun playFace(id: String) {
