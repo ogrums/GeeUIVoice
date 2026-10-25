@@ -68,7 +68,10 @@ class VoiceActivity : Activity() {
                 if (show) note.text = VoiceHud.line.ifBlank { VoiceHud.diag }
             }
             if (shownPicture == null) {
-                val face = VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
+                val face = when {
+                    VoiceHud.drawing -> VoiceHud.THINK_FACE
+                    else -> VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
+                }
                 if (face.isNotBlank() && face != shownFace) playFace(face)
             }
             handler.postDelayed(this, 120)

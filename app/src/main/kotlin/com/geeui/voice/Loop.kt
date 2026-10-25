@@ -79,6 +79,10 @@ class VoiceLoop(
         },
         onDrawing = { subject ->
             VoiceHud.drawing = true
+            VoiceHud.drawUntil = System.currentTimeMillis() + VoiceHud.DRAW_HOLD_MS
+            VoiceHud.picture = null
+            VoiceHud.pictureUntil = 0L
+            VoiceHud.face = VoiceHud.THINK_FACE
             VoiceHud.line = "Je dessine $subject"
             VoiceHud.diag = "POST /images/generations"
         },
@@ -89,7 +93,17 @@ class VoiceLoop(
         },
         onDrawn = { ok ->
             VoiceHud.drawing = false
-            if (!ok) VoiceHud.diag = "image refusée"
+            if (!ok) {
+                VoiceHud.diag = "image refusée"
+                VoiceHud.face = com.geeui.voice.bus.IDLE_FACE
+            }
+        },
+        drawHeld = { System.currentTimeMillis() < VoiceHud.drawUntil },
+        drawBusy = { VoiceHud.drawing },
+        releaseDraw = {
+            VoiceHud.drawUntil = 0L
+            VoiceHud.drawing = false
+            VoiceHud.face = com.geeui.voice.bus.IDLE_FACE
         },
     )
     private val live = LiveTurn(vad, LemonadeStt(client), tts, session)

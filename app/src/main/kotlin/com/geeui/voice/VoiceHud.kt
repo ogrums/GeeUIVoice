@@ -19,6 +19,10 @@ object VoiceHud {
     @Volatile var pictureUntil: Long = 0L
     /** True from the moment a draw phrase is heard until the image call returns. */
     @Volatile var drawing: Boolean = false
+    /** Follow-up sentences stay images until this clock time. */
+    @Volatile var drawUntil: Long = 0L
 
     const val PICTURE_MS = 7_000L
+    const val DRAW_HOLD_MS = 10 * 60 * 1000L
+    const val THINK_FACE = "hdraw"
 }

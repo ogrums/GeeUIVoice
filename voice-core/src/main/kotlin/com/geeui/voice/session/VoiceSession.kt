@@ -40,6 +40,11 @@ class VoiceSession(
     private val onPicture: ((ByteArray) -> Unit)? = null,
     private val onDrawing: (String) -> Unit = {},
     private val onDrawn: (Boolean) -> Unit = {},
+    /** True for a few minutes after a draw, so the next sentence stays an image. */
+    private val drawHeld: () -> Boolean = { false },
+    /** True while Lemonade is still painting. Noise must not fall through to chat. */
+    private val drawBusy: () -> Boolean = { false },
+    private val releaseDraw: () -> Unit = {},
 ) {
     private val skills = SkillRouter(bus, charging)
     var state: Dialogue = Dialogue.Idle
@@ -47,36 +52,24 @@ class VoiceSession(
 
     fun onUserText(text: String): String {
         state = Dialogue.Listening
-        val subject = if (paint != null) DrawAsk.subject(text) else null
-        if (subject != null) {
-            state = Dialogue.Speaking
-            plan?.engine = TtsEngine.KOKORO
-            plan?.emotion = "neutral"
-            tts.whenAudible(null)
-            onDrawing(subject)
-            val say = "Je te le dessine."
-            tts.speak(say, language)
-            val painter = paint
-            if (painter == null) {
-                state = Dialogue.Idle
-                return say
-            }
-            Thread {
-                val png = try {
-                    painter(subject)
-                } catch (_: Exception) {
-                    ByteArray(0)
-                }
-                if (png.isNotEmpty()) onPicture?.invoke(png)
-                onDrawn(png.isNotEmpty())
-            }.apply { name = "geeui-draw"; isDaemon = true }.start()
-            state = Dialogue.Idle
-            return say
+        val explicit = if (paint != null) DrawAsk.subject(text) else null
+        if (paint != null && DrawAsk.leave(text)) {
+            releaseDraw()
+        } else if (explicit != null) {
+            return paintOf(explicit)
         }
         val hit = SkillLexicon.match(text)
         if (hit != null && skills.handle(hit)) {
             state = Dialogue.Idle
             return ""
+        }
+        if (paint != null && drawBusy()) {
+            state = Dialogue.Idle
+            return ""
+        }
+        if (paint != null && drawHeld()) {
+            val again = text.trim().trimEnd('.', '?', '!', ',')
+            if (again.length >= 3) return paintOf(again)
         }
         state = Dialogue.Speaking
         val answer = StringBuilder()
@@ -111,6 +104,32 @@ class VoiceSession(
         }
         state = Dialogue.Idle
         return whole
+    }
+
+    private fun paintOf(subject: String): String {
+        state = Dialogue.Speaking
+        plan?.engine = TtsEngine.KOKORO
+        plan?.emotion = "neutral"
+        tts.whenAudible(null)
+        onDrawing(subject)
+        val say = "Je te le dessine."
+        tts.speak(say, language)
+        val painter = paint
+        if (painter == null) {
+            state = Dialogue.Idle
+            return say
+        }
+        Thread {
+            val png = try {
+                painter(subject)
+            } catch (_: Exception) {
+                ByteArray(0)
+            }
+            if (png.isNotEmpty()) onPicture?.invoke(png)
+            onDrawn(png.isNotEmpty())
+        }.apply { name = "geeui-draw"; isDaemon = true }.start()
+        state = Dialogue.Idle
+        return say
     }
 
     /** Kokoro reads '*' aloud. Keep letters, spaces and normal punctuation. */

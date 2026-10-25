@@ -18,6 +18,7 @@ class DrawAskTest {
         assertEquals("un soleil", DrawAsk.subject("dessine-moi un soleil."))
         assertEquals("un chat", DrawAsk.subject("peux-tu dessiner un chat"))
         assertEquals("un chat", DrawAsk.subject("s'il te plaît dessinez-moi un chat"))
+        assertEquals("un chat", DrawAsk.subject("desine moi un chat"))
         assertNull(DrawAsk.subject("bonjour"))
         assertNull(DrawAsk.subject("dessine"))
     }
@@ -44,6 +45,36 @@ class DrawAskTest {
         assertEquals(3, shown)
         assertEquals("Je te le dessine.", say)
         assertEquals(1, tts.spoken.size)
+    }
+
+    @Test
+    fun followUpStaysAnImageUntilTheHoldEnds() {
+        val tts = EchoTts()
+        var asked = ""
+        var held = true
+        var busy = false
+        val session = VoiceSession(
+            RecordingBus(),
+            tts,
+            com.geeui.voice.engine.FixedChat(),
+            paint = {
+                asked = it
+                byteArrayOf(1)
+            },
+            drawHeld = { held },
+            drawBusy = { busy },
+        )
+        session.onUserText("un chien bleu")
+        val deadline = System.currentTimeMillis() + 1_000
+        while (asked.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(20)
+        assertEquals("un chien bleu", asked)
+        busy = true
+        assertEquals("", session.onUserText("et après"))
+        assertEquals("un chien bleu", asked)
+        held = false
+        busy = false
+        val chat = session.onUserText("bonjour")
+        assertTrue(chat.contains("bonjour"))
     }
 
     @Test
