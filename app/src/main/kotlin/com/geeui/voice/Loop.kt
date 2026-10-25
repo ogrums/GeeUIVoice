@@ -79,11 +79,10 @@ class VoiceLoop(
         },
         onDrawing = { subject ->
             VoiceHud.drawing = true
-            VoiceHud.drawUntil = System.currentTimeMillis() + VoiceHud.DRAW_HOLD_MS
             VoiceHud.picture = null
             VoiceHud.pictureUntil = 0L
             VoiceHud.face = VoiceHud.THINK_FACE
-            VoiceHud.line = "Je dessine $subject"
+            VoiceHud.line = "Je dessine $subject ($imageModel)"
             VoiceHud.diag = "POST /images/generations $imageModel"
         },
         onPicture = { png ->
@@ -98,10 +97,8 @@ class VoiceLoop(
                 VoiceHud.face = com.geeui.voice.bus.IDLE_FACE
             }
         },
-        drawHeld = { System.currentTimeMillis() < VoiceHud.drawUntil },
         drawBusy = { VoiceHud.drawing },
         releaseDraw = {
-            VoiceHud.drawUntil = 0L
             VoiceHud.drawing = false
             VoiceHud.face = com.geeui.voice.bus.IDLE_FACE
         },

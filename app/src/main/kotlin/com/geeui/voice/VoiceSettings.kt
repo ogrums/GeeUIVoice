@@ -42,12 +42,27 @@ object VoiceSettings {
 
     fun extra(key: String): String = extras.getValue(key)
 
-    fun effective(context: Context, intent: Intent): Map<String, String> {
+    /** Copy a fresh launch extra into the saved settings, then drop it so it cannot override a later edit. */
+    fun absorb(context: Context, intent: Intent) {
+        val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        val edit = prefs.edit()
+        var hit = false
+        for ((key, _) in fields) {
+            val name = extra(key)
+            val from = intent.getStringExtra(name)?.trim()?.takeIf { it.isNotEmpty() } ?: continue
+            val value = if (key == "lemonade" || key == "sidecar") from.trimEnd('/') else from
+            edit.putString(key, value)
+            intent.removeExtra(name)
+            hit = true
+        }
+        if (hit) edit.commit()
+    }
+
+    fun effective(context: Context): Map<String, String> {
         val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
         return fields.associate { (key, fallback) ->
             val saved = prefs.getString(key, null)?.trim()?.takeIf { it.isNotEmpty() }
-            val fromIntent = intent.getStringExtra(extra(key))?.trim()?.takeIf { it.isNotEmpty() }
-            val raw = fromIntent ?: saved ?: fallback
+            val raw = saved ?: fallback
             key to if (key == "lemonade" || key == "sidecar") raw.trimEnd('/') else raw
         }
     }

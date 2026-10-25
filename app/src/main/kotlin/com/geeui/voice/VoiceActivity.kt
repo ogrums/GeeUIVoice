@@ -81,6 +81,7 @@ class VoiceActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         debug = debugLaunch(intent.getStringExtra("mode"), intent.getStringExtra("debug"))
+        VoiceSettings.absorb(this, intent)
         bus = AidlBus(this)
         val screen = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         faceView = TextureView(this).apply {
@@ -191,7 +192,7 @@ class VoiceActivity : Activity() {
     }
 
     private fun openMenu() {
-        val values = VoiceSettings.effective(this, intent)
+        val values = VoiceSettings.effective(this)
         for ((key, edit) in editors) edit.setText(values[key].orEmpty())
         menu?.visibility = View.VISIBLE
     }
@@ -355,7 +356,7 @@ class VoiceActivity : Activity() {
         restTicket += 1
         VoiceHud.mode = "think"
         VoiceHud.line = "cosy $emotion"
-        val values = VoiceSettings.effective(this, intent)
+        val values = VoiceSettings.effective(this)
         val base = values["sidecar"].orEmpty().ifBlank { HostConfig.SIDECAR }
         val model = values["cosy"].orEmpty().ifBlank { CosyTts.MODEL }
         Thread {
@@ -564,6 +565,7 @@ class VoiceActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         debug = debugLaunch(intent.getStringExtra("mode"), intent.getStringExtra("debug"))
+        VoiceSettings.absorb(this, intent)
         if (!debug || VoiceHud.mic) send(VoiceService.ACTION_START)
     }
 
@@ -571,7 +573,7 @@ class VoiceActivity : Activity() {
         val next = Intent(this, VoiceService::class.java).setAction(action)
         next.putExtras(getIntent())
         if (action == VoiceService.ACTION_START) {
-            for ((key, value) in VoiceSettings.effective(this, getIntent())) {
+            for ((key, value) in VoiceSettings.effective(this)) {
                 next.putExtra(VoiceSettings.extra(key), value)
             }
         }

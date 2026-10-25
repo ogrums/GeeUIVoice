@@ -48,33 +48,18 @@ class DrawAskTest {
     }
 
     @Test
-    fun followUpStaysAnImageUntilTheHoldEnds() {
-        val tts = EchoTts()
-        var asked = ""
-        var held = true
-        var busy = false
+    fun aSentenceWithoutTheVerbGoesToChat() {
         val session = VoiceSession(
             RecordingBus(),
-            tts,
+            EchoTts(),
             com.geeui.voice.engine.FixedChat(),
-            paint = {
-                asked = it
-                byteArrayOf(1)
-            },
-            drawHeld = { held },
-            drawBusy = { busy },
+            paint = { byteArrayOf(1) },
         )
-        session.onUserText("un chien bleu")
-        val deadline = System.currentTimeMillis() + 1_000
-        while (asked.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(20)
-        assertEquals("un chien bleu", asked)
-        busy = true
-        assertEquals("", session.onUserText("et après"))
-        assertEquals("un chien bleu", asked)
-        held = false
-        busy = false
+        assertEquals("", session.onUserText("Je te le dessine."))
         val chat = session.onUserText("bonjour")
         assertTrue(chat.contains("bonjour"))
+        val again = session.onUserText("encore un chat")
+        assertTrue(again.contains("encore un chat"))
     }
 
     @Test

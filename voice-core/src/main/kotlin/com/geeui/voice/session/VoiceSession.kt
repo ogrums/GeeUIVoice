@@ -40,8 +40,6 @@ class VoiceSession(
     private val onPicture: ((ByteArray) -> Unit)? = null,
     private val onDrawing: (String) -> Unit = {},
     private val onDrawn: (Boolean) -> Unit = {},
-    /** True for a few minutes after a draw, so the next sentence stays an image. */
-    private val drawHeld: () -> Boolean = { false },
     /** True while Lemonade is still painting. Noise must not fall through to chat. */
     private val drawBusy: () -> Boolean = { false },
     private val releaseDraw: () -> Unit = {},
@@ -52,6 +50,10 @@ class VoiceSession(
 
     fun onUserText(text: String): String {
         state = Dialogue.Listening
+        if (ownLine(text)) {
+            state = Dialogue.Idle
+            return ""
+        }
         val explicit = if (paint != null) DrawAsk.subject(text) else null
         if (paint != null && DrawAsk.leave(text)) {
             releaseDraw()
@@ -66,10 +68,6 @@ class VoiceSession(
         if (paint != null && drawBusy()) {
             state = Dialogue.Idle
             return ""
-        }
-        if (paint != null && drawHeld()) {
-            val again = text.trim().trimEnd('.', '?', '!', ',')
-            if (again.length >= 3) return paintOf(again)
         }
         state = Dialogue.Speaking
         val answer = StringBuilder()
@@ -104,6 +102,12 @@ class VoiceSession(
         }
         state = Dialogue.Idle
         return whole
+    }
+
+    /** The speaker says this. Hearing it back must not start another drawing. */
+    private fun ownLine(text: String): Boolean {
+        val key = text.trim().lowercase().replace(Regex("[!?.]+"), " ").replace(Regex("\\s+"), " ").trim()
+        return key == "je te le dessine" || key.startsWith("je te le dessine ")
     }
 
     private fun paintOf(subject: String): String {
