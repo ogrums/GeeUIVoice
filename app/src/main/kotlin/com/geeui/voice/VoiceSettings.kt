@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import com.geeui.voiceemo.HostConfig
 
-/** What the settings menu edits. A saved value wins over the launch extra. */
+/** What the settings menu edits. A launch extra wins. The saved menu value is used when that extra is absent. */
 object VoiceSettings {
     private const val FILE = "geeui_voice"
 
@@ -47,7 +47,7 @@ object VoiceSettings {
         return fields.associate { (key, fallback) ->
             val saved = prefs.getString(key, null)?.trim()?.takeIf { it.isNotEmpty() }
             val fromIntent = intent.getStringExtra(extra(key))?.trim()?.takeIf { it.isNotEmpty() }
-            val raw = saved ?: fromIntent ?: fallback
+            val raw = fromIntent ?: saved ?: fallback
             key to if (key == "lemonade" || key == "sidecar") raw.trimEnd('/') else raw
         }
     }

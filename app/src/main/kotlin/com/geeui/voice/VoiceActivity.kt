@@ -355,12 +355,12 @@ class VoiceActivity : Activity() {
         restTicket += 1
         VoiceHud.mode = "think"
         VoiceHud.line = "cosy $emotion"
-        val base = intent.getStringExtra("sidecar")?.trim()?.trimEnd('/')
-            .orEmpty()
-            .ifBlank { HostConfig.SIDECAR }
+        val values = VoiceSettings.effective(this, intent)
+        val base = values["sidecar"].orEmpty().ifBlank { HostConfig.SIDECAR }
+        val model = values["cosy"].orEmpty().ifBlank { CosyTts.MODEL }
         Thread {
             val audio = try {
-                postCosy(base, CosyTts.MODEL, line, emotion)
+                postCosy(base, model, line, emotion)
             } catch (e: Exception) {
                 VoiceHud.diag = e.javaClass.simpleName
                 ByteArray(0)
@@ -563,6 +563,8 @@ class VoiceActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        debug = debugLaunch(intent.getStringExtra("mode"), intent.getStringExtra("debug"))
+        if (!debug || VoiceHud.mic) send(VoiceService.ACTION_START)
     }
 
     private fun send(action: String) {

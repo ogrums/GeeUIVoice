@@ -126,6 +126,8 @@ class LemonadeClient(
             "--$boundary\r\n" +
                 "Content-Disposition: form-data; name=\"model\"\r\n\r\n${resolveStt()}\r\n" +
                 "--$boundary\r\n" +
+                "Content-Disposition: form-data; name=\"language\"\r\n\r\nfr\r\n" +
+                "--$boundary\r\n" +
                 "Content-Disposition: form-data; name=\"file\"; filename=\"turn.wav\"\r\n" +
                 "Content-Type: audio/wav\r\n\r\n"
             ).toByteArray()

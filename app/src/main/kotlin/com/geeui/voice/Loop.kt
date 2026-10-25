@@ -84,7 +84,7 @@ class VoiceLoop(
             VoiceHud.pictureUntil = 0L
             VoiceHud.face = VoiceHud.THINK_FACE
             VoiceHud.line = "Je dessine $subject"
-            VoiceHud.diag = "POST /images/generations"
+            VoiceHud.diag = "POST /images/generations $imageModel"
         },
         onPicture = { png ->
             VoiceHud.picture = png
