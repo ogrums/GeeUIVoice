@@ -133,7 +133,6 @@ class VoiceActivity : Activity() {
         if (debug) screen.addView(debugPanel())
         if (debug) {
             menu = settingsMenu()
-            screen.addView(menuBand())
             screen.addView(menu)
         }
         setContentView(screen)
@@ -142,18 +141,6 @@ class VoiceActivity : Activity() {
         } else {
             if (VoiceHud.face.isBlank()) VoiceHud.face = IDLE_FACE
             askMic()
-        }
-    }
-
-    private fun menuBand(): View {
-        return View(this).apply {
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                78,
-                Gravity.BOTTOM,
-            )
-            setOnClickListener { openMenu() }
         }
     }
 
@@ -238,30 +225,25 @@ class VoiceActivity : Activity() {
         }
     }
 
-    private fun debugPanel(): LinearLayout {
+    private fun debugPanel(): ScrollView {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.TRANSPARENT)
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(0, 30, 0, 72)
+            setPadding(0, 16, 0, 24)
             isClickable = false
         }
         val title = label("GeeUI Voice", 13f, Color.rgb(180, 40, 32)).apply { sidePad() }
         status = label("VEILLE", 20f, Color.rgb(255, 64, 48)).apply { sidePad() }
         caption = label("", 15f, Color.rgb(230, 190, 180)).apply {
-            maxLines = 6
+            maxLines = 4
             ellipsize = TextUtils.TruncateAt.END
             sidePad()
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f,
-            )
         }
         val scan = ScannerView(this).apply {
             isClickable = false
             isFocusable = false
-            layoutParams = LinearLayout.LayoutParams(480, 150)
+            layoutParams = LinearLayout.LayoutParams(480, 96)
         }
         mic = Switch(this).apply {
             text = "Micro"
@@ -282,6 +264,7 @@ class VoiceActivity : Activity() {
         root.addView(scan)
         root.addView(caption)
         root.addView(mic)
+        root.addView(testRow("Réglages" to { openMenu() }))
         root.addView(testRow(
             "Joyeux" to { emote(Emotion.HAPPY, "Je suis content.") },
             "Triste" to { emote(Emotion.SAD, "Je suis triste.") },
@@ -293,7 +276,17 @@ class VoiceActivity : Activity() {
             "Calme" to { emote(Emotion.NEUTRAL, "Je reste calme.") },
         ))
         root.addView(testRow("WAV" to { playSample("olivier.wav") }))
-        return root
+        return ScrollView(this).apply {
+            isFillViewport = false
+            isClickable = false
+            addView(
+                root,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }
     }
 
     private fun label(text: String, size: Float, color: Int): TextView {
@@ -340,18 +333,15 @@ class VoiceActivity : Activity() {
 
     /** Same pose the spoken turn uses. The clip and the body start together. */
     private fun emote(emotion: Emotion, line: String) {
-        if (!busReady()) return
         val pose = SdkMap.pose(emotion)
         playCosy(emotion.name.lowercase(), line) {
+            if (!bus.connected()) {
+                VoiceHud.diag = "bus pas prêt"
+                return@playCosy
+            }
             bus.applyPose(pose)
             VoiceHud.diag = "visage ${pose.faceId} geste ${pose.action ?: "-"} son ${pose.sound ?: "-"}"
         }
-    }
-
-    private fun busReady(): Boolean {
-        if (bus.connected()) return true
-        VoiceHud.line = "bus pas prêt"
-        return false
     }
 
     private fun playCosy(emotion: String, line: String, onStart: () -> Unit) {
