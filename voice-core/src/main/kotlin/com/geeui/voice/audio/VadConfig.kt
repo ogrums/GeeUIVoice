@@ -11,6 +11,7 @@ data class VadConfig(
     val hangoverMs: Int = 600,
     val minSpeechMs: Int = 280,
     val maxSpeechMs: Int = 8_000,
+    val prerollMs: Int = 300,
     val frameMs: Int = 20,
 ) {
     fun toVad(): EnergyVad = EnergyVad(
@@ -19,6 +20,7 @@ data class VadConfig(
         hangoverFrames = frames(hangoverMs),
         minSpeechFrames = frames(minSpeechMs),
         maxSpeechFrames = frames(maxSpeechMs),
+        prerollFrames = frames(prerollMs),
     )
 
     private fun frames(ms: Int): Int = (ms / frameMs).coerceAtLeast(1)

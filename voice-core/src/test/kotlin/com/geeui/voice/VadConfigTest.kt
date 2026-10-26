@@ -58,4 +58,23 @@ class VadConfigTest {
         assertTrue(ended)
         assertTrue(samples > 320 * 8)
     }
+
+    @Test
+    fun quietOnsetBeforeTheThresholdIsKept() {
+        val vad = EnergyVad(
+            threshold = 800,
+            startFrames = 2,
+            hangoverFrames = 1,
+            minSpeechFrames = 2,
+            prerollFrames = 6,
+        )
+        val quiet = ShortArray(320) { 10 }
+        val loud = ShortArray(320) { 5000 }
+        repeat(4) { assertTrue(vad.push(quiet) is VadEvent.None) }
+        assertTrue(vad.push(loud) is VadEvent.None)
+        assertTrue(vad.push(loud) is VadEvent.SpeechStart)
+        val end = vad.push(quiet)
+        assertTrue(end is VadEvent.SpeechEnd)
+        assertEquals(320 * 7, (end as VadEvent.SpeechEnd).pcm.size)
+    }
 }

@@ -148,7 +148,7 @@ class LemonadeClient(
         val marker = "\"text\":"
         val at = raw.indexOf(marker)
         if (at < 0) return raw
-        return unquote(raw.substring(at + marker.length).trimStart())
+        return unquote(raw.substring(at + marker.length).trimStart()).trim()
     }
 
     fun speech(text: String, voice: String): ByteArray {
@@ -288,7 +288,12 @@ class LemonadeClient(
         while (i < raw.length) {
             val c = raw[i]
             if (c == '\\' && i + 1 < raw.length) {
-                out.append(raw[i + 1])
+                when (val esc = raw[i + 1]) {
+                    'n' -> out.append('\n')
+                    'r' -> out.append('\r')
+                    't' -> out.append('\t')
+                    else -> out.append(esc)
+                }
                 i += 2
                 continue
             }

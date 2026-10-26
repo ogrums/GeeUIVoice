@@ -426,7 +426,7 @@ class PlayingTts(
             VoiceHud.line = VoiceHud.diag
             done.countDown()
         } finally {
-            VoiceHud.hearAfter = System.currentTimeMillis() + 800
+            VoiceHud.hearAfter = System.currentTimeMillis() + 300
             VoiceHud.playing = false
             try {
                 input.close()
