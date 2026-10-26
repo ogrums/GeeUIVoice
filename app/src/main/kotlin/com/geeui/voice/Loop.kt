@@ -80,8 +80,10 @@ class VoiceLoop(
             if (sidecar.isNotBlank() && now - sidecarOk.get() > 5_000L) pingSidecar(sidecar)
             sidecarOk.get()
         },
-        paint = { subject ->
-            client.image(subject, imageModel.ifBlank { LemonadeClient.IMAGE_MODEL })
+        paint = { heard ->
+            val prompt = client.imagePrompt(heard)
+            VoiceHud.diag = "prompt $prompt"
+            client.image(prompt, imageModel.ifBlank { LemonadeClient.IMAGE_MODEL })
         },
         onDrawing = { subject ->
             VoiceHud.drawing = true

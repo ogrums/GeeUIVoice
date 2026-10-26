@@ -58,7 +58,7 @@ class VoiceSession(
         if (paint != null && DrawAsk.leave(text)) {
             releaseDraw()
         } else if (explicit != null) {
-            return paintOf(explicit)
+            return paintOf(text)
         }
         val hit = SkillLexicon.match(text)
         if (hit != null && skills.handle(hit)) {

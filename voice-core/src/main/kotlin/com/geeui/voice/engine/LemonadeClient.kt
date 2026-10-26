@@ -94,7 +94,7 @@ class LemonadeClient(
     /** One English line for SD-Turbo. The spoken system prompt is not used. */
     fun imagePrompt(subject: String): String {
         if (resolveChat().isBlank()) return subject
-        val sys = "Reply with one English text-to-image prompt. No quotes, no explanation."
+        val sys = "Reply with one English text-to-image prompt. Keep every object, color, place and action from the request. No quotes, no explanation."
         val body = """{"model":"${resolveChat()}","messages":[{"role":"system","content":${json(sys)}},{"role":"user","content":${json(subject)}}]}"""
         val raw = post(baseUrl, "/chat/completions", "application/json", body.toByteArray())
         if (raw.startsWith("ERR ")) return subject
@@ -103,7 +103,7 @@ class LemonadeClient(
         if (at < 0) return subject
         val text = contentText(raw.substring(at + marker.length)) ?: return subject
         val line = text.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.trim('"') ?: subject
-        return line.take(300).ifBlank { subject }
+        return line.ifBlank { subject }
     }
 
     /** PNG bytes. Steps stay on the model default: 4 for SD-Turbo, 8 for Anima-Turbo. */

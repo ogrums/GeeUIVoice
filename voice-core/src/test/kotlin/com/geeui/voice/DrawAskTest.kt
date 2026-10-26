@@ -41,7 +41,7 @@ class DrawAskTest {
         val say = session.onUserText("dessine moi un renard")
         val deadline = System.currentTimeMillis() + 1_000
         while (shown == 0 && System.currentTimeMillis() < deadline) Thread.sleep(20)
-        assertEquals("un renard", asked)
+        assertEquals("dessine moi un renard", asked)
         assertEquals(3, shown)
         assertEquals("Je te le dessine.", say)
         assertEquals(1, tts.spoken.size)
