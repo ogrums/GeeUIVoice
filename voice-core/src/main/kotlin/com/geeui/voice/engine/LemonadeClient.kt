@@ -17,6 +17,9 @@ class LemonadeClient(
     private val sttModel: String = "Whisper-Small",
     private val ttsModel: String = "kokoro",
     private val systemPrompt: String = SPOKEN,
+    private val sttUrl: String = baseUrl,
+    private val ttsUrl: String = baseUrl,
+    private val imageUrl: String = baseUrl,
 ) {
     @Volatile private var resolvedStt: String? = null
     @Volatile private var resolvedChat: String? = null
@@ -25,7 +28,7 @@ class LemonadeClient(
     /** Model id actually sent to /audio/transcriptions. Falls back to Whisper-Small. */
     fun resolveStt(): String {
         resolvedStt?.let { return it }
-        val names = listModels()
+        val names = listModels(sttUrl)
         val asked = sttModel.ifBlank { FALLBACK_STT }
         val hit = names.firstOrNull { it.equals(asked, ignoreCase = true) }
             ?: names.firstOrNull { it.endsWith("/$asked", ignoreCase = true) || it.endsWith(":$asked", ignoreCase = true) }
@@ -44,7 +47,7 @@ class LemonadeClient(
      */
     fun resolveChat(): String {
         resolvedChat?.let { return it }
-        val names = listModels()
+        val names = listModels(baseUrl)
         val asked = chatModel.trim()
         val hit = if (asked.isEmpty()) null else match(asked, names)
         val picked = hit ?: asked.ifEmpty { names.firstOrNull { isChat(it) } ?: "" }
@@ -66,7 +69,7 @@ class LemonadeClient(
     /** TTS model from `-e tts`. Unknown id falls back to kokoro, or the first speech model. */
     fun resolveTts(): String {
         resolvedTts?.let { return it }
-        val names = listModels()
+        val names = listModels(ttsUrl)
         val asked = ttsModel.ifBlank { FALLBACK_TTS }
         val hit = match(asked, names)
         val picked = when {
@@ -93,7 +96,7 @@ class LemonadeClient(
         if (resolveChat().isBlank()) return subject
         val sys = "Reply with one English text-to-image prompt. No quotes, no explanation."
         val body = """{"model":"${resolveChat()}","messages":[{"role":"system","content":${json(sys)}},{"role":"user","content":${json(subject)}}]}"""
-        val raw = post("/chat/completions", "application/json", body.toByteArray())
+        val raw = post(baseUrl, "/chat/completions", "application/json", body.toByteArray())
         if (raw.startsWith("ERR ")) return subject
         val marker = "\"content\":"
         val at = raw.indexOf(marker)
@@ -107,14 +110,14 @@ class LemonadeClient(
     fun image(prompt: String, model: String = IMAGE_MODEL): ByteArray {
         val clean = prompt.replace(Regex("\\s+"), " ").trim()
         val body = """{"model":${json(model)},"prompt":${json(clean)},"size":"512x512","response_format":"b64_json"}"""
-        val raw = post("/images/generations", "application/json", body.toByteArray())
+        val raw = post(imageUrl, "/images/generations", "application/json", body.toByteArray())
         if (raw.startsWith("ERR ")) return ByteArray(0)
         return decodeImageBody(raw)
     }
 
     fun chat(userText: String): String {
         val body = messages(userText, stream = false)
-        val raw = post("/chat/completions", "application/json", body.toByteArray())
+        val raw = post(baseUrl, "/chat/completions", "application/json", body.toByteArray())
         val marker = "\"content\":"
         val at = raw.indexOf(marker)
         if (at < 0) return raw
@@ -137,7 +140,7 @@ class LemonadeClient(
         head.copyInto(payload)
         wav.copyInto(payload, head.size)
         tail.copyInto(payload, head.size + wav.size)
-        val raw = post("/audio/transcriptions", "multipart/form-data; boundary=$boundary", payload)
+        val raw = post(sttUrl, "/audio/transcriptions", "multipart/form-data; boundary=$boundary", payload)
         if (raw.startsWith("ERR ") && resolveStt() != FALLBACK_STT) {
             resolvedStt = FALLBACK_STT
             return transcribe(wav)
@@ -153,12 +156,12 @@ class LemonadeClient(
         if (model.isBlank()) return ByteArray(0)
         val mp3Body = """{"model":"$model","input":${json(text)},"voice":${json(voice)},"response_format":"mp3"}"""
         return try {
-            postBytes("/audio/speech", "application/json", mp3Body.toByteArray())
+            postBytes(ttsUrl, "/audio/speech", "application/json", mp3Body.toByteArray())
         } catch (e: IllegalStateException) {
             val msg = e.message.orEmpty()
             if (!msg.contains("response_format") && !msg.contains("400")) throw e
             val plain = """{"model":"$model","input":${json(text)},"voice":${json(voice)}}"""
-            postBytes("/audio/speech", "application/json", plain.toByteArray())
+            postBytes(ttsUrl, "/audio/speech", "application/json", plain.toByteArray())
         }
     }
 
@@ -170,7 +173,7 @@ class LemonadeClient(
             return
         }
         val body = messages(userText, stream = true)
-        val conn = open("/chat/completions", "application/json")
+        val conn = open(baseUrl, "/chat/completions", "application/json")
         conn.doOutput = true
         conn.outputStream.use { it.write(body.toByteArray()) }
         val code = conn.responseCode
@@ -199,17 +202,17 @@ class LemonadeClient(
         }
     }
 
-    private fun post(path: String, contentType: String, body: ByteArray): String {
+    private fun post(root: String, path: String, contentType: String, body: ByteArray): String {
         return try {
-            String(postBytes(path, contentType, body))
+            String(postBytes(root, path, contentType, body))
         } catch (e: IllegalStateException) {
             "ERR " + (e.message ?: "")
         }
     }
 
-    private fun listModels(): List<String> {
+    private fun listModels(root: String): List<String> {
         return try {
-            val conn = open("/models", "application/json", "GET")
+            val conn = open(root, "/models", "application/json", "GET")
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else return emptyList()
             val raw = stream.readBytes().toString(Charsets.UTF_8)
@@ -228,8 +231,8 @@ class LemonadeClient(
         }
     }
 
-    private fun postBytes(path: String, contentType: String, body: ByteArray): ByteArray {
-        val conn = open(path, contentType)
+    private fun postBytes(root: String, path: String, contentType: String, body: ByteArray): ByteArray {
+        val conn = open(root, path, contentType)
         conn.doOutput = true
         conn.outputStream.use { it.write(body) }
         val code = conn.responseCode
@@ -239,8 +242,8 @@ class LemonadeClient(
         return bytes
     }
 
-    private fun open(path: String, contentType: String, method: String = "POST"): HttpURLConnection {
-        val conn = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
+    private fun open(root: String, path: String, contentType: String, method: String = "POST"): HttpURLConnection {
+        val conn = URL(root.trimEnd('/') + path).openConnection() as HttpURLConnection
         conn.requestMethod = method
         conn.connectTimeout = 5_000
         conn.readTimeout = 120_000

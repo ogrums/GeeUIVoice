@@ -2,41 +2,54 @@ package com.geeui.voice
 
 import android.content.Context
 import android.content.Intent
-import com.geeui.voiceemo.HostConfig
 
-/** What the settings menu edits. A launch extra wins. The saved menu value is used when that extra is absent. */
+/** Menu fields. Defaults come from [Defaults]. A launch extra is saved once, then the menu wins. */
 object VoiceSettings {
     private const val FILE = "geeui_voice"
 
     val fields = listOf(
-        "lemonade" to HostConfig.LEMONADE,
-        "sidecar" to HostConfig.SIDECAR,
-        "stt" to HostConfig.STT,
-        "chat" to HostConfig.CHAT,
-        "tts" to HostConfig.KOKORO,
-        "cosy" to HostConfig.COSY,
-        "image" to HostConfig.IMAGE,
+        "stt_host" to Defaults.STT_HOST,
+        "stt" to Defaults.STT_MODEL,
+        "llm_host" to Defaults.LLM_HOST,
+        "chat" to Defaults.LLM_MODEL,
+        "tts_host" to Defaults.TTS_HOST,
+        "tts" to Defaults.TTS_MODEL,
+        "image_host" to Defaults.IMAGE_HOST,
+        "image" to Defaults.IMAGE_MODEL,
+        "voice" to Defaults.VOICE,
+        "sidecar" to Defaults.SIDECAR,
+        "cosy" to Defaults.COSY_MODEL,
     )
 
     private val labels = mapOf(
-        "lemonade" to "Lemonade",
-        "sidecar" to "CosyVoice",
-        "stt" to "STT",
-        "chat" to "Chat",
-        "tts" to "TTS",
-        "cosy" to "Modèle Cosy",
-        "image" to "Image",
+        "stt_host" to "STT hôte",
+        "stt" to "STT modèle",
+        "llm_host" to "LLM hôte",
+        "chat" to "LLM modèle",
+        "tts_host" to "TTS hôte",
+        "tts" to "TTS modèle",
+        "image_host" to "Image hôte",
+        "image" to "Image modèle",
+        "voice" to "Voix Kokoro",
+        "sidecar" to "CosyVoice hôte",
+        "cosy" to "CosyVoice modèle",
     )
 
     private val extras = mapOf(
-        "lemonade" to "host",
-        "sidecar" to "sidecar",
+        "stt_host" to "stt_host",
         "stt" to "model",
+        "llm_host" to "llm_host",
         "chat" to "chat",
+        "tts_host" to "tts_host",
         "tts" to "tts",
-        "cosy" to "cosy_model",
+        "image_host" to "image_host",
         "image" to "image",
+        "voice" to "voice",
+        "sidecar" to "sidecar",
+        "cosy" to "cosy_model",
     )
+
+    private val urls = setOf("stt_host", "llm_host", "tts_host", "image_host", "sidecar")
 
     fun label(key: String): String = labels.getValue(key)
 
@@ -47,10 +60,19 @@ object VoiceSettings {
         val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
         val edit = prefs.edit()
         var hit = false
+        val shared = intent.getStringExtra("host")?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() }
+        if (shared != null) {
+            for (key in urls) {
+                if (key == "sidecar") continue
+                edit.putString(key, shared)
+            }
+            intent.removeExtra("host")
+            hit = true
+        }
         for ((key, _) in fields) {
             val name = extra(key)
             val from = intent.getStringExtra(name)?.trim()?.takeIf { it.isNotEmpty() } ?: continue
-            val value = if (key == "lemonade" || key == "sidecar") from.trimEnd('/') else from
+            val value = if (key in urls) from.trimEnd('/') else from
             edit.putString(key, value)
             intent.removeExtra(name)
             hit = true
@@ -63,7 +85,7 @@ object VoiceSettings {
         return fields.associate { (key, fallback) ->
             val saved = prefs.getString(key, null)?.trim()?.takeIf { it.isNotEmpty() }
             val raw = saved ?: fallback
-            key to if (key == "lemonade" || key == "sidecar") raw.trimEnd('/') else raw
+            key to if (key in urls) raw.trimEnd('/') else raw
         }
     }
 

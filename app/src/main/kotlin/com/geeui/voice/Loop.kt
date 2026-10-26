@@ -47,6 +47,9 @@ class VoiceLoop(
     private val sidecar: String = com.geeui.voiceemo.HostConfig.SIDECAR,
     cosyModel: String = CosyTts.MODEL,
     imageModel: String = com.geeui.voice.engine.LemonadeClient.IMAGE_MODEL,
+    sttUrl: String = baseUrl,
+    ttsUrl: String = baseUrl,
+    imageUrl: String = baseUrl,
 ) {
     private val client = LemonadeClient(
         baseUrl,
@@ -54,6 +57,9 @@ class VoiceLoop(
         chatModel = chatModel,
         ttsModel = ttsModel,
         systemPrompt = prompt,
+        sttUrl = sttUrl,
+        ttsUrl = ttsUrl,
+        imageUrl = imageUrl,
     )
     private val plan = TtsPlan()
     private val sidecarOk = AtomicLong(0)

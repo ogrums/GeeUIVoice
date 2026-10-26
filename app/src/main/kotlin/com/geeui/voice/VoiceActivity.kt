@@ -131,9 +131,11 @@ class VoiceActivity : Activity() {
         }
         screen.addView(drawLine)
         if (debug) screen.addView(debugPanel())
-        menu = settingsMenu()
-        screen.addView(menuBand())
-        screen.addView(menu)
+        if (debug) {
+            menu = settingsMenu()
+            screen.addView(menuBand())
+            screen.addView(menu)
+        }
         setContentView(screen)
         if (debug) {
             VoiceHud.line = "micro coupé"

@@ -11,28 +11,34 @@ import com.geeui.voice.audio.VadConfig
 
 /**
  * adb shell am start -n com.geeui.voice/.VoiceActivity \
- *   -e host http://192.168.1.10:13305/api/v1 \
+ *   -e stt_host http://nimbus:13305/api/v1 \
  *   -e model Whisper-Small \
- *   -e chat <id-du-llm> \
- *   -e tts kokoro \
+ *   -e llm_host http://nimbus:13305/api/v1 \
+ *   -e chat gemma4e-flash-e2b-FLM \
+ *   -e tts_host http://nimbus:13305/api/v1 \
+ *   -e tts kokoro-v1 \
+ *   -e image_host http://nimbus:13305/api/v1 \
+ *   -e image SD-Turbo \
  *   -e voice ff_siwis \
  *   -e sidecar http://nimbus:13306 \
- *   -e cosy_model Fun-CosyVoice3-0.5B-2512 \
- *   -e image SD-Turbo
- * Kokoro stays on Lemonade. A short non-neutral line uses the sidecar when /health answered.
- * Une nouvelle commande START réapplique les extras présents. Un extra absent ne les efface pas.
+ *   -e cosy_model Fun-CosyVoice3-0.5B-2512
+ * `-e host` recopié sur STT, LLM, TTS et image quand l'hôte dédié est absent.
+ * Les défauts compilés sont dans Defaults.kt. Le menu ne s'ouvre qu'avec `--es mode debug`.
  */
 class VoiceService : Service() {
     private var loop: VoiceLoop? = null
-    private var host = "http://nimbus:13305/api/v1"
-    private var model = com.geeui.voiceemo.HostConfig.STT
-    private var chat = "gemma4e-flash-e2b-FLM"
-    private var tts = "kokoro-v1"
-    private var voice = ""
+    private var sttHost = Defaults.STT_HOST
+    private var llmHost = Defaults.LLM_HOST
+    private var ttsHost = Defaults.TTS_HOST
+    private var imageHost = Defaults.IMAGE_HOST
+    private var model = Defaults.STT_MODEL
+    private var chat = Defaults.LLM_MODEL
+    private var tts = Defaults.TTS_MODEL
+    private var voice = Defaults.VOICE
     private var prompt = com.geeui.voice.engine.LemonadeClient.SPOKEN
-    private var sidecar = com.geeui.voiceemo.HostConfig.SIDECAR
-    private var cosyModel = com.geeui.voice.engine.CosyTts.MODEL
-    private var image = com.geeui.voiceemo.HostConfig.IMAGE
+    private var sidecar = Defaults.SIDECAR
+    private var cosyModel = Defaults.COSY_MODEL
+    private var image = Defaults.IMAGE_MODEL
     private val vad = mutableMapOf<String, String?>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -44,22 +50,31 @@ class VoiceService : Service() {
             return START_STICKY
         }
         if (intent?.action == ACTION_START) {
-            intent.getStringExtra("host")?.let { host = it }
+            intent.getStringExtra("host")?.trim()?.trimEnd('/')?.takeIf { it.isNotEmpty() }?.let {
+                sttHost = it
+                llmHost = it
+                ttsHost = it
+                imageHost = it
+            }
+            intent.getStringExtra("stt_host")?.let { sttHost = it.trimEnd('/') }
+            intent.getStringExtra("llm_host")?.let { llmHost = it.trimEnd('/') }
+            intent.getStringExtra("tts_host")?.let { ttsHost = it.trimEnd('/') }
+            intent.getStringExtra("image_host")?.let { imageHost = it.trimEnd('/') }
             intent.getStringExtra("model")?.let { model = it }
             intent.getStringExtra("chat")?.let { chat = it }
             intent.getStringExtra("tts")?.let { tts = it }
             intent.getStringExtra("voice")?.let { voice = it }
             intent.getStringExtra("prompt")?.let { prompt = it }
             intent.getStringExtra("sidecar")?.let {
-                sidecar = com.geeui.voiceemo.HostConfig.orDefault(it, com.geeui.voiceemo.HostConfig.SIDECAR)
+                sidecar = com.geeui.voiceemo.HostConfig.orDefault(it, Defaults.SIDECAR)
             }
             intent.getStringExtra("cosy_model")?.let { cosyModel = it }
             intent.getStringExtra("image")?.let { if (it.isNotBlank()) image = it }
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
             loop?.stop()
             loop = VoiceLoop(
-                AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
-                sidecar, cosyModel, image,
+                AidlBus(this), llmHost, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
+                sidecar, cosyModel, image, sttHost, ttsHost, imageHost,
             )
             loop?.start()
         }
