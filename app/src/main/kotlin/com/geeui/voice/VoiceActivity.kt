@@ -555,9 +555,14 @@ class VoiceActivity : Activity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        val relaunch = intent.hasExtra("mode") || intent.hasExtra("debug") || intent.hasExtra("host") ||
+            VoiceSettings.fields.any { intent.hasExtra(VoiceSettings.extra(it.first)) }
         setIntent(intent)
-        debug = debugLaunch(intent.getStringExtra("mode"), intent.getStringExtra("debug"))
         VoiceSettings.absorb(this, intent)
+        if (relaunch) {
+            recreate()
+            return
+        }
         if (!debug || VoiceHud.mic) send(VoiceService.ACTION_START)
     }
 
