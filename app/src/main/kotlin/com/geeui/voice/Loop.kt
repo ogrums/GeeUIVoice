@@ -20,6 +20,7 @@ import com.geeui.voice.engine.TextToSpeech
 import com.geeui.voice.engine.TtsPlan
 import com.geeui.voice.session.LiveTurn
 import com.geeui.voice.session.VoiceSession
+import com.geeui.voiceemo.Affect
 import com.geeui.voiceemo.Mood
 import java.io.File
 import java.net.HttpURLConnection
@@ -27,6 +28,7 @@ import java.net.URL
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Mic → VAD → Lemonade STT → skill or streaming chat → Lemonade TTS → speaker.
@@ -50,6 +52,7 @@ class VoiceLoop(
     sttUrl: String = baseUrl,
     ttsUrl: String = baseUrl,
     imageUrl: String = baseUrl,
+    sense: String = Defaults.SENSE,
 ) {
     private val client = LemonadeClient(
         baseUrl,
@@ -69,6 +72,21 @@ class VoiceLoop(
     }
     private val clips = PlannedTts(plan, kokoro, cosy)
     private val tts = PlayingTts(clips, cacheDir, audio)
+    private val senseMode = sense.trim().lowercase()
+    private val tflite = TfliteSense(audio)
+    private val heardAffect = AtomicReference(Affect.UNKNOWN)
+    private var lastFaceAt = 0L
+    private val face = if (senseMode == "face") {
+        FaceWatch(audio) { gray ->
+            val now = System.currentTimeMillis()
+            if (now - lastFaceAt < 500L) return@FaceWatch
+            lastFaceAt = now
+            heardAffect.set(tflite.face(gray))
+            VoiceHud.diag = tflite.status
+        }
+    } else {
+        null
+    }
     private val session = VoiceSession(
         bus,
         tts,
@@ -80,6 +98,7 @@ class VoiceLoop(
             if (sidecar.isNotBlank() && now - sidecarOk.get() > 5_000L) pingSidecar(sidecar)
             sidecarOk.get()
         },
+        audioAffect = { heardAffect.get() },
         paint = { heard ->
             val prompt = client.imagePrompt(heard)
             VoiceHud.diag = "prompt $prompt"
@@ -131,10 +150,23 @@ class VoiceLoop(
         }
         live.onListen = { VoiceHud.mode = "hear" }
         live.onIdle = { VoiceHud.mode = "idle" }
+        live.onUtterance = { pcm ->
+            if (senseMode == "voice") {
+                heardAffect.set(tflite.voice(pcm))
+                VoiceHud.diag = tflite.status
+            }
+        }
         live.allowBargeIn = {
             !VoiceHud.playing && System.currentTimeMillis() >= VoiceHud.hearAfter
         }
         live.worker = { job -> turns.execute(job) }
+        when (senseMode) {
+            "face" -> {
+                face?.start()
+                VoiceHud.diag = if (tflite.faceReady()) "tflite face prêt" else "tflite face: modèle absent"
+            }
+            "voice" -> VoiceHud.diag = if (tflite.voiceReady()) "tflite voice prêt" else "tflite voice: modèle absent"
+        }
         thread = Thread({
             val used = try {
                 client.resolveStt()
@@ -204,6 +236,8 @@ class VoiceLoop(
 
     fun stop() {
         running.set(false)
+        face?.stop()
+        tflite.close()
         tts.stop()
         VoiceHud.mode = "idle"
         thread?.join(500)

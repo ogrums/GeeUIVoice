@@ -19,6 +19,7 @@ object VoiceSettings {
         "voice" to Defaults.VOICE,
         "sidecar" to Defaults.SIDECAR,
         "cosy" to Defaults.COSY_MODEL,
+        "sense" to Defaults.SENSE,
     )
 
     private val labels = mapOf(
@@ -33,6 +34,7 @@ object VoiceSettings {
         "voice" to "Voix Kokoro",
         "sidecar" to "CosyVoice hôte",
         "cosy" to "CosyVoice modèle",
+        "sense" to "Émotion (voice, face, off)",
     )
 
     private val extras = mapOf(
@@ -47,6 +49,7 @@ object VoiceSettings {
         "voice" to "voice",
         "sidecar" to "sidecar",
         "cosy" to "cosy_model",
+        "sense" to "sense",
     )
 
     private val urls = setOf("stt_host", "llm_host", "tts_host", "image_host", "sidecar")

@@ -16,4 +16,5 @@ object Defaults {
     const val VOICE = "ff_siwis"
     const val SIDECAR = "http://nimbus:13306"
     const val COSY_MODEL = "Fun-CosyVoice3-0.5B-2512"
+    const val SENSE = "voice"
 }

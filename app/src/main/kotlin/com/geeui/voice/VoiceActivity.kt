@@ -532,16 +532,24 @@ class VoiceActivity : Activity() {
     }
 
     private fun askMic() {
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+        val need = mutableListOf<String>()
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            need.add(Manifest.permission.RECORD_AUDIO)
+        }
+        val sense = VoiceSettings.effective(this)["sense"]
+        if (sense == "face" && checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            need.add(Manifest.permission.CAMERA)
+        }
+        if (need.isEmpty()) {
             send(VoiceService.ACTION_START)
         } else {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
+            requestPermissions(need.toTypedArray(), 1)
         }
     }
 
     override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, grants: IntArray) {
         super.onRequestPermissionsResult(code, perms, grants)
-        if (code == 1 && grants.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+        if (code == 1 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             send(VoiceService.ACTION_START)
         } else {
             VoiceHud.line = "autorise le micro dans les réglages"

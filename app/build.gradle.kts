@@ -25,9 +25,13 @@ android {
     buildFeatures {
         aidl = true
     }
+    androidResources {
+        noCompress += "tflite"
+    }
 }
 
 dependencies {
     implementation(project(":voice-core"))
     implementation(project(":emotion-core"))
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
 }

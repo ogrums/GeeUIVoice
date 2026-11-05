@@ -21,9 +21,9 @@ import com.geeui.voice.audio.VadConfig
  *   -e image SD-Turbo \
  *   -e voice ff_siwis \
  *   -e sidecar http://nimbus:13306 \
- *   -e cosy_model Fun-CosyVoice3-0.5B-2512
- * `-e host` recopié sur STT, LLM, TTS et image quand l'hôte dédié est absent.
- * Les défauts compilés sont dans Defaults.kt. Le menu ne s'ouvre qu'avec `--es mode debug`.
+ *   -e cosy_model Fun-CosyVoice3-0.5B-2512 \
+ *   -e sense voice
+ * `sense` is `voice`, `face` or `off`. Defaults are compiled in Defaults.kt. The menu opens only with `--es mode debug`.
  */
 class VoiceService : Service() {
     private var loop: VoiceLoop? = null
@@ -39,6 +39,7 @@ class VoiceService : Service() {
     private var sidecar = Defaults.SIDECAR
     private var cosyModel = Defaults.COSY_MODEL
     private var image = Defaults.IMAGE_MODEL
+    private var sense = Defaults.SENSE
     private val vad = mutableMapOf<String, String?>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -70,11 +71,12 @@ class VoiceService : Service() {
             }
             intent.getStringExtra("cosy_model")?.let { cosyModel = it }
             intent.getStringExtra("image")?.let { if (it.isNotBlank()) image = it }
+            intent.getStringExtra("sense")?.let { if (it.isNotBlank()) sense = it }
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), llmHost, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
-                sidecar, cosyModel, image, sttHost, ttsHost, imageHost,
+                sidecar, cosyModel, image, sttHost, ttsHost, imageHost, sense,
             )
             loop?.start()
         }
