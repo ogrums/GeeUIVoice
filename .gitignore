@@ -5,3 +5,6 @@ local.properties
 .kotlin/
 
 local.properties
+
+# Rapports locaux de campagne
+sidecar/tests/reports/
