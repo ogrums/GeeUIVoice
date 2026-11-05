@@ -63,7 +63,7 @@ class VoiceLoop(
     }
     private val clips = PlannedTts(plan, kokoro, cosy)
     private val tts = PlayingTts(clips, cacheDir, audio)
-    private val gateway = LemonadeClient(sidecar, sttModel = sttModel, systemPrompt = "")
+    private val gateway = LemonadeClient(sidecar.trimEnd('/') + "/v1", sttModel = sttModel, systemPrompt = "")
     private val lemonStt = LemonadeStt(client)
     private val stt = EmotionStt(gateway, lemonStt) { ok ->
         if (!ok) sidecarOk.set(0)

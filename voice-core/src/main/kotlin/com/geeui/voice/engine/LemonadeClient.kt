@@ -106,13 +106,17 @@ class LemonadeClient(
         val boundary = "----geeui${System.nanoTime()}"
         val head = (
             "--$boundary\r\n" +
-                "Content-Disposition: form-data; name=\"model\"\r\n\r\nWhisper-Small\r\n" +
+                "Content-Disposition: form-data; name=\"model\"\r\n\r\n${resolveStt()}\r\n" +
                 "--$boundary\r\n" +
                 "Content-Disposition: form-data; name=\"file\"; filename=\"turn.wav\"\r\n" +
                 "Content-Type: audio/wav\r\n\r\n"
             ).toByteArray()
         val tail = "\r\n--$boundary--\r\n".toByteArray()
         val raw = post("/audio/transcriptions", "multipart/form-data; boundary=$boundary", head + wav + tail)
+        if (raw.startsWith("ERR ") && resolveStt() != FALLBACK_STT) {
+            resolvedStt = FALLBACK_STT
+            return transcribeCore(wav)
+        }
         val marker = "\"text\":"
         val at = raw.indexOf(marker)
         if (at < 0) return raw
