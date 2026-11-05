@@ -91,29 +91,48 @@ class LemonadeClient(
         return contentText(raw.substring(at + marker.length)) ?: ""
     }
 
+    var lastAudioEmotion: String = "neutral"
+        private set
+    var lastAudioConfidence: Double = 0.0
+        private set
+
     fun transcribe(wav: ByteArray): String {
+        lastAudioEmotion = "neutral"
+        lastAudioConfidence = 0.0
+        return transcribeCore(wav)
+    }
+
+    private fun transcribeCore(wav: ByteArray): String {
         val boundary = "----geeui${System.nanoTime()}"
         val head = (
             "--$boundary\r\n" +
-                "Content-Disposition: form-data; name=\"model\"\r\n\r\n${resolveStt()}\r\n" +
+                "Content-Disposition: form-data; name=\"model\"\r\n\r\nWhisper-Small\r\n" +
                 "--$boundary\r\n" +
                 "Content-Disposition: form-data; name=\"file\"; filename=\"turn.wav\"\r\n" +
                 "Content-Type: audio/wav\r\n\r\n"
             ).toByteArray()
         val tail = "\r\n--$boundary--\r\n".toByteArray()
-        val payload = ByteArray(head.size + wav.size + tail.size)
-        head.copyInto(payload)
-        wav.copyInto(payload, head.size)
-        tail.copyInto(payload, head.size + wav.size)
-        val raw = post("/audio/transcriptions", "multipart/form-data; boundary=$boundary", payload)
-        if (raw.startsWith("ERR ") && resolveStt() != FALLBACK_STT) {
-            resolvedStt = FALLBACK_STT
-            return transcribe(wav)
-        }
+        val raw = post("/audio/transcriptions", "multipart/form-data; boundary=$boundary", head + wav + tail)
         val marker = "\"text\":"
         val at = raw.indexOf(marker)
         if (at < 0) return raw
+        lastAudioEmotion = stringField(raw, "emotion") ?: "neutral"
+        lastAudioConfidence = numberField(raw, "emotion_confidence") ?: 0.0
         return unquote(raw.substring(at + marker.length).trimStart())
+    }
+
+    private fun stringField(raw: String, key: String): String? {
+        val marker = "\"$key\":"
+        val at = raw.indexOf(marker)
+        return if (at < 0) null else unquote(raw.substring(at + marker.length).trimStart())
+    }
+
+    private fun numberField(raw: String, key: String): Double? {
+        val marker = "\"$key\":"
+        val at = raw.indexOf(marker)
+        if (at < 0) return null
+        val tail = raw.substring(at + marker.length).trimStart()
+        return tail.takeWhile { it.isDigit() || it == '.' || it == '-' || it == '+' || it == 'e' || it == 'E' }.toDoubleOrNull()
     }
 
     fun speech(text: String, voice: String): ByteArray {
@@ -290,6 +309,31 @@ class LemonadeTts(
 }
 
 class LemonadeStt(private val client: LemonadeClient) : SpeechToText {
-    override fun transcribe(pcm16le: ByteArray, sampleRate: Int): String =
-        client.transcribe(pcm16le)
+    override fun transcribe(pcm16le: ByteArray, sampleRate: Int): String = client.transcribe(pcm16le)
+}
+
+/** Sidecar adds audio emotion; network, HTTP and decode errors retain plain Lemonade STT. */
+class EmotionStt(
+    private val sidecar: LemonadeClient,
+    private val fallback: LemonadeStt,
+    private val onSidecarResult: (Boolean) -> Unit = {},
+) : SpeechToText {
+    var lastAudioAffect = com.geeui.voiceemo.Affect.UNKNOWN
+        private set
+
+    override fun transcribe(pcm16le: ByteArray, sampleRate: Int): String {
+        val raw = sidecar.transcribe(pcm16le)
+        return if (!raw.startsWith("ERR ") && !raw.startsWith("<") && !raw.startsWith("{")) {
+            lastAudioAffect = com.geeui.voiceemo.Affect(
+                com.geeui.voiceemo.Emotion.parse(sidecar.lastAudioEmotion),
+                sidecar.lastAudioConfidence.toFloat().coerceIn(0f, 1f),
+            )
+            onSidecarResult(true)
+            raw
+        } else {
+            lastAudioAffect = com.geeui.voiceemo.Affect.UNKNOWN
+            onSidecarResult(false)
+            fallback.transcribe(pcm16le, sampleRate)
+        }
+    }
 }
