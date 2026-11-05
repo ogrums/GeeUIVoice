@@ -21,6 +21,7 @@ class LiveTurn(
     var onAnswer: (String) -> Unit = {},
     var onListen: () -> Unit = {},
     var onIdle: () -> Unit = {},
+    var onUtterance: (ShortArray) -> Unit = {},
     /** False while the speaker is on, or during the echo tail after it stops. */
     var allowBargeIn: () -> Boolean = { true },
 ) {
@@ -47,6 +48,7 @@ class LiveTurn(
                 listening = false
                 val pcm = event.pcm
                 worker {
+                    onUtterance(pcm)
                     val text = stt.transcribe(pcm16ToWav(pcm, sampleRate), sampleRate).trim()
                     if (text.isEmpty()) {
                         onIdle()
