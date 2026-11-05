@@ -75,8 +75,12 @@ class VoiceSession(
                 replyEmotion, tagged)
             val turn = EmotionPipeline.turn(
                 say = whole,
-                audio = if (reaction == null) audioAffect() else com.geeui.voiceemo.Affect(reaction.emotion, reaction.score.toFloat()),
-                text = if (reaction == null) TextAffect.of(text) else com.geeui.voiceemo.Affect(replyEmotion, if (tagged) 1f else 0f),
+                audio = if (reaction == null) audioAffect() else com.geeui.voiceemo.Affect(
+                    reaction.emotion,
+                    reaction.score.toFloat().coerceIn(0f, 1f),
+                ),
+                // Fusion is the single arbiter; avoid a second Arbiter.merge pass.
+                text = if (reaction == null) TextAffect.of(text) else Affect.UNKNOWN,
                 mood = mood,
                 now = now(),
                 sidecarOkAt = sidecarOkAt(),
