@@ -41,7 +41,8 @@ Lemonade does not stream the microphone. The robot does the endpointing.
 mic 16 kHz, 20 ms
   → EnergyVad (start 60 ms, hangover 500 ms)
   → on speech start: stop TTS (barge-in)
-  → on speech end: WAV → POST /audio/transcriptions
+  → on speech end: WAV 16 kHz mono PCM16 → POST sidecar:13306/v1/audio/transcriptions
+  → échec du sidecar : reprise directe sur Lemonade /audio/transcriptions
   → skill, or SSE /chat/completions split on . ! ?
   → POST /audio/speech per clause → speaker
 ```
@@ -102,3 +103,13 @@ adb shell am startservice -n com.geeui.voice/.VoiceService \
 ```text
 ./gradlew :voice-core:test
 ```
+
+## Passerelle émotionnelle
+
+`sidecar/emo_server.py` expose la passerelle OpenAI sur le port **13306**. La STT de l'application y passe pour récupérer `emotion` et `emotion_confidence` d'emotion2vec, avec le modèle `Whisper-Small`. En cas d'indisponibilité, les échanges continuent directement avec Lemonade, sans émotion audio.
+
+Le LLM reçoit l'instruction de commencer sa réponse par une balise émotionnelle. `EmotionTagParser` accepte les balises divisées entre plusieurs morceaux SSE et les retire avant la synthèse. `EmotionFusion` pondère l'audio à 0,6 et le texte à 0,4, avec un seuil de 0,45 et un délai de 4 secondes. `VoiceSession` applique ensuite la `SdkMap` existante (visage, oreilles, lumière et geste) via `RobotBus`.
+
+Lancer le service avec `python emo_server.py` (ONNX et ses dépendances sont configurés par variables d'environnement). Le serveur CosyVoice FastAPI reste le service lancé par `run.sh`; les deux services ne doivent pas être démarrés simultanément sur 13306 sans autre intégration. Sur nimbus, utiliser la passerelle pour la conversation, et configurer le port FastAPI CosyVoice séparément si nécessaire.
+
+Tests : `python -m unittest sidecar/test_emo_server.py`, puis `python sidecar/tests/run_emotion_tests.py` pour la campagne simulée. Les échantillons RAVDESS et leur licence restent dans `tests/samples/ravdess`.

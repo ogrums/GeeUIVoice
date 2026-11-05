@@ -35,6 +35,7 @@ class VoiceSession(
     private val sidecarOkAt: () -> Long = { 0L },
     private val plan: TtsPlan? = null,
     private val pause: (Long) -> Unit = { Thread.sleep(it) },
+    private val fusion: com.geeui.voiceemo.EmotionFusion? = null,
 ) {
     private val skills = SkillRouter(bus, charging)
     var state: Dialogue = Dialogue.Idle
@@ -49,18 +50,37 @@ class VoiceSession(
         }
         state = Dialogue.Speaking
         val answer = StringBuilder()
+        val tags = com.geeui.voiceemo.EmotionTagParser()
+        var tagged = false
+        var replyEmotion = com.geeui.voiceemo.Emotion.NEUTRAL
+        fun delta(piece: String) {
+            val parsed = tags.consume(piece)
+            if (parsed.emotion != com.geeui.voiceemo.Emotion.NEUTRAL) {
+                tagged = true
+                replyEmotion = parsed.emotion
+            }
+            answer.append(parsed.text)
+        }
         if (chat is StreamingChat) {
-            chat.stream(text) { delta -> answer.append(delta) }
+            chat.stream(text) { piece -> delta(piece) }
+            answer.append(tags.finish().text)
         } else {
-            answer.append(chat.reply(text))
+            delta(chat.reply(text))
+            answer.append(tags.finish().text)
         }
         val whole = spoken(answer.toString())
         var moved = false
         if (mood != null) {
+            val reaction = fusion?.fuse(audioAffect().emotion, audioAffect().confidence.toDouble(),
+                replyEmotion, tagged)
             val turn = EmotionPipeline.turn(
                 say = whole,
-                audio = audioAffect(),
-                text = TextAffect.of(text),
+                audio = if (reaction == null) audioAffect() else com.geeui.voiceemo.Affect(
+                    reaction.emotion,
+                    reaction.score.toFloat().coerceIn(0f, 1f),
+                ),
+                // Fusion is the single arbiter; avoid a second Arbiter.merge pass.
+                text = if (reaction == null) TextAffect.of(text) else Affect.UNKNOWN,
                 mood = mood,
                 now = now(),
                 sidecarOkAt = sidecarOkAt(),

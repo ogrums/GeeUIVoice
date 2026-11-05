@@ -14,6 +14,7 @@ import com.geeui.voice.engine.CosyTts
 import com.geeui.voice.engine.LemonadeChat
 import com.geeui.voice.engine.LemonadeClient
 import com.geeui.voice.engine.LemonadeStt
+import com.geeui.voice.engine.EmotionStt
 import com.geeui.voice.engine.LemonadeTts
 import com.geeui.voice.engine.PlannedTts
 import com.geeui.voice.engine.TextToSpeech
@@ -62,19 +63,26 @@ class VoiceLoop(
     }
     private val clips = PlannedTts(plan, kokoro, cosy)
     private val tts = PlayingTts(clips, cacheDir, audio)
+    private val gateway = LemonadeClient(sidecar.trimEnd('/') + "/v1", sttModel = sttModel, systemPrompt = "")
+    private val lemonStt = LemonadeStt(client)
+    private val stt = EmotionStt(gateway, lemonStt) { ok ->
+        if (!ok) sidecarOk.set(0)
+    }
     private val session = VoiceSession(
         bus,
         tts,
         LemonadeChat(client),
         mood = Mood(),
         plan = plan,
+        audioAffect = { stt.lastAudioAffect },
+        fusion = com.geeui.voiceemo.EmotionFusion(),
         sidecarOkAt = {
             val now = System.currentTimeMillis()
             if (sidecar.isNotBlank() && now - sidecarOk.get() > 5_000L) pingSidecar(sidecar)
             sidecarOk.get()
         },
     )
-    private val live = LiveTurn(vad, LemonadeStt(client), tts, session)
+    private val live = LiveTurn(vad, stt, tts, session)
     private val turns = Executors.newSingleThreadExecutor()
     private val running = AtomicBoolean(false)
     private var thread: Thread? = null

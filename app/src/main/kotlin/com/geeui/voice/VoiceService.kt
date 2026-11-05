@@ -28,7 +28,7 @@ class VoiceService : Service() {
     private var chat = "gemma4e-flash-e2b-FLM"
     private var tts = "kokoro-v1"
     private var voice = ""
-    private var prompt = com.geeui.voice.engine.LemonadeClient.SPOKEN
+    private var prompt = com.geeui.voice.engine.LemonadeClient.SPOKEN + " " + com.geeui.voiceemo.FRENCH_EMOTION_SYSTEM_PROMPT
     private var sidecar = com.geeui.voiceemo.HostConfig.SIDECAR
     private var cosyModel = com.geeui.voice.engine.CosyTts.MODEL
     private val vad = mutableMapOf<String, String?>()
