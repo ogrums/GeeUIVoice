@@ -57,12 +57,12 @@ class VoiceLoop(
     )
     private val plan = TtsPlan()
     private val sidecarOk = AtomicLong(0)
-    private val kokoro = LemonadeTts(client, voice)
+    private val kokoro = LemonadeTts(client, voice, plan)
     private val cosy = CosyTts(plan) { text, emotion ->
         postCosy(sidecar, cosyModel, text, emotion)
     }
     private val clips = PlannedTts(plan, kokoro, cosy)
-    private val tts = PlayingTts(clips, cacheDir, audio)
+    private val tts = PlayingTts(clips, cacheDir, audio) { plan.prosody }
     private val gateway = LemonadeClient(sidecar.trimEnd('/') + "/v1", sttModel = sttModel, systemPrompt = "")
     private val lemonStt = LemonadeStt(client)
     private val stt = EmotionStt(gateway, lemonStt) { ok ->
@@ -222,6 +222,7 @@ class PlayingTts(
     private val remote: com.geeui.voice.engine.ClipTts,
     private val cacheDir: File,
     private val audio: Context,
+    private val prosody: () -> com.geeui.voiceemo.Prosody = { com.geeui.voiceemo.Prosody.NEUTRAL },
 ) : TextToSpeech {
     private var player: MediaPlayer? = null
     private var track: AudioTrack? = null
@@ -384,6 +385,7 @@ class PlayingTts(
                 }
                 mp.setDataSource(input.fd)
                 mp.prepare()
+                shape(mp)
                 VoiceHud.playing = true
                 mp.start()
                 started = true
@@ -408,7 +410,51 @@ class PlayingTts(
             if (VoiceHud.mode == "talk") VoiceHud.mode = "idle"
             synchronized(gate) {
                 if (player === mp) releasePlayer()
+                releaseBoost()
             }
+        }
+    }
+
+    private var boost: android.media.audiofx.LoudnessEnhancer? = null
+
+    /**
+     * Emotion accent: pitch (and speed when the server did not apply it) through
+     * PlaybackParams, softer through setVolume, louder through LoudnessEnhancer
+     * (MediaPlayer volume cannot go above 1). Any failure keeps the plain voice.
+     */
+    private fun shape(mp: MediaPlayer) {
+        val p = prosody()
+        if (p.isNeutral) return
+        val speed = if (remote.speedApplied) 1f else p.speed
+        if (speed != 1f || p.pitch != 1f) {
+            try {
+                // May start the prepared player right away; the start() that follows is then a no-op.
+                mp.playbackParams = mp.playbackParams.setSpeed(speed).setPitch(p.pitch)
+            } catch (e: Exception) {
+                VoiceHud.diag = "prosodie: ${e.javaClass.simpleName}"
+            }
+        }
+        try {
+            if (p.gain < 1f) {
+                mp.setVolume(p.gain, p.gain)
+            } else if (p.gain > 1f) {
+                val mB = (2000.0 * kotlin.math.log10(p.gain.toDouble())).toInt()
+                boost = android.media.audiofx.LoudnessEnhancer(mp.audioSessionId).apply {
+                    setTargetGain(mB)
+                    enabled = true
+                }
+            }
+        } catch (e: Exception) {
+            VoiceHud.diag = "gain: ${e.javaClass.simpleName}"
+        }
+    }
+
+    private fun releaseBoost() {
+        val b = boost
+        boost = null
+        try {
+            b?.release()
+        } catch (_: Exception) {
         }
     }
 

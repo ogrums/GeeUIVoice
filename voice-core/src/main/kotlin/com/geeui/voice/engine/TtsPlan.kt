@@ -7,6 +7,8 @@ import com.geeui.voiceemo.TtsRoute
 class TtsPlan {
     var engine: TtsEngine = TtsEngine.KOKORO
     var emotion: String = "neutral"
+    /** Voice accent for this reply, from [com.geeui.voiceemo.EmotionProsody]. */
+    var prosody: com.geeui.voiceemo.Prosody = com.geeui.voiceemo.Prosody.NEUTRAL
 }
 
 /**
@@ -23,6 +25,9 @@ class PlannedTts(
 
     override val lastAudio: ByteArray
         get() = used.lastAudio
+
+    override val speedApplied: Boolean
+        get() = used.speedApplied
 
     override fun whenAudible(action: (() -> Unit)?) {
         audible = action

@@ -139,16 +139,18 @@ class LemonadeClient(
         return tail.takeWhile { it.isDigit() || it == '.' || it == '-' || it == '+' || it == 'e' || it == 'E' }.toDoubleOrNull()
     }
 
-    fun speech(text: String, voice: String): ByteArray {
+    /** [speed] is sent only when it differs from 1 (Lemonade passes it to Kokoro). */
+    fun speech(text: String, voice: String, speed: Float = 1f): ByteArray {
         val model = resolveTts()
         if (model.isBlank()) return ByteArray(0)
-        val mp3Body = """{"model":"$model","input":${json(text)},"voice":${json(voice)},"response_format":"mp3"}"""
+        val extra = speedField(speed)
+        val mp3Body = """{"model":"$model","input":${json(text)},"voice":${json(voice)}$extra,"response_format":"mp3"}"""
         return try {
             postBytes("/audio/speech", "application/json", mp3Body.toByteArray())
         } catch (e: IllegalStateException) {
             val msg = e.message.orEmpty()
             if (!msg.contains("response_format") && !msg.contains("400")) throw e
-            val plain = """{"model":"$model","input":${json(text)},"voice":${json(voice)}}"""
+            val plain = """{"model":"$model","input":${json(text)},"voice":${json(voice)}$extra}"""
             postBytes("/audio/speech", "application/json", plain.toByteArray())
         }
     }
@@ -298,13 +300,18 @@ class LemonadeChat(private val client: LemonadeClient) : Chat, StreamingChat {
 class LemonadeTts(
     private val client: LemonadeClient,
     private val voice: String = "",
+    private val plan: TtsPlan? = null,
 ) : ClipTts {
     override var lastAudio: ByteArray = ByteArray(0)
+        private set
+    override var speedApplied: Boolean = false
         private set
 
     override fun speak(text: String, language: String) {
         val chosen = voice.ifBlank { if (language == "en") "af_heart" else "ff_siwis" }
-        lastAudio = client.speech(text, chosen)
+        val speed = plan?.prosody?.speed ?: 1f
+        lastAudio = client.speech(text, chosen, speed)
+        speedApplied = speed != 1f
     }
 
     override fun stop() {
@@ -340,4 +347,11 @@ class EmotionStt(
             fallback.transcribe(pcm16le, sampleRate)
         }
     }
+}
+
+/** `,"speed":1.08` or empty. Locale-free so a French device never writes `1,08`. */
+internal fun speedField(speed: Float): String {
+    if (speed == 1f || speed.isNaN()) return ""
+    val v = speed.coerceIn(0.5f, 2f)
+    return ",\"speed\":" + String.format(java.util.Locale.ROOT, "%.3f", v)
 }

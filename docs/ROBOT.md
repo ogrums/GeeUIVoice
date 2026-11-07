@@ -262,6 +262,29 @@ Skills that hit the body today:
 
 Match is the whole string, lowercased. "avance un peu" does not match.
 
+## Voix accentuée par l'émotion (prosodie)
+
+L'émotion fusionnée (`EmotionFusion`, audio 0,6 + balise LLM 0,4) qui choisit le visage règle aussi la voix de la réponse. Table dans `emotion-core/.../Prosody.kt` (`EmotionProsody.TABLE`), valeurs à pleine intensité :
+
+| Émotion | Vitesse | Hauteur | Volume |
+|---|---|---|---|
+| neutre | 1,00 | 1,00 | 1,00 |
+| joie | 1,08 | 1,06 | 1,00 |
+| tristesse | 0,90 | 0,94 | 0,85 |
+| colère | 1,06 | 0,98 | 1,15 |
+| peur | 1,10 | 1,08 | 0,95 |
+| surprise | 1,05 | 1,10 | 1,05 |
+
+**Dosage par la confiance :** l'écart au neutre est multiplié par `k = clamp((score − 0,45) / 0,55, 0, 1)`. Au seuil 0,45 la voix ne change pas, à 1,0 on a la valeur de la table. Neutre (ou pendant le cooldown de 4 s) : voix normale.
+
+**Où c'est appliqué :**
+- Vitesse : envoyée à Lemonade dans `speed` de `/v1/audio/speech` pour Kokoro (Lemonade la transmet à Kokoros, flux compris). Pour CosyVoice, appliquée sur le robot. Jamais deux fois (`ClipTts.speedApplied`).
+- Hauteur : `MediaPlayer.setPlaybackParams` sur le robot.
+- Volume : `setVolume` pour baisser, `LoudnessEnhancer` pour monter (le volume de MediaPlayer ne dépasse pas 1).
+- Toute erreur garde la voix normale.
+
+**Désactiver :** `EmotionProsody.enabled = false`.
+
 ## What this robot file does not decide
 
 The binder map is [BUS.md](BUS.md). The move from two APKs to one is [FUSION.md](FUSION.md). Wake-word training, music, alarms, and weather are not implemented here.
