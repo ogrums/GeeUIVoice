@@ -142,6 +142,22 @@ Other face ids that look like emotions but are not used:
 
 The public face sheet stops at `h0302`. Ids `h0290`–`h0302` are empty. The full named subset we care about is in `GeeUIVoiceEmo/docs/FACES.md`.
 
+## Dialogue faces
+
+Our own screen shows a face for each dialogue state. These ids come from the stock assistant, `GestureCenter` in GeeUIBase, which `LTPAudioService` calls for each DUI avatar state. The clips are copied from GeeUIFace `assets/video`.
+
+| State | Face | Stock call | What the clip shows |
+|---|---|---|---|
+| mic capture (`hear`) | `h0180` | `getWakeupGesture`, `avatar.listening` | eyes, a `?` pops up |
+| STT and LLM (`think`, `talk` before audio) | `h0181` | `getUnderstandGesture`, `avatar.understanding` | eyes, a light bulb fades |
+| TTS playing, neutral reply | `h0292` | `getSpeakingGesture` | eyes and a moving mouth |
+| TTS playing, emotion reply | the pose face | | `h0006`, `h0119`, and the others from the table above |
+| after the clip | the pose face, then `h0059` | | `standAtAttention` after 3 s |
+
+`dialogueFace` picks the face. It only changes the local `TextureView`. It sends nothing on the bus, so `applyPose` and `standAtAttention` still own `controlFace`.
+
+Clips checked frame by frame and not used: `h0098` 语音听 also shows eyes and a `?`. It is close to `h0180`, but the stock assistant does not call it. `h0276` 倾听 is a dragonfly, not a listening face. `h0184`, `h0183` and `h0082` are the GPT skin versions. The stock assistant also calls `h0347` (VAD begin), `h0352` (first speaking) and `h0346` (speaking with AI), but those files are not in the public GeeUIFace repo.
+
 GeeUIFace plays `assets/video/<id>.mp4` in a loop. The automatic robot mode picks a script at random, and every 5th cycle it runs face recognition instead of a video. That loop is GeeUIFace, not GeeUIVoice.
 
 ## Sounds

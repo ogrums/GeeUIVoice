@@ -29,6 +29,7 @@ import com.geeui.voice.engine.CosyTts
 import com.geeui.voice.bus.IDLE_FACE
 import com.geeui.voice.bus.PoseTiming
 import com.geeui.voice.bus.bundledFace
+import com.geeui.voice.bus.dialogueFace
 import com.geeui.voice.bus.debugLaunch
 import com.geeui.voice.bus.standAtAttention
 import com.geeui.voiceemo.Emotion
@@ -54,7 +55,8 @@ class VoiceActivity : Activity() {
     private val refresh = object : Runnable {
         override fun run() {
             if (debug) paintDebug()
-            val face = VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
+            val pose = VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
+            val face = if (debug && pose.isBlank()) "" else dialogueFace(VoiceHud.mode, VoiceHud.playing, pose)
             if (face.isNotBlank() && face != shownFace) playFace(face)
             handler.postDelayed(this, 120)
         }
