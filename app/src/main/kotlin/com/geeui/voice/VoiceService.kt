@@ -17,7 +17,10 @@ import com.geeui.voice.audio.VadConfig
  *   -e tts kokoro \
  *   -e voice ff_siwis \
  *   -e sidecar http://nimbus:13306 \
- *   -e cosy_model Fun-CosyVoice3-0.5B-2512
+ *   -e cosy_model Fun-CosyVoice3-0.5B-2512 \
+ *   -e phonon http://nimbus:8880 \
+ *   -e phonon_voice Hélène
+ * Phonon (Gradium, Docker ptts-openai-server) replaces Kokoro when phonon is set; empty means off.
  * Kokoro stays on Lemonade. A short non-neutral line uses the sidecar when /health answered.
  * Une nouvelle commande START réapplique les extras présents. Un extra absent ne les efface pas.
  */
@@ -31,6 +34,8 @@ class VoiceService : Service() {
     private var prompt = com.geeui.voice.engine.LemonadeClient.SPOKEN + " " + com.geeui.voiceemo.FRENCH_EMOTION_SYSTEM_PROMPT
     private var sidecar = com.geeui.voiceemo.HostConfig.SIDECAR
     private var cosyModel = com.geeui.voice.engine.CosyTts.MODEL
+    private var phonon = ""
+    private var phononVoice = com.geeui.voice.engine.PhononTts.VOICE
     private val vad = mutableMapOf<String, String?>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -52,11 +57,15 @@ class VoiceService : Service() {
                 sidecar = com.geeui.voiceemo.HostConfig.orDefault(it, com.geeui.voiceemo.HostConfig.SIDECAR)
             }
             intent.getStringExtra("cosy_model")?.let { cosyModel = it }
+            intent.getStringExtra("phonon")?.let { phonon = it.trim().trimEnd('/') }
+            intent.getStringExtra("phonon_voice")?.let {
+                phononVoice = it.trim().ifEmpty { com.geeui.voice.engine.PhononTts.VOICE }
+            }
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
-                sidecar, cosyModel,
+                sidecar, cosyModel, phonon, phononVoice,
             )
             loop?.start()
         }

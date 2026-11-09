@@ -288,3 +288,22 @@ L'émotion fusionnée (`EmotionFusion`, audio 0,6 + balise LLM 0,4) qui choisit 
 ## What this robot file does not decide
 
 The binder map is [BUS.md](BUS.md). The move from two APKs to one is [FUSION.md](FUSION.md). Wake-word training, music, alarms, and weather are not implemented here.
+
+## Voix Phonon (Gradium, Docker sur nimbus)
+
+Phonon remplace Kokoro quand le champ « Phonon » des réglages (extra `phonon`) contient une adresse, par exemple `http://nimbus:8880`. Vide, l'app garde Kokoro. Si Phonon ne répond pas, la phrase part quand même avec Kokoro, et les phrases émotionnelles courtes gardent CosyVoice.
+
+Lancer le serveur sur nimbus (le modèle est « gated » : accepter la licence CC BY-NC sur Hugging Face, puis passer `HF_TOKEN`) :
+
+```bash
+docker run -d --name phonon -p 8880:8880 \
+  -e PTTS_MODEL=hf://gradium/phonon-40m-fr -e PTTS_LANG=fr -e PTTS_QUANT=q8 \
+  -e HF_TOKEN=$HF_TOKEN \
+  -v phonon-cache:/home/phonon/.cache/huggingface \
+  ghcr.io/gradium-ai/ptts-openai-server
+curl -s http://nimbus:8880/v1/audio/voices
+```
+
+La voix par défaut est `Hélène` (champ « Voix Phonon », extra `phonon_voice`). Les autres voix françaises du catalogue : Augustin, Arnaud, Jules, Baptiste, Lucien, Marius, Noémie, Coralie, Tiphaine, Maëlys, Orianne, Solène, Ninon, Lilou.
+
+Le serveur refuse toute vitesse différente de 1.0, donc l'app n'en envoie pas : la vitesse de la prosodie, la hauteur et le volume sont appliqués sur le robot.

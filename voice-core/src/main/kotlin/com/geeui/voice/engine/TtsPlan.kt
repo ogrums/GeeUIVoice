@@ -84,7 +84,7 @@ class CosyTts(
         fun body(text: String, emotion: String, model: String = MODEL): String =
             """{"model":${json(model)},"input":${json(text)},"voice":${json(emotion.ifBlank { "neutral" })},"response_format":"wav"}"""
 
-        private fun json(value: String): String {
+        internal fun json(value: String): String {
             val out = StringBuilder(value.length + 2)
             out.append('"')
             for (c in value) {
@@ -92,6 +92,8 @@ class CosyTts(
                     '\\' -> out.append("\\\\")
                     '"' -> out.append("\\\"")
                     '\n' -> out.append("\\n")
+                    '\r' -> out.append("\\r")
+                    '\t' -> out.append("\\t")
                     else -> out.append(c)
                 }
             }
