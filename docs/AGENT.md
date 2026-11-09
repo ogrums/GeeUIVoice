@@ -9,11 +9,11 @@ flowchart LR
     subgraph Robot["Robot RUX (Android 11)"]
         MIC["Micro + VAD"] --> APP["App GeeUIVoice"]
         APP --> HP["Haut-parleur"]
-        APP --> BUS["RobotBus\nvisage, oreilles, lumière, moteurs"]
+        APP --> BUS["RobotBus<br/>visage, oreilles, lumière, moteurs"]
     end
     subgraph Nimbus["nimbus"]
-        SIDE["Sidecar :13306\nSTT + émotion"]
-        LEM["Lemonade :13305\nWhisper, Gemma, Kokoro"]
+        SIDE["Sidecar :13306<br/>STT + émotion"]
+        LEM["Lemonade :13305<br/>Whisper, Gemma, Kokoro"]
         TTS2["CosyVoice / Phonon :8880"]
     end
     APP -- "audio" --> SIDE --> LEM
@@ -31,24 +31,24 @@ flowchart LR
     subgraph Robot["Robot RUX"]
         MIC["Micro"] --> APP["App GeeUIVoice"]
         APP --> HP["Haut-parleur"]
-        APP --> EXEC["Exécuteur d'actions\n(liste autorisée)"] --> BUS["RobotBus"]
+        APP --> EXEC["Exécuteur d'actions<br/>(liste autorisée)"] --> BUS["RobotBus"]
         SENS["Capteurs, caméra"] -. "événements" .-> APP
     end
     subgraph Nimbus["nimbus"]
         subgraph AGENT["Sidecar devenu agent :13306"]
-            SOUL["SOUL.md\npersonnalité"]
-            MEM["Mémoire\ncourte + souvenirs"]
-            SK["Skills\nskills/*/SKILL.md"]
-            LOOP["Boucle d'outils\n(max 3 tours)"]
+            SOUL["SOUL.md<br/>personnalité"]
+            MEM["Mémoire<br/>courte + souvenirs"]
+            SK["Skills<br/>skills/*/SKILL.md"]
+            LOOP["Boucle d'outils<br/>(max 3 tours)"]
             MCPC["Client MCP"]
         end
-        LEM["Lemonade\nLLM avec tools"]
-        UI["Page web d'admin\nsoul, skills, souvenirs"]
+        LEM["Lemonade<br/>LLM avec tools"]
+        UI["Page web d'admin<br/>soul, skills, souvenirs"]
     end
     subgraph Ext["Serveurs MCP"]
         HA["Home Assistant"]
         METEO["Météo, agenda..."]
-        OC["OpenClaw (option)\ntâches longues"]
+        OC["OpenClaw (option)<br/>tâches longues"]
     end
     APP -- "/v1/chat/completions" --> LOOP
     SOUL --> LOOP
