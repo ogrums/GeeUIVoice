@@ -1,6 +1,8 @@
-# Donner de l'autonomie au robot : mémoire, outils, skills et soul
+# Donner de l'autonomie au robot avec nanobot
 
-Proposition d'architecture, rien n'est encore codé. Principe : la voix reste rapide et locale, le « cerveau » vit sur nimbus dans le sidecar, et tout reste compatible OpenAI.
+Proposition d'architecture. Le déploiement est prêt dans [`deploy/nanobot/`](../deploy/nanobot/README.md), mais le sidecar et l'app ne sont pas encore modifiés.
+
+Principe : on ne code pas d'agent nous-mêmes. [nanobot](https://github.com/HKUDS/nanobot) (MIT, Python) tourne sur nimbus et devient le cerveau du robot : soul, mémoire, skills, MCP. Le sidecar garde la détection d'émotion et lui transmet les phrases. Le robot garde la voix et exécute les actions qu'on lui renvoie sous forme de balises. Tout reste compatible OpenAI.
 
 ## 1. Aujourd'hui
 
@@ -22,7 +24,7 @@ flowchart LR
     APP -- "texte à dire" --> TTS2
 ```
 
-Limites : le robot **oublie tout** entre deux phrases (seul le prompt système et la phrase en cours sont envoyés), et il **n'agit** que sur des phrases exactes (« avance », « photo »…).
+Limites : le robot oublie tout entre deux phrases, et il n'agit que sur des phrases exactes (« avance », « photo »…).
 
 ## 2. Cible
 
@@ -31,41 +33,37 @@ flowchart LR
     subgraph Robot["Robot RUX"]
         MIC["Micro"] --> APP["App GeeUIVoice"]
         APP --> HP["Haut-parleur"]
-        APP --> EXEC["Exécuteur d'actions<br/>(liste autorisée)"] --> BUS["RobotBus"]
-        SENS["Capteurs, caméra"] -. "événements" .-> APP
+        APP --> ACT["Balises d'action<br/>liste autorisée + confirmation"] --> BUS["RobotBus"]
     end
     subgraph Nimbus["nimbus"]
-        subgraph AGENT["Sidecar devenu agent :13306"]
-            SOUL["SOUL.md<br/>personnalité"]
-            MEM["Mémoire<br/>courte + souvenirs"]
+        SIDE["Sidecar :13306<br/>STT, émotion, choix du modèle"]
+        subgraph NB["nanobot :8900 (Docker)"]
+            SOUL["SOUL.md + AGENTS.md<br/>personnalité, balises"]
+            MEM["Mémoire<br/>session, USER.md, MEMORY.md"]
             SK["Skills<br/>skills/*/SKILL.md"]
-            LOOP["Boucle d'outils<br/>(max 3 tours)"]
             MCPC["Client MCP"]
         end
-        LEM["Lemonade<br/>LLM avec tools"]
-        UI["Page web d'admin<br/>soul, skills, souvenirs"]
+        subgraph LEM["Lemonade :13305"]
+            GEM["Gemma E2B<br/>preset rapide"]
+            QW["Qwen3 4B<br/>preset lourd"]
+        end
     end
-    subgraph Ext["Serveurs MCP"]
+    subgraph Ext["Serveurs MCP (plus tard)"]
         HA["Home Assistant"]
         METEO["Météo, agenda..."]
-        OC["OpenClaw (option)<br/>tâches longues"]
     end
-    APP -- "/v1/chat/completions" --> LOOP
-    SOUL --> LOOP
-    MEM <--> LOOP
-    SK --> LOOP
-    LOOP <--> LEM
-    LOOP <--> MCPC
-    MCPC <--> HA
-    MCPC <--> METEO
-    MCPC <--> OC
-    LOOP -- "texte + actions robot" --> APP
-    UI --> SOUL
-    UI --> SK
-    UI --> MEM
+    APP -- "audio" --> SIDE
+    APP -- "phrase + émotion entendue" --> SIDE
+    SIDE -- "1 message + session_id" --> NB
+    NB --> GEM
+    NB --> QW
+    MCPC --> HA
+    MCPC --> METEO
+    NB -- "[émotion] texte [action]" --> SIDE --> APP
+    SIDE -. "secours si nanobot muet" .-> GEM
 ```
 
-L'app ne change presque pas : elle envoie toujours une requête OpenAI au sidecar et reçoit du texte, plus une liste d'actions robot à exécuter (marcher, visage, lumière…). Tout ce qui est « intelligence » est sur nimbus, donc on peut changer de modèle ou de carte (AMD, NVIDIA, NPU) sans toucher au robot.
+L'app parle seulement au sidecar, comme aujourd'hui pour le STT. Changer de modèle, de carte (AMD, NVIDIA, NPU) ou de soul ne touche pas au robot.
 
 ## 3. Un tour de conversation
 
@@ -73,58 +71,121 @@ L'app ne change presque pas : elle envoie toujours une requête OpenAI au sideca
 sequenceDiagram
     actor U as Toi
     participant R as Robot
-    participant A as Agent (sidecar)
+    participant S as Sidecar
+    participant N as nanobot
     participant L as Lemonade
-    participant M as Serveur MCP
-    U->>R: « Allume le salon et viens me voir »
-    R->>A: texte + émotion entendue
-    A->>A: ajoute soul, souvenirs utiles, skills, historique
-    A->>L: chat + liste d'outils
-    L-->>A: appel d'outil home.allumer(salon)
-    A->>M: allumer(salon)
-    M-->>A: ok
-    A->>L: résultat
-    L-->>A: « C'est fait, j'arrive ! » + robot.marcher
-    A-->>R: texte + action marcher
-    R->>R: confirme si besoin, marche, parle
-    A->>A: note un souvenir si c'est important
+    U->>R: « Avance un peu »
+    R->>S: audio
+    S->>L: Whisper
+    S-->>R: texte + émotion entendue
+    R->>S: chat : la phrase
+    S->>N: « (ton entendu : neutral) Avance un peu »<br/>session_id rux
+    N->>N: ajoute soul, règles, historique, skills
+    N->>L: Gemma + outils nanobot
+    L-->>N: « [happy] D'accord, j'avance. [move:forward] »
+    N-->>S: flux SSE
+    S-->>R: flux SSE
+    R->>R: retire les balises, émotion = happy
+    R->>U: « D'accord, j'avance. Je peux y aller ? »
+    U->>R: « oui »
+    R->>R: marche (refus si en charge)
 ```
 
-## 4. Mémoire
+## 4. Gemma pour parler, Qwen3 pour réfléchir
 
-| Niveau | Contenu | Où | Comment |
+Ce que nanobot sait faire (vérifié dans son code) :
+- Des **presets** de modèles nommés (`modelPresets`), ici `rapide` (Gemma) et `lourd` (Qwen3), tous deux sur Lemonade.
+- La commande **`/model lourd`** envoyée comme une phrase normale à l'API change le modèle de cette session seulement, et le choix reste jusqu'à `/model rapide`. Testé.
+- **`fallbackModels: ["lourd"]`** : si Gemma échoue, nanobot réessaie avec Qwen3.
+- **Dream** (la mise à jour des souvenirs) a son propre modèle : `dream.modelOverride: "lourd"`. Testé avec `/dream`.
+
+Ce qu'il ne sait pas faire : ses sous-agents (`subagent`) reprennent le modèle de l'agent principal, sans option pour en choisir un autre. Il n'y a donc pas de délégation native vers Qwen3.
+
+Choix retenu, le plus simple :
+1. nanobot reste sur `rapide` (Gemma) par défaut.
+2. Le **sidecar** repère une demande lourde (mots comme « réfléchis », « explique », « prépare », « planifie », « résume », « apprends à », ou une phrase longue). Il envoie alors `/model lourd`, puis la phrase, puis `/model rapide`, dans la même session. L'historique reste partagé.
+3. Le robot dit d'abord « Je réfléchis… » pour masquer l'attente.
+4. Le soir, un cron envoie `/dream`, qui tourne sur Qwen3.
+
+Lemonade doit garder les deux modèles chargés : `lemonade config set max_loaded_models=2`.
+
+## 5. Mémoire
+
+| Niveau | Contenu | Où (workspace nanobot) | Qui l'écrit |
 |---|---|---|---|
-| Courte | Les 6 à 10 derniers échanges | Sidecar, en RAM par session | Ajoutés à chaque requête, oubliés après quelques minutes de silence |
-| Souvenirs | Faits durables : prénoms, goûts, habitudes, événements | Sidecar, `memory/` (SQLite ou fichiers) | Outil `retenir(fait)` appelé par le LLM, et résumé automatique en fin de conversation |
-| Rappel | Les souvenirs utiles pour la phrase en cours | Sidecar | Recherche simple par mots-clés, puis par embeddings si besoin, injectés dans le prompt |
+| Conversation | Les échanges de la session `rux` | `sessions/` | nanobot, à chaque tour |
+| Résumés | Les vieux échanges, compressés | `memory/history.jsonl` | nanobot, quand la conversation devient longue ou sur `/compact` |
+| Souvenirs | Qui tu es, tes goûts (`USER.md`), faits durables (`memory/MEMORY.md`) | fichiers Markdown, versionnés en git | Dream seulement (`/dream`), avec `/dream-log` et `/dream-restore` |
 
-Tout est consultable et effaçable depuis la page d'admin, et à la voix (« oublie ça »).
+On peut lire et corriger ces fichiers à la main sur nimbus. « Oublie ça » à la voix n'est pas encore prévu : à faire avec un petit skill.
 
-## 5. Soul
+## 6. Soul et skills
 
-Un fichier `SOUL.md` sur nimbus remplace le prompt système codé en dur dans l'app : nom du robot, caractère, façon de parler, valeurs, ce qu'il refuse de faire, comment il exprime ses émotions (les balises actuelles restent). On l'édite sans recompiler l'APK.
+- **`SOUL.md`** : la personnalité de RUX, sa façon de parler (phrases courtes, pas de markdown) et la balise d'émotion au début, mot pour mot comme `FRENCH_EMOTION_SYSTEM_PROMPT` dans l'app. Il remplace le prompt écrit dans l'app.
+- **`AGENTS.md`** : les balises d'action autorisées. Elles sont séparées de la soul, parce que Dream peut retoucher `SOUL.md`.
+- **Skills** : `skills/<nom>/SKILL.md`, avec un `name` et une `description` en en-tête. nanobot ne met que les descriptions dans le prompt. Le skill intégré `skill-creator` permet d'en créer à la voix : « apprends à faire le réveil du matin ». Le robot relit le skill en une phrase et demande confirmation avant de l'enregistrer.
+- **Admin** : pour commencer, on modifie les fichiers à la main. La WebUI de nanobot (port 8765) demande de lancer aussi son `gateway`, à voir plus tard.
 
-## 6. Skills
+## 7. Actions du robot
 
-Un skill est un dossier `skills/<nom>/SKILL.md` : une description courte, les étapes, et les outils autorisés. L'agent ne met que les descriptions dans le prompt et ne charge le skill complet que quand il sert, pour rester léger sur un petit modèle.
+nanobot ne peut pas toucher le robot : ses outils tournent sur nimbus. Il écrit une **balise d'action à la fin de sa réponse**, et l'app l'exécute.
 
-Création :
-- **À la voix** : « Apprends à faire le réveil du matin » → le skill `creer-skill` rédige un brouillon → le robot le relit et demande confirmation → il est enregistré.
-- **Page d'admin** : créer, modifier, activer ou désactiver un skill, la soul et les souvenirs.
+| Balise | Action dans l'app (`SkillRouter`) | Confirmation |
+|---|---|---|
+| `[move:forward]` | `actin` 98 | oui, à la voix |
+| `[move:back]` | `actin` 64 (non validé sur le robot) | oui |
+| `[home]` | `goHome` | oui |
+| `[volume:up]` / `[volume:down]` | `volumeUp` / `volumeDown` | non |
+| `[photo]` | `takePhoto` | non |
+| `[light:<couleur>]`, `[light:off]` | `antennaLight` | non |
 
-Un skill créé ne peut utiliser que les outils déjà autorisés : il ne peut pas en ajouter de nouveaux.
+Règles appliquées par l'app, pas par le modèle :
+- Toute autre balise est ignorée et retirée du texte. `reboot`, `shutdown` et l'ouverture d'apps ne sont jamais accessibles.
+- Pour marcher ou rentrer à la base, le robot demande « Je peux y aller ? ». Seul un « oui » dans les 10 secondes lance l'action, sinon elle est annulée.
+- Le robot refuse de marcher pendant la charge (déjà en place).
+- Les phrases exactes de `SkillLexicon` restent un raccourci immédiat, sans LLM ni confirmation.
 
-## 7. Sécurité
+## 8. Sécurité
 
-- Jamais exposés au modèle : `reboot`, `shutdown`, ouverture d'apps.
-- Confirmation vocale avant de marcher ; refus pendant la charge (déjà en place).
-- Serveurs MCP et outils sur liste autorisée, journal de toutes les actions.
-- OpenClaw seulement en conteneur, limité au réseau local, sandbox activée, sans skills ClawHub.
+- nanobot tourne en Docker, en utilisateur non root, sans capacités Linux. Son API n'écoute que sur la boucle locale de nimbus, avec une clé.
+- Pas de shell (`tools.exec.enable: false`), pas de web, fichiers limités au workspace. Les skills qui ont besoin du shell (github, tmux, clawhub…) sont désactivés.
+- Serveurs MCP ajoutés un par un, avec `enabledTools` pour ne garder que les outils voulus.
+- Pas de skills téléchargés (ClawHub désactivé).
 
-## 8. Étapes
+## 9. Ce qu'il reste à coder
 
-1. Tester avec `curl` que le modèle de Lemonade renvoie des `tool_calls`, sinon charger Qwen3-4B-Instruct ou Gemma 4 E4B en GGUF.
-2. Sidecar : mémoire courte, `SOUL.md`, outils robot (marcher, visage, volume, photo). L'app passe son chat par le sidecar et exécute les actions reçues.
-3. Souvenirs et skills, puis la page d'admin.
-4. Client MCP (Home Assistant en premier).
-5. Capteurs et caméra ; OpenClaw en option pour les tâches longues.
+**Sidecar** (`emo_server.py`) :
+1. Si `NANOBOT_URL` est défini, `/v1/chat/completions` n'envoie à nanobot que la dernière phrase de l'utilisateur, sans le message système. Il ajoute devant l'émotion entendue, le `session_id` `rux` et la clé `NANOBOT_API_KEY`, puis il relaie le flux.
+2. Le choix du modèle : `/model lourd` avant une demande lourde, `/model rapide` après.
+3. Le secours : si nanobot ne répond pas, ou si le flux se termine sans `[DONE]`, il renvoie la requête d'origine à Lemonade.
+
+**App** :
+1. Envoyer le chat au sidecar plutôt qu'à Lemonade, avec un réglage pour revenir à Lemonade en direct.
+2. Lire les balises d'action, les retirer du texte avant la synthèse vocale (aujourd'hui `[move:forward]` serait lu à voix haute), les filtrer avec la liste ci-dessus et les envoyer à `SkillRouter`.
+3. Gérer la confirmation vocale pour la marche et le retour à la base.
+4. Allonger le délai de réponse, et faire dire « Je réfléchis… » quand la réponse tarde.
+
+## 10. Étapes
+
+1. Sur nimbus : vérifier avec `curl` que Gemma et Qwen3 renvoient des `tool_calls`, y compris en streaming. Si Gemma FLM échoue, passer sur `Gemma-4-E2B-it-GGUF` ou `E4B`.
+2. Lancer nanobot (`deploy/nanobot`), tester avec `curl`, mesurer la latence.
+3. Sidecar vers nanobot, puis les balises d'action et la confirmation dans l'app.
+4. `/dream` chaque soir, puis les skills à la voix.
+5. MCP (Home Assistant en premier), puis les capteurs et la caméra.
+
+## 11. Vérifié ou pas
+
+Vérifié en lançant nanobot (commit `5c72ced`) contre un faux Lemonade :
+- la config de `deploy/nanobot` est acceptée ; le shell, le web et `my` ne sont pas chargés ;
+- `SOUL.md` et `AGENTS.md` sont bien mis dans le prompt ;
+- une session garde son historique, et deux `session_id` sont séparés ;
+- le streaming se termine par `[DONE]`, et une requête sans clé reçoit 401 ;
+- `/model lourd` et `/model rapide` marchent à travers l'API, et `/dream` utilise bien Qwen3 ;
+- un message système ou un historique dans la requête est refusé (400).
+
+Pas encore vérifié :
+- l'image Docker (pas de Docker sur ma machine de test) et l'accès à `nimbus` depuis le conteneur ;
+- les vraies réponses de Gemma et Qwen3 : respect des balises, appels d'outils, français ;
+- la latence : environ 5 000 tokens par tour, dont 75 % de descriptions d'outils ;
+- Gemma FLM sur le NPU et Qwen3 GGUF chargés en même temps ;
+- la compaction des conversations inactives, qui semble ne tourner qu'avec le `gateway`.

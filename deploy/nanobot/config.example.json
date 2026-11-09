@@ -1,0 +1,51 @@
+{
+  "providers": {
+    "lemonade": {
+      "apiBase": "${LEMONADE_API_BASE}",
+      "apiKey": "lemonade"
+    }
+  },
+  "modelPresets": {
+    "rapide": {
+      "provider": "lemonade",
+      "model": "gemma4e-flash-e2b-FLM",
+      "maxTokens": 256,
+      "contextWindowTokens": 32768,
+      "temperature": 0.6
+    },
+    "lourd": {
+      "provider": "lemonade",
+      "model": "Qwen3-4B-Instruct-2507-GGUF",
+      "maxTokens": 2048,
+      "contextWindowTokens": 32768,
+      "temperature": 0.3
+    }
+  },
+  "agents": {
+    "defaults": {
+      "workspace": "/home/nanobot/.nanobot/workspace",
+      "modelPreset": "rapide",
+      "fallbackModels": ["lourd"],
+      "botName": "RUX",
+      "timezone": "Europe/Paris",
+      "maxToolIterations": 6,
+      "maxConcurrentSubagents": 1,
+      "disabledSkills": ["clawhub", "github", "tmux", "image-generation", "nanobot-document", "weather", "cron", "summarize"],
+      "dream": { "enabled": true, "modelOverride": "lourd" }
+    }
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8900,
+    "timeout": 60,
+    "apiKey": "${NANOBOT_API_KEY}"
+  },
+  "tools": {
+    "restrictToWorkspace": true,
+    "exec": { "enable": false },
+    "web": { "enable": false },
+    "cliApps": { "enable": false },
+    "my": { "enable": false },
+    "mcpServers": {}
+  }
+}
