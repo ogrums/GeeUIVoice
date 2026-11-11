@@ -40,7 +40,19 @@ class TestWavReceiver : BroadcastReceiver() {
 
     private fun writeFail(outDir: File, path: String, error: String) {
         Log.w("GeeUIVoiceTest", error)
-        File(outDir, "result.json").writeText(WavTestResult.fail(path, error).toJson())
-        File(outDir, "status.txt").writeText("error\n")
+        val resultFile = File(outDir, "result.json")
+        resultFile.writeText(WavTestResult.fail(path, error).toJson())
+        resultFile.setReadable(true, false)
+        val statusFile = File(outDir, "status.txt")
+        statusFile.writeText("error\n")
+        statusFile.setReadable(true, false)
+        try {
+            val mirror = File("/data/local/tmp/geeui")
+            if (mirror.isDirectory || mirror.mkdirs()) {
+                resultFile.copyTo(File(mirror, "result.json"), overwrite = true).setReadable(true, false)
+                statusFile.copyTo(File(mirror, "status.txt"), overwrite = true).setReadable(true, false)
+            }
+        } catch (_: Exception) {
+        }
     }
 }

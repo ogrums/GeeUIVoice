@@ -225,7 +225,9 @@ class VoiceLoop(
      */
     fun enqueueWavTest(path: String, outDir: File) {
         outDir.mkdirs()
-        File(outDir, "status.txt").writeText("running\n")
+        val running = File(outDir, "status.txt")
+        running.writeText("running\n")
+        publishForAdb(running)
         turns.execute {
             val result = try {
                 runWavTest(path, outDir)
@@ -233,8 +235,15 @@ class VoiceLoop(
                 WavTestResult.fail(path, e.message ?: e.javaClass.simpleName)
             }
             try {
-                File(outDir, "result.json").writeText(result.toJson())
-                File(outDir, "status.txt").writeText(if (result.ok) "done\n" else "error\n")
+                val resultFile = File(outDir, "result.json")
+                resultFile.writeText(result.toJson())
+                publishForAdb(resultFile)
+                val statusFile = File(outDir, "status.txt")
+                statusFile.writeText(if (result.ok) "done\n" else "error\n")
+                publishForAdb(statusFile)
+                outDir.listFiles()?.forEach { f ->
+                    if (f.isFile && f.name.startsWith("tts.")) publishForAdb(f)
+                }
             } catch (e: Exception) {
                 Log.e(TEST_TAG, "write result", e)
             }
@@ -268,6 +277,29 @@ class VoiceLoop(
         }
     }
 
+
+    /** Android 11 : files in Android/data written by the app are mode 600, so
+     *  `adb pull` / `adb shell cat` fail. Make them world-readable and also
+     *  copy them to /data/local/tmp/geeui/ (writable by the app after the
+     *  voicetest script has mkdir'd it) so the PC campaign can collect them. */
+    private fun publishForAdb(file: File) {
+        try {
+            file.setReadable(true, false)
+            file.setWritable(true, false)
+        } catch (_: Exception) {
+        }
+        try {
+            val mirror = File("/data/local/tmp/geeui")
+            if (mirror.isDirectory || mirror.mkdirs()) {
+                val dest = File(mirror, file.name)
+                file.copyTo(dest, overwrite = true)
+                dest.setReadable(true, false)
+                dest.setWritable(true, false)
+            }
+        } catch (_: Exception) {
+        }
+    }
+
     private fun copyLastTts(outDir: File): String {
         val src = listOf("tts.mp3", "tts.wav", "tts.ogg", "tts.flac")
             .map { File(cacheDir, it) }
@@ -283,7 +315,8 @@ class VoiceLoop(
         val dir = appContext.getExternalFilesDir("voicetest") ?: return
         try {
             dir.mkdirs()
-            File(dir, "last-turn.json").writeText(
+            val last = File(dir, "last-turn.json")
+            last.writeText(
                 "{" +
                     "\"heard\":${jsonStr(VoiceHud.heard)}," +
                     "\"answer\":${jsonStr(VoiceHud.answer)}," +
@@ -294,6 +327,7 @@ class VoiceLoop(
                     "\"audio_confidence\":${stt.lastAudioAffect.confidence}" +
                     "}\n",
             )
+            publishForAdb(last)
         } catch (_: Exception) {
         }
     }

@@ -128,3 +128,7 @@ Chaque campagne écrit `tools/voicetest/out/campaign-AAAAMMJJ-HHMMSS/report.md` 
 | `--regen` | off | Regénérer les WAV Phonon |
 | `--ids` | | Sous-ensemble, ex. `meteo-paris,emotion-happy` |
 | `--wav-dir` / `--out-dir` | `wavs/` et `out/` | Caches et rapports |
+
+## Android 11 (robot actuel)
+
+`adb push` directement dans `/sdcard/Android/data/com.geeui.voice/…` échoue (`remote fchown : Operation not permitted`), et les fichiers écrits par l'app sont en mode 600 : `adb pull` et `adb shell cat` sont refusés. Le script pousse donc via `/data/local/tmp`, et l'app rend les résultats du hook lisibles (copie aussi dans `/data/local/tmp/geeui/`). En mode chaîne, on ignore `result.json` (il n'est écrit que par le hook WAV) et on lit `last-turn.json`.
