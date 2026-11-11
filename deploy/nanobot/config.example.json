@@ -8,7 +8,7 @@
   "modelPresets": {
     "rapide": {
       "provider": "lemonade",
-      "model": "gemma4e-flash-e2b-FLM",
+      "model": "gemma4-it-e2b-FLM",
       "maxTokens": 256,
       "contextWindowTokens": 32768,
       "temperature": 0.6
