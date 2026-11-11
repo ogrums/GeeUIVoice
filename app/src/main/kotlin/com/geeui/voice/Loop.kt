@@ -99,7 +99,8 @@ class VoiceLoop(
     fun start() {
         if (!running.compareAndSet(false, true)) return
         live.onUserText = {
-            VoiceHud.heard = it
+            val who = stt.lastSpeakerName
+            VoiceHud.heard = if (who.isBlank()) it else "$who : $it"
             VoiceHud.answer = ""
             VoiceHud.line = it
             VoiceHud.mode = "think"

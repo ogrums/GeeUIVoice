@@ -152,34 +152,23 @@ Si nanobot est arrêté, le sidecar journalise `chat route=lemonade fallback` et
 - **Alléger le prompt** : `"tools": {"file": {"enable": false}}` divise la requête par deux (11 000 caractères), mais nanobot ne peut alors plus lire ni créer de skills.
 
 
-## Recherche web et météo
+## Qui parle (sidecar)
 
-nanobot a deux outils web natifs : `web_search` et `web_fetch` (bloc `tools.web`).
+La reconnaissance de la voix est faite par le sidecar ([GeeUIVoiceSidecar](https://github.com/ogrums/GeeUIVoiceSidecar), section « Qui parle »), pas par nanobot. Ce que nanobot voit :
 
-- `web_search.provider` : `duckduckgo` ne demande aucune clé (c'est le choix ici). `brave`, `tavily`, `jina` demandent une `apiKey` ; `searxng` demande `baseUrl` (une instance SearXNG à soi, sans clé).
-- `web_fetch` lit une URL. `useJinaReader: false` la lit directement : c'est ce qu'il faut pour les API JSON (Open-Meteo, wttr.in).
-- Le skill `workspace/skills/meteo/SKILL.md` (toujours chargé) dit au modèle d'appeler `web_fetch` sur wttr.in (maintenant) ou Open-Meteo (demain et après), sans clé, et de répondre en une phrase en °C.
+| Qui | `session_id` | Début du message |
+|---|---|---|
+| Fonction éteinte, ou personne d'enregistré | `rux` | `(ton entendu : sad)` si besoin |
+| Paul reconnu | `rux-paul` | `(Paul parle, ton entendu : sad)` |
+| Inconnu | `rux-invite` | `(un invité parle)` |
 
-À ajouter dans `data/config.json` (bloc `tools`) :
+La mémoire reste une par workspace : `USER.md` a une section par personne (voir `workspace/SOUL.md` et `workspace/AGENTS.md`). Après une mise à jour, recopier ces deux fichiers dans `data/workspace/` puis `docker compose restart`.
 
-```json
-"web": {
-  "enable": true,
-  "search": { "provider": "duckduckgo", "maxResults": 3, "timeout": 15 },
-  "fetch": { "useJinaReader": false }
-}
-```
-
-Puis copier le skill et redémarrer (Docker rootless, utilisateur `bob`) :
+Vérifier côté nanobot qu'une session par personne existe :
 
 ```bash
-mkdir -p data/workspace/skills/meteo
-cp workspace/skills/meteo/SKILL.md data/workspace/skills/meteo/
-docker compose restart && docker compose logs --tail 20   # attendu : web_search et web_fetch dans les outils
-```
-
-Le modèle doit savoir appeler un outil. `gemma4-it-e2b-FLM` le fait ; `gemma4e-flash-e2b-FLM` ne le fait pas (il répond sans chercher). Vérifier que le preset `rapide` pointe bien sur `gemma4-it-e2b-FLM`. Si les réponses météo restent inventées, envoyer ces questions au preset `lourd` (Qwen3) via le sidecar, par exemple dans son `.env` :
-
-```
-NANOBOT_HEAVY_WORDS=météo,meteo,température,pluie,cherche,recherche,internet,actualité,actualités
+# Les sessions sont dans une base SQLite, sous data/ mais hors du workspace.
+DB=$(find data -name sessions.sqlite3 | head -1)
+python3 -c "import sqlite3,sys; print([r[0] for r in sqlite3.connect(sys.argv[1]).execute('select key from sessions')])" "$DB"
+# attendu après une conversation : 'api:rux-paul'
 ```
