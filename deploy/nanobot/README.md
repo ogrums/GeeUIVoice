@@ -9,7 +9,7 @@ Testé le 9 novembre 2026 avec le commit `5c72ced` de nanobot (version 0.4.1), s
 | Fichier | Rôle |
 |---|---|
 | `docker-compose.yml` | Construit l'image depuis le `Dockerfile` officiel (il n'y a pas d'image publiée) et lance `nanobot serve` sur `127.0.0.1:8900` |
-| `config.example.json` | Lemonade comme fournisseur, presets `rapide` (Gemma) et `lourd` (Qwen3), shell, web et outils d'administration coupés |
+| `config.example.json` | Lemonade comme fournisseur, presets `rapide` (Gemma) et `lourd` (Qwen3), web activé (DuckDuckGo sans clé + `web_fetch`), shell et outils d'administration coupés |
 | `workspace/SOUL.md` | Personnalité, façon de parler, balises d'émotion |
 | `workspace/AGENTS.md` | Balises d'action du robot, tâches longues, création de skills |
 | `.env.example` | Clé de l'API nanobot et adresse de Lemonade |
@@ -148,7 +148,7 @@ Si nanobot est arrêté, le sidecar journalise `chat route=lemonade fallback` et
 - **Une seule phrase par requête** : l'API refuse un message `system` ou un historique (`400 Only a single user message is supported`). Le sidecar doit n'envoyer que la dernière phrase.
 - **Souvenirs** : seul le « Dream » écrit dans `USER.md` et `memory/MEMORY.md`. `nanobot serve` ne le lance pas tout seul (c'est le `gateway` qui le planifie), d'où le `/dream` ci-dessus, à mettre dans un cron le soir. Chaque Dream est versionné en git dans le workspace : `/dream-log` et `/dream-restore` pour revenir en arrière. Dream peut aussi retoucher `SOUL.md`, garder une copie.
 - **Soul et skills** : ce sont des fichiers dans `data/workspace/`. On les modifie à la main puis `docker compose restart`. Les skills créés à la voix arrivent dans `data/workspace/skills/<nom>/SKILL.md`.
-- **Sécurité** : pas de shell (`tools.exec.enable: false`), pas de web, fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
+- **Sécurité** : pas de shell (`tools.exec.enable: false`), web en lecture seule (recherche DuckDuckGo + `web_fetch`, voir plus bas), fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
 - **Alléger le prompt** : `"tools": {"file": {"enable": false}}` divise la requête par deux (11 000 caractères), mais nanobot ne peut alors plus lire ni créer de skills.
 
 

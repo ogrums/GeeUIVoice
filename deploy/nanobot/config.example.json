@@ -43,7 +43,11 @@
   "tools": {
     "restrictToWorkspace": true,
     "exec": { "enable": false },
-    "web": { "enable": false },
+    "web": {
+      "enable": true,
+      "search": { "provider": "duckduckgo", "maxResults": 3, "timeout": 15 },
+      "fetch": { "useJinaReader": false }
+    },
     "cliApps": { "enable": false },
     "my": { "enable": false },
     "mcpServers": {}
