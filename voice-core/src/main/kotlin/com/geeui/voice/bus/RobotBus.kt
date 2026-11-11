@@ -59,6 +59,30 @@ fun bundledFace(id: String) = "video/$id.mp4"
 
 const val IDLE_FACE = "h0059"
 
+/** Same ids as the stock assistant (GestureCenter): wake / avatar.listening. Eyes with a "?". */
+const val LISTEN_FACE = "h0180"
+/** avatar.understanding in GestureCenter: eyes and a light bulb, while STT and the LLM work. */
+const val THINK_FACE = "h0181"
+/** getSpeakingGesture in GestureCenter: eyes and a moving mouth. */
+const val SPEAK_FACE = "h0292"
+
+/**
+ * Face shown on our own screen for a dialogue state. Local only: nothing is sent on the bus.
+ * [mode] is VoiceHud.mode (hear, think, talk, idle). [playing] is true while the TTS clip plays.
+ * [pose] is the face of the last pose (VoiceHud.face). An emotion face wins over the speaking
+ * face, so the EmotionFusion reaction stays visible while the robot talks. Neutral or no pose
+ * gets the mouth. After the clip, the pose face holds until standAtAttention puts h0059 back.
+ */
+fun dialogueFace(mode: String, playing: Boolean, pose: String): String {
+    val emotion = pose.isNotBlank() && pose != IDLE_FACE
+    return when {
+        playing -> if (emotion) pose else SPEAK_FACE
+        mode == "hear" -> LISTEN_FACE
+        mode == "think" || mode == "talk" -> THINK_FACE
+        else -> pose
+    }
+}
+
 /** The button screen. Anything else is the face, full screen, with the mic open. */
 fun debugLaunch(mode: String?, debug: String? = null): Boolean {
     if (mode?.trim()?.equals("debug", ignoreCase = true) == true) return true
