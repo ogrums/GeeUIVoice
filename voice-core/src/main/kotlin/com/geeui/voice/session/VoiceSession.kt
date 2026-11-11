@@ -68,11 +68,24 @@ class VoiceSession(
             delta(chat.reply(text))
             answer.append(tags.finish().text)
         }
+        // An emoji (nanobot: "… 😊") is an explicit face cue when the reply has no [tag].
+        val emoji = if (tagged) null
+        else com.geeui.voiceemo.EmojiEmotion.of(answer.toString())?.takeIf { it != com.geeui.voiceemo.Emotion.NEUTRAL }
+        if (emoji != null) {
+            tagged = true
+            replyEmotion = emoji
+        }
         val whole = spoken(answer.toString())
         var moved = false
         if (mood != null) {
-            val reaction = fusion?.fuse(audioAffect().emotion, audioAffect().confidence.toDouble(),
+            val fused = fusion?.fuse(audioAffect().emotion, audioAffect().confidence.toDouble(),
                 replyEmotion, tagged)
+            // A text tag alone (0.4) stays under the fusion threshold; an emoji is shown anyway.
+            val reaction = if (emoji != null && fused != null && fused.emotion == com.geeui.voiceemo.Emotion.NEUTRAL) {
+                com.geeui.voiceemo.EmotionFusion.Result(emoji, EMOJI_SCORE)
+            } else {
+                fused
+            }
             val turn = EmotionPipeline.turn(
                 say = whole,
                 audio = if (reaction == null) audioAffect() else com.geeui.voiceemo.Affect(
@@ -80,7 +93,11 @@ class VoiceSession(
                     reaction.score.toFloat().coerceIn(0f, 1f),
                 ),
                 // Fusion is the single arbiter; avoid a second Arbiter.merge pass.
-                text = if (reaction == null) TextAffect.of(text) else Affect.UNKNOWN,
+                text = when {
+                    reaction != null -> Affect.UNKNOWN
+                    emoji != null -> Affect(emoji, EMOJI_SCORE.toFloat())
+                    else -> TextAffect.of(text)
+                },
                 mood = mood,
                 now = now(),
                 sidecarOkAt = sidecarOkAt(),
@@ -105,12 +122,17 @@ class VoiceSession(
         return whole
     }
 
-    /** Kokoro reads '*' aloud. Keep letters, spaces and normal punctuation. */
+    /** Kokoro reads '*' and emoji aloud. Keep letters, spaces and normal punctuation. */
     private fun spoken(raw: String): String {
-        var s = raw.replace(Regex("\\[([^\\]]+)]\\([^)]*\\)")) { it.groupValues[1] }
+        var s = com.geeui.voiceemo.EmojiEmotion.strip(raw)
+        s = s.replace(Regex("\\[([^\\]]+)]\\([^)]*\\)")) { it.groupValues[1] }
         s = s.replace(Regex("(?m)^#{1,6}\\s*"), "")
         s = s.replace(Regex("[*_`~]+"), "")
         s = s.replace(Regex("\\s+"), " ").trim()
         return s
+    }
+
+    private companion object {
+        const val EMOJI_SCORE = 0.7
     }
 }
