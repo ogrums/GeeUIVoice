@@ -26,7 +26,7 @@ lemonade pull Qwen3-4B-Instruct-2507-GGUF
 Vérifier qu'un modèle renvoie bien un `tool_calls` (à lancer pour les deux modèles) :
 
 ```bash
-for M in gemma4e-flash-e2b-FLM Qwen3-4B-Instruct-2507-GGUF; do
+for M in gemma4-it-e2b-FLM Qwen3-4B-Instruct-2507-GGUF; do
   echo "== $M"
   curl -s http://nimbus:13305/api/v1/chat/completions -H "Content-Type: application/json" -d '{
     "model": "'"$M"'",
@@ -38,7 +38,15 @@ for M in gemma4e-flash-e2b-FLM Qwen3-4B-Instruct-2507-GGUF; do
 done
 ```
 
-Attendu : `[{... "name": "allumer", "arguments": "{\"piece\": \"salon\"}"}]`. nanobot envoie toujours ses requêtes en streaming : refaire le test avec `"stream": true` et vérifier que des `delta.tool_calls` arrivent. Si Gemma (FLM) répond 400 ou ignore l'outil, mettre `Gemma-4-E2B-it-GGUF` ou `Gemma-4-E4B-it-GGUF` dans le preset `rapide`.
+Attendu : `[{... "name": "allumer", "arguments": "{\"piece\": \"salon\"}"}]`. nanobot envoie toujours ses requêtes en streaming : refaire le test avec `"stream": true` et vérifier que des `delta.tool_calls` arrivent. Mesuré sur nimbus le 11 novembre 2026 (modèle déjà chargé) :
+
+| Modèle | Appel d'outil | Temps |
+|---|---|---|
+| `gemma4-it-e2b-FLM` | oui, aussi en streaming | 1,8 s |
+| `gemma4e-flash-e2b-FLM` | non, répond en texte qu'il ne peut pas | 1,4 s |
+| `Qwen3-4B-Instruct-2507-GGUF` | oui | 0,7 s |
+
+Le preset `rapide` utilise donc `gemma4-it-e2b-FLM`.
 
 ## 2. Installer et lancer nanobot
 
@@ -55,6 +63,10 @@ docker compose logs -f           # attendu : "Registered 12 tools" puis "Running
 ```
 
 Sans Docker, ça marche aussi (c'est ainsi que je l'ai testé) : `uv pip install -e "nanobot-src[api]"` dans un venv (le paquet PyPI s'appelle `nanobot-ai`), puis `nanobot serve --config data/config.json` avec `LEMONADE_API_BASE` et `NANOBOT_API_KEY` dans l'environnement, et `workspace` pointé sur `data/workspace`.
+
+### Docker rootless
+
+Si Docker tourne en mode rootless (le démon appartient à un utilisateur, par exemple `/run/user/1000/docker.sock`), `host-gateway` ne mène pas à l'hôte et nanobot répond `Error calling LLM: Connection error.` Mettre l'IP LAN de nimbus dans `.env` (`LEMONADE_API_BASE=http://192.168.2.155:13305/api/v1`), puis `docker compose up -d`.
 
 ## 3. Tester l'API nanobot
 
