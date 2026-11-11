@@ -87,6 +87,9 @@ class VoiceSession(
             )
             plan?.engine = turn.engine
             plan?.emotion = turn.mood.emotion.name.lowercase()
+            // Same fused emotion that drives the face also bends the voice.
+            plan?.prosody = if (reaction == null) com.geeui.voiceemo.Prosody.NEUTRAL
+            else com.geeui.voiceemo.EmotionProsody.of(reaction.emotion, reaction.score)
             onEmotion?.invoke(turn)
             tts.whenAudible {
                 moved = true

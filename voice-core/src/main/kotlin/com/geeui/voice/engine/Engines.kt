@@ -22,6 +22,9 @@ interface TextToSpeech {
 /** A TTS that also keeps the last audio clip, so the Android player can read it. */
 interface ClipTts : TextToSpeech {
     val lastAudio: ByteArray
+
+    /** True when the server already applied the prosody speed, so the player must not apply it again. */
+    val speedApplied: Boolean get() = false
 }
 
 interface Chat {
