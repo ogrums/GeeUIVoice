@@ -2,6 +2,12 @@
 
 Kotlin service for the RUX robot. `com.geeui.lex` stays installed and keeps the wake word. Speech, answers and TTS go to a Lemonade server on the LAN. Nothing in this repo calls AWS, Azure or iFlytek.
 
+## Docs
+
+- [docs/AGENT.md](docs/AGENT.md) : nanobot comme cerveau du robot (mémoire, skills, soul, MCP)
+- [docs/PERSONNALISATION.md](docs/PERSONNALISATION.md) : reconnaître qui parle, prendre l'initiative, souvenirs utiles
+- [docs/ROADMAP.md](docs/ROADMAP.md) : la suite (humeur, vision, skills appris, maison, mode enfant/invité)
+
 ## Decisions
 
 | Choice | Taken |

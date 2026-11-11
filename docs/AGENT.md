@@ -2,6 +2,8 @@
 
 Proposition d'architecture. Le déploiement est prêt dans [`deploy/nanobot/`](../deploy/nanobot/README.md). Le sidecar peut transmettre le chat à nanobot (si `NANOBOT_URL` est défini) ; l'app n'est pas encore modifiée.
 
+Suite : [PERSONNALISATION.md](PERSONNALISATION.md) (reconnaître qui parle, initiative, souvenirs utiles) et la [roadmap](ROADMAP.md).
+
 Principe : on ne code pas d'agent nous-mêmes. [nanobot](https://github.com/HKUDS/nanobot) (MIT, Python) tourne sur nimbus et devient le cerveau du robot : soul, mémoire, skills, MCP. Le sidecar garde la détection d'émotion et lui transmet les phrases. Le robot garde la voix et exécute les actions qu'on lui renvoie sous forme de balises. Tout reste compatible OpenAI.
 
 ## 1. Aujourd'hui
