@@ -122,7 +122,8 @@ class LemonadeClient(
         if (at < 0) return raw
         lastAudioEmotion = stringField(raw, "emotion") ?: "neutral"
         lastAudioConfidence = numberField(raw, "emotion_confidence") ?: 0.0
-        return unquote(raw.substring(at + marker.length).trimStart())
+        // Whisper (Lemonade) wraps the text in a leading space and a trailing "\n".
+        return unquote(raw.substring(at + marker.length).trimStart()).trim()
     }
 
     private fun stringField(raw: String, key: String): String? {
@@ -270,23 +271,7 @@ class LemonadeClient(
     private fun json(value: String): String =
         "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\""
 
-    private fun unquote(raw: String): String {
-        if (raw.isEmpty() || raw[0] != '"') return raw.take(200)
-        val out = StringBuilder()
-        var i = 1
-        while (i < raw.length) {
-            val c = raw[i]
-            if (c == '\\' && i + 1 < raw.length) {
-                out.append(raw[i + 1])
-                i += 2
-                continue
-            }
-            if (c == '"') break
-            out.append(c)
-            i++
-        }
-        return out.toString()
-    }
+    private fun unquote(raw: String): String = jsonUnquote(raw)
 }
 
 class LemonadeChat(private val client: LemonadeClient) : Chat, StreamingChat {
@@ -354,4 +339,45 @@ internal fun speedField(speed: Float): String {
     if (speed == 1f || speed.isNaN()) return ""
     val v = speed.coerceIn(0.5f, 2f)
     return ",\"speed\":" + String.format(java.util.Locale.ROOT, "%.3f", v)
+}
+
+/**
+ * Reads one JSON string literal at the start of [raw] (after the opening quote) and decodes
+ * its escapes: \n, \t, \r, \b, \f, \/, \", \\ and \uXXXX (surrogate pairs too).
+ * A bare value that is not a string comes back as is (first 200 chars).
+ */
+internal fun jsonUnquote(raw: String): String {
+    if (raw.isEmpty() || raw[0] != '"') return raw.take(200)
+    val out = StringBuilder()
+    var i = 1
+    while (i < raw.length) {
+        val c = raw[i]
+        if (c == '"') break
+        if (c != '\\' || i + 1 >= raw.length) {
+            out.append(c)
+            i++
+            continue
+        }
+        when (val e = raw[i + 1]) {
+            'n' -> out.append('\n')
+            't' -> out.append('\t')
+            'r' -> out.append('\r')
+            'b' -> out.append('\b')
+            'f' -> out.append('\u000C')
+            'u' -> {
+                val hex = raw.substring(i + 2, minOf(i + 6, raw.length))
+                val code = if (hex.length == 4) hex.toIntOrNull(16) else null
+                if (code == null) {
+                    out.append('u')
+                } else {
+                    out.append(code.toChar())
+                    i += 6
+                    continue
+                }
+            }
+            else -> out.append(e)
+        }
+        i += 2
+    }
+    return out.toString()
 }
