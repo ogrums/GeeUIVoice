@@ -25,7 +25,7 @@ class JsonUnquoteTest {
             val body = if (ex.requestURI.path.endsWith("/models")) {
                 """{"data":[{"id":"Whisper-Small"}]}"""
             } else {
-                """{"text":" Avance la voiture\n","emotion":"happy","emotion_confidence":0.8}"""
+                """{"text":" Avance la voiture\n","emotion":"happy","emotion_confidence":0.8,"speaker":"helene","speaker_name":"H\u00e9l\u00e8ne","speaker_score":0.71}"""
             }
             val bytes = body.toByteArray()
             ex.sendResponseHeaders(200, bytes.size.toLong())
@@ -36,6 +36,7 @@ class JsonUnquoteTest {
             val client = LemonadeClient("http://127.0.0.1:${server.address.port}/api/v1")
             assertEquals("Avance la voiture", client.transcribe(ByteArray(44)))
             assertEquals("happy", client.lastAudioEmotion)
+            assertEquals("Hélène", client.lastSpeakerName)
         } finally {
             server.stop(0)
         }

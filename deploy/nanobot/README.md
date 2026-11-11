@@ -150,3 +150,22 @@ Si nanobot est arrêté, le sidecar journalise `chat route=lemonade fallback` et
 - **Soul et skills** : ce sont des fichiers dans `data/workspace/`. On les modifie à la main puis `docker compose restart`. Les skills créés à la voix arrivent dans `data/workspace/skills/<nom>/SKILL.md`.
 - **Sécurité** : pas de shell (`tools.exec.enable: false`), pas de web, fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
 - **Alléger le prompt** : `"tools": {"file": {"enable": false}}` divise la requête par deux (11 000 caractères), mais nanobot ne peut alors plus lire ni créer de skills.
+
+
+## Qui parle (sidecar)
+
+La reconnaissance de la voix est faite par le sidecar ([GeeUIVoiceSidecar](https://github.com/ogrums/GeeUIVoiceSidecar), section « Qui parle »), pas par nanobot. Ce que nanobot voit :
+
+| Qui | `session_id` | Début du message |
+|---|---|---|
+| Fonction éteinte, ou personne d'enregistré | `rux` | `(ton entendu : sad)` si besoin |
+| Paul reconnu | `rux-paul` | `(Paul parle, ton entendu : sad)` |
+| Inconnu | `rux-invite` | `(un invité parle)` |
+
+La mémoire reste une par workspace : `USER.md` a une section par personne (voir `workspace/SOUL.md` et `workspace/AGENTS.md`). Après une mise à jour, recopier ces deux fichiers dans `data/workspace/` puis `docker compose restart`.
+
+Vérifier côté nanobot qu'une session par personne existe :
+
+```bash
+ls data/workspace/sessions/ | grep rux-   # attendu : api_rux-paul.jsonl … après une conversation
+```
