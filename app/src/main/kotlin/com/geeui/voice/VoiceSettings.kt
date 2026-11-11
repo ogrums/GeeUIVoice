@@ -15,6 +15,8 @@ object VoiceSettings {
         "chat" to HostConfig.CHAT,
         "tts" to HostConfig.KOKORO,
         "cosy" to HostConfig.COSY,
+        "phonon" to "",
+        "phonon_voice" to com.geeui.voice.engine.PhononTts.VOICE,
     )
 
     private val labels = mapOf(
@@ -24,6 +26,8 @@ object VoiceSettings {
         "chat" to "Chat",
         "tts" to "TTS",
         "cosy" to "Modèle Cosy",
+        "phonon" to "Phonon (vide = Kokoro)",
+        "phonon_voice" to "Voix Phonon",
     )
 
     private val extras = mapOf(
@@ -33,6 +37,8 @@ object VoiceSettings {
         "chat" to "chat",
         "tts" to "tts",
         "cosy" to "cosy_model",
+        "phonon" to "phonon",
+        "phonon_voice" to "phonon_voice",
     )
 
     fun label(key: String): String = labels.getValue(key)
@@ -45,7 +51,7 @@ object VoiceSettings {
             val saved = prefs.getString(key, null)?.trim()?.takeIf { it.isNotEmpty() }
             val fromIntent = intent.getStringExtra(extra(key))?.trim()?.takeIf { it.isNotEmpty() }
             val raw = saved ?: fromIntent ?: fallback
-            key to if (key == "lemonade" || key == "sidecar") raw.trimEnd('/') else raw
+            key to if (key == "lemonade" || key == "sidecar" || key == "phonon") raw.trimEnd('/') else raw
         }
     }
 

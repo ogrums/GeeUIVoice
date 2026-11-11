@@ -47,6 +47,8 @@ class VoiceLoop(
     audio: Context,
     private val sidecar: String = com.geeui.voiceemo.HostConfig.SIDECAR,
     cosyModel: String = CosyTts.MODEL,
+    phonon: String = "",
+    phononVoice: String = com.geeui.voice.engine.PhononTts.VOICE,
 ) {
     private val client = LemonadeClient(
         baseUrl,
@@ -61,7 +63,14 @@ class VoiceLoop(
     private val cosy = CosyTts(plan) { text, emotion ->
         postCosy(sidecar, cosyModel, text, emotion)
     }
-    private val clips = PlannedTts(plan, kokoro, cosy)
+    /** Phonon (Docker on nimbus) replaces Kokoro when its address is set; Kokoro stays the fallback. */
+    private val base: com.geeui.voice.engine.ClipTts =
+        if (phonon.isBlank()) kokoro
+        else com.geeui.voice.engine.FallbackTts(
+            com.geeui.voice.engine.PhononTts(phononVoice) { body -> postSpeech(phonon, body) },
+            kokoro,
+        )
+    private val clips = PlannedTts(plan, base, cosy)
     private val tts = PlayingTts(clips, cacheDir, audio) { plan.prosody }
     private val gateway = LemonadeClient(sidecar.trimEnd('/') + "/v1", sttModel = sttModel, systemPrompt = "")
     private val lemonStt = LemonadeStt(client)
@@ -194,16 +203,19 @@ class VoiceLoop(
     }
 }
 
-internal fun postCosy(base: String, model: String, text: String, emotion: String): ByteArray {
+internal fun postCosy(base: String, model: String, text: String, emotion: String): ByteArray =
+    postSpeech(base, CosyTts.body(text, emotion, model))
+
+/** POST {base}/v1/audio/speech. Empty on a blank base or an HTTP error, so the caller falls back. */
+internal fun postSpeech(base: String, body: String): ByteArray {
     if (base.isBlank()) return ByteArray(0)
     val conn = URL(base.trimEnd('/') + "/v1/audio/speech").openConnection() as HttpURLConnection
     conn.connectTimeout = 2_000
     conn.readTimeout = 60_000
     conn.requestMethod = "POST"
     conn.doOutput = true
-    conn.setRequestProperty("Content-Type", "application/json")
-    val body = CosyTts.body(text, emotion, model)
-    conn.outputStream.use { it.write(body.toByteArray()) }
+    conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+    conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
     if (conn.responseCode !in 200..299) return ByteArray(0)
     return conn.inputStream.use { it.readBytes() }
 }
