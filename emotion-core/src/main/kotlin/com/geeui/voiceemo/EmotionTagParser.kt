@@ -6,7 +6,8 @@ const val FRENCH_EMOTION_SYSTEM_PROMPT: String =
         "[happy] [sad] [angry] [fear] [surprise] [neutral] qui décrit le ton " +
         "de ta réponse, puis réponds normalement sans répéter la balise."
 
-data class EmotionText(val emotion: Emotion, val text: String)
+/** [face] is set for a nuance tag such as [love] or [thinking] (see [FaceCodes.NUANCE]). */
+data class EmotionText(val emotion: Emotion, val text: String, val face: String? = null)
 
 /**
  * Consumes streamed text, withholding a possible tag until it can be decided.
@@ -28,6 +29,7 @@ class EmotionTagParser {
             val text = pending.substring(end + 1)
             pending.clear()
             val emotion = Emotion.parse(raw)
+            FaceCodes.NUANCE[raw.trim().lowercase()]?.let { (e, face) -> return EmotionText(e, text, face) }
             // An unknown opening tag is not an emotion tag and stays in the reply.
             return if (raw.trim().lowercase() !in TAGS) {
                 EmotionText(Emotion.NEUTRAL, "[$raw]$text")

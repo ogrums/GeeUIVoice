@@ -53,12 +53,14 @@ class VoiceSession(
         val tags = com.geeui.voiceemo.EmotionTagParser()
         var tagged = false
         var replyEmotion = com.geeui.voiceemo.Emotion.NEUTRAL
+        var nuanceFace: String? = null
         fun delta(piece: String) {
             val parsed = tags.consume(piece)
             if (parsed.emotion != com.geeui.voiceemo.Emotion.NEUTRAL) {
                 tagged = true
                 replyEmotion = parsed.emotion
             }
+            if (parsed.face != null) nuanceFace = parsed.face
             answer.append(parsed.text)
         }
         if (chat is StreamingChat) {
@@ -69,8 +71,13 @@ class VoiceSession(
             answer.append(tags.finish().text)
         }
         // An emoji (nanobot: "… 😊") is an explicit face cue when the reply has no [tag].
-        val emoji = if (tagged) null
-        else com.geeui.voiceemo.EmojiEmotion.of(answer.toString())?.takeIf { it != com.geeui.voiceemo.Emotion.NEUTRAL }
+        // A nuance tag ([love], [laugh]…) is as explicit as an emoji and is shown the same way.
+        val tagCue = nuanceFace != null
+        val cue = if (tagged || tagCue) null
+        else com.geeui.voiceemo.EmojiEmotion.cue(answer.toString())
+        if (cue?.face != null) nuanceFace = cue.face
+        val emoji = (if (tagCue) replyEmotion else cue?.emotion)
+            ?.takeIf { it != com.geeui.voiceemo.Emotion.NEUTRAL }
         if (emoji != null) {
             tagged = true
             replyEmotion = emoji
@@ -86,7 +93,7 @@ class VoiceSession(
             } else {
                 fused
             }
-            val turn = EmotionPipeline.turn(
+            val base = EmotionPipeline.turn(
                 say = whole,
                 audio = if (reaction == null) audioAffect() else com.geeui.voiceemo.Affect(
                     reaction.emotion,
@@ -102,6 +109,15 @@ class VoiceSession(
                 now = now(),
                 sidecarOkAt = sidecarOkAt(),
             )
+            // 🥰 / 😂 / 🤔 or [love] / [laugh] / [thinking]: a finer face, when the shown
+            // emotion is still the one the cue implies (fusion may override it).
+            val nuance = nuanceFace
+            val nuanceEmotion = com.geeui.voiceemo.FaceCodes.NUANCE.values.firstOrNull { it.second == nuance }?.first
+            val turn = if (nuance != null && base.pose.faceId == com.geeui.voiceemo.FaceCodes.of(nuanceEmotion ?: base.mood.emotion)) {
+                base.copy(pose = base.pose.copy(faceId = nuance))
+            } else {
+                base
+            }
             plan?.engine = turn.engine
             plan?.emotion = turn.mood.emotion.name.lowercase()
             // Same fused emotion that drives the face also bends the voice.

@@ -65,4 +65,24 @@ class EmojiExpressionTest {
         assertEquals("fr:Il fait beau.", said)
         assertEquals(com.geeui.voiceemo.SdkMap.pose(Emotion.NEUTRAL).faceId, face)
     }
+
+    @Test
+    fun nuancedEmojiPicksItsOwnFace() {
+        assertEquals(com.geeui.voiceemo.EmojiCue(Emotion.HAPPY, "h0027"), EmojiEmotion.cue("Merci 🥰"))
+        assertEquals(com.geeui.voiceemo.EmojiCue(Emotion.HAPPY, "h0002"), EmojiEmotion.cue("Trop drôle 😂"))
+        assertEquals(com.geeui.voiceemo.EmojiCue(Emotion.HAPPY, null), EmojiEmotion.cue("Salut 😊"))
+        assertEquals("h0027", run(Pieces("Je t'adore", " 🥰")).first)
+        assertEquals("h0002", run(Pieces("Haha", " 😂")).first)
+        val (face, said) = run(Pieces("Hmm, bonne question", " 🤔"))
+        assertEquals("h0181", face)
+        assertEquals("fr:Hmm, bonne question", said)
+    }
+
+    @Test
+    fun nuanceTagPicksItsFace() {
+        val (face, said) = run(Pieces("[love] Moi aussi"))
+        assertEquals("h0027", face)
+        assertEquals("fr:Moi aussi", said)
+        assertEquals("h0181", run(Pieces("[thinking] Voyons")).first)
+    }
 }

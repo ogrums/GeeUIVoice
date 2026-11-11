@@ -5,21 +5,39 @@ package com.geeui.voiceemo
  * never read aloud. [of] gives the emotion of the first known emoji; [strip] removes
  * every emoji, keeping letters, digits and punctuation.
  */
+data class EmojiCue(val emotion: Emotion, val face: String?)
+
 object EmojiEmotion {
+    /** Emoji with a finer face than their [Emotion] (see [FaceCodes.NUANCE]). */
+    private val NUANCE: Map<Int, String> = buildMap {
+        fun put(nuance: String, vararg emoji: String) {
+            for (e in emoji) put(e.codePointAt(0), nuance)
+        }
+        put("love", "🥰", "😍", "😘", "❤", "💖", "💕", "💗")
+        put("heart", "🫶")
+        put("laugh", "😂", "🤣", "😆", "😁")
+        put("wink", "😉", "😜")
+        put("cry", "😭")
+        put("thinking", "🤔", "🧐")
+        put("sleepy", "😴", "🥱")
+        put("cold", "🥶")
+        put("hot", "🥵")
+    }
+
     private val MAP: Map<Int, Emotion> = buildMap {
         fun put(emotion: Emotion, vararg emoji: String) {
             for (e in emoji) put(e.codePointAt(0), emotion)
         }
         put(
             Emotion.HAPPY,
-            "😊", "🙂", "😄", "😁", "😃", "😀", "😆", "😉", "🥰", "😍", "😘", "🤗", "😂", "🤣",
+            "😊", "🙂", "😄", "😁", "😃", "😀", "😆", "😉", "😜", "🥰", "😍", "😘", "🤗", "😂", "🤣", "🫶",
             "😎", "🥳", "😋", "😇", "❤", "💖", "💕", "💗", "👍", "🎉", "✨", "🌞", "☺",
         )
-        put(Emotion.SAD, "😢", "😭", "😞", "😔", "🙁", "☹", "😟", "😥", "😿", "💔", "🥺")
+        put(Emotion.SAD, "😢", "😭", "😞", "😔", "🙁", "☹", "😟", "😥", "😿", "💔", "🥺", "🥶")
         put(Emotion.SURPRISE, "😮", "😲", "🤩", "😯", "😳", "🙀", "‼", "❗")
         put(Emotion.ANGRY, "😠", "😡", "🤬", "😤", "👿")
         put(Emotion.FEAR, "😨", "😱", "😰", "😧", "😦")
-        put(Emotion.NEUTRAL, "🤔", "😐", "😶", "🙃", "😅")
+        put(Emotion.NEUTRAL, "🤔", "😐", "😶", "🙃", "😅", "🧐", "😴", "🥱", "🥵")
     }
 
     /** Pictographs, dingbats, flags, keycap/skin-tone/ZWJ/variation-selector glue. */
@@ -30,11 +48,15 @@ object EmojiEmotion {
     )
 
     /** Emotion of the first mapped emoji, or null when the text has none. */
-    fun of(text: String): Emotion? {
+    fun of(text: String): Emotion? = cue(text)?.emotion
+
+    /** First mapped emoji as an emotion plus, for nuanced ones (🥰 😂 🤔…), a specific face. */
+    fun cue(text: String): EmojiCue? {
         var i = 0
         while (i < text.length) {
             val cp = text.codePointAt(i)
-            MAP[cp]?.let { return it }
+            NUANCE[cp]?.let { n -> FaceCodes.NUANCE[n]?.let { return EmojiCue(it.first, it.second) } }
+            MAP[cp]?.let { return EmojiCue(it, null) }
             i += Character.charCount(cp)
         }
         return null
