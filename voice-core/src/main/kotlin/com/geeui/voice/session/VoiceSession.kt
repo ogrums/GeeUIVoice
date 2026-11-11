@@ -53,12 +53,14 @@ class VoiceSession(
         val tags = com.geeui.voiceemo.EmotionTagParser()
         var tagged = false
         var replyEmotion = com.geeui.voiceemo.Emotion.NEUTRAL
+        var nuanceFace: String? = null
         fun delta(piece: String) {
             val parsed = tags.consume(piece)
             if (parsed.emotion != com.geeui.voiceemo.Emotion.NEUTRAL) {
                 tagged = true
                 replyEmotion = parsed.emotion
             }
+            if (parsed.face != null) nuanceFace = parsed.face
             answer.append(parsed.text)
         }
         if (chat is StreamingChat) {
@@ -68,23 +70,54 @@ class VoiceSession(
             delta(chat.reply(text))
             answer.append(tags.finish().text)
         }
+        // An emoji (nanobot: "… 😊") is an explicit face cue when the reply has no [tag].
+        // A nuance tag ([love], [laugh]…) is as explicit as an emoji and is shown the same way.
+        val tagCue = nuanceFace != null
+        val cue = if (tagged || tagCue) null
+        else com.geeui.voiceemo.EmojiEmotion.cue(answer.toString())
+        if (cue?.face != null) nuanceFace = cue.face
+        val emoji = (if (tagCue) replyEmotion else cue?.emotion)
+            ?.takeIf { it != com.geeui.voiceemo.Emotion.NEUTRAL }
+        if (emoji != null) {
+            tagged = true
+            replyEmotion = emoji
+        }
         val whole = spoken(answer.toString())
         var moved = false
         if (mood != null) {
-            val reaction = fusion?.fuse(audioAffect().emotion, audioAffect().confidence.toDouble(),
+            val fused = fusion?.fuse(audioAffect().emotion, audioAffect().confidence.toDouble(),
                 replyEmotion, tagged)
-            val turn = EmotionPipeline.turn(
+            // A text tag alone (0.4) stays under the fusion threshold; an emoji is shown anyway.
+            val reaction = if (emoji != null && fused != null && fused.emotion == com.geeui.voiceemo.Emotion.NEUTRAL) {
+                com.geeui.voiceemo.EmotionFusion.Result(emoji, EMOJI_SCORE)
+            } else {
+                fused
+            }
+            val base = EmotionPipeline.turn(
                 say = whole,
                 audio = if (reaction == null) audioAffect() else com.geeui.voiceemo.Affect(
                     reaction.emotion,
                     reaction.score.toFloat().coerceIn(0f, 1f),
                 ),
                 // Fusion is the single arbiter; avoid a second Arbiter.merge pass.
-                text = if (reaction == null) TextAffect.of(text) else Affect.UNKNOWN,
+                text = when {
+                    reaction != null -> Affect.UNKNOWN
+                    emoji != null -> Affect(emoji, EMOJI_SCORE.toFloat())
+                    else -> TextAffect.of(text)
+                },
                 mood = mood,
                 now = now(),
                 sidecarOkAt = sidecarOkAt(),
             )
+            // 🥰 / 😂 / 🤔 or [love] / [laugh] / [thinking]: a finer face, when the shown
+            // emotion is still the one the cue implies (fusion may override it).
+            val nuance = nuanceFace
+            val nuanceEmotion = com.geeui.voiceemo.FaceCodes.NUANCE.values.firstOrNull { it.second == nuance }?.first
+            val turn = if (nuance != null && base.pose.faceId == com.geeui.voiceemo.FaceCodes.of(nuanceEmotion ?: base.mood.emotion)) {
+                base.copy(pose = base.pose.copy(faceId = nuance))
+            } else {
+                base
+            }
             plan?.engine = turn.engine
             plan?.emotion = turn.mood.emotion.name.lowercase()
             // Same fused emotion that drives the face also bends the voice.
@@ -105,12 +138,17 @@ class VoiceSession(
         return whole
     }
 
-    /** Kokoro reads '*' aloud. Keep letters, spaces and normal punctuation. */
+    /** Kokoro reads '*' and emoji aloud. Keep letters, spaces and normal punctuation. */
     private fun spoken(raw: String): String {
-        var s = raw.replace(Regex("\\[([^\\]]+)]\\([^)]*\\)")) { it.groupValues[1] }
+        var s = com.geeui.voiceemo.EmojiEmotion.strip(raw)
+        s = s.replace(Regex("\\[([^\\]]+)]\\([^)]*\\)")) { it.groupValues[1] }
         s = s.replace(Regex("(?m)^#{1,6}\\s*"), "")
         s = s.replace(Regex("[*_`~]+"), "")
         s = s.replace(Regex("\\s+"), " ").trim()
         return s
+    }
+
+    private companion object {
+        const val EMOJI_SCORE = 0.7
     }
 }
