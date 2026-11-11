@@ -18,8 +18,10 @@ APK=app/build/outputs/apk/debug/app-debug.apk
 | 2 | #18 initiative | #3 initiative (empilée sur #2) |
 | 3 | #19 souvenirs (empilée sur #18) | #4 souvenirs (empilée sur #3) |
 | 4 | #21 humeur (empilée sur #18) | #6 humeur (empilée sur #4) |
+| indépendantes | #22 vision, #23 skills appris, #24 maison | #5 mots météo, #7 vision, #8 skills appris |
+| 5 | #25 enfant / invité (empilée sur #17) | #9 enfant / invité (empilée sur #2) |
 
-Conflits attendus entre PR GeeUIVoice : ajouts en fin de `deploy/nanobot/README.md` et `workspace/AGENTS.md` (garder tous les blocs), `VoiceSession.kt` entre #15 et #18 (garder les deux constantes et les deux lignes de `spoken()`).
+Conflits attendus entre PR GeeUIVoice : ajouts en fin de `deploy/nanobot/README.md` et `workspace/AGENTS.md` (garder tous les blocs), `VoiceSession.kt` entre #15, #18, #22 et #25 (garder tous les paramètres du constructeur, un seul `companion object` avec toutes les constantes, `look()` de #22 avant le chat, `ActionTags.split` de #25 avant `spoken()`, les lignes de `spoken()` de #15 et #18). Sidecar : `.env.example` (blocs ajoutés au même endroit ; une seule ligne `SIDECAR_ADMIN_KEY` et `NANOBOT_WORKSPACE`), `Dockerfile` (`COPY *.py`, identique partout), imports en tête de `emo_server.py`.
 
 Après chaque fusion, sur nimbus :
 
@@ -89,6 +91,41 @@ Puis sur le PC qui construit l'APK : `./gradlew :app:assembleDebug && adb instal
 - [ ] Seul 4 h en journée → `ennuye` (h0042) ; revenir → réponse « content de te revoir » une fois. Après 21 h 30 → `fatigue` (h0039).
 - [ ] Une journée normale : l'humeur ne doit pas être pénible ; régler `ROBOT_MOOD_*` sinon.
 
-## 8. À noter pendant les tests
+## 8. Vision à la demande (#22, sidecar #7)
+
+- [ ] nimbus : `lemonade-server pull Gemma-4-E2B-it-GGUF` ; `curl` « Vérifier le modèle à la main » du README sidecar avec une photo d'objet et une page de texte (qualité en français, texte recopié, `time`).
+- [ ] `.env` sidecar : `VISION_MODEL=Gemma-4-E2B-it-GGUF` ; `docker compose up -d --build`.
+- [ ] Robot : `adb shell pm grant com.geeui.voice android.permission.CAMERA` ; `adb shell dumpsys media.camera | grep -i "facing"` ; service avec `-e host http://<nimbus>:13306/v1`.
+- [ ] « Qu'est-ce que tu vois ? » devant un objet → diagnostic `photo NN Ko`, bonne description ; « lis ce papier » → texte lu. Noter latence, orientation, netteté.
+- [ ] Reconnaissance faciale du fabricant active → photo possible ou `caméra occupée` ?
+- [ ] Logs sidecar : `vision model=…`, jamais de `base64` ; `adb shell ls /sdcard/DCIM /sdcard/Pictures` : rien de nouveau.
+
+## 9. Skills appris à la voix (#23, sidecar #8)
+
+- [ ] nanobot : `cp -r workspace/skills/apprendre data/workspace/skills/ && mkdir -p data/workspace/brouillons`, `"skill-creator"` dans `disabledSkills`, `docker compose restart`.
+- [ ] Sidecar : `SIDECAR_ADMIN_KEY`, `NANOBOT_WORKSPACE=/nanobot-workspace`, montages `brouillons` et `skills` en écriture ; `docker compose up -d`.
+- [ ] « Apprends : quand je dis bonne nuit, éteins ton antenne » → « je l'enregistre ? » → « oui » → `ls $NB/data/workspace/brouillons/`, rien dans `skills/`.
+- [ ] `http://nimbus:13306/admin/skills` : mot de passe, brouillon affiché, Valider → `skills/bonne-nuit/` ; « bonne nuit » → `[light:off]` (antenne éteinte si #25 est fusionnée).
+- [ ] Brouillon écrit à la main avec `[shell:ls]` → pas de bouton Valider.
+
+## 10. La maison (#24)
+
+- [ ] Home Assistant : intégration MCP, Configurer (Device control seul, sans administrateur, Read-only), utilisateur `rux` non administrateur, jeton longue durée.
+- [ ] `cd $NB && cp ha.env.example ha.env && chmod 600 ha.env` ; `curl` d'`initialize` du README → `serverInfo`.
+- [ ] Fusion `jq` de `home-assistant.example.json` (IP dans `ssrfWhitelist`), `docker compose up -d`, `docker compose logs nanobot-rux | grep -i mcp`.
+- [ ] « Il fait combien dans la chambre ? » → bonne valeur, latence notée ; « allume le salon » en lecture seule → « je ne peux pas ».
+- [ ] Étape 2 (`/api/mcp/assist` + `HassTurnOn`, `HassTurnOff`, `HassLightSet`) : « allume le salon » → allumé ; « ouvre les volets » → « tu confirmes ? » ou refus.
+- [ ] Invité : « allume le salon » → aucune action (route Lemonade).
+
+## 11. Enfant / invité (#25, sidecar #9)
+
+- [ ] `speakers.json` vide : inscrire Paul puis Léa → `curl -H "Authorization: Bearer $KEY" http://nimbus:13306/v1/speakers | jq '.people[]|{id,role}'` → Léa `enfant`.
+- [ ] Paul : « Mets ton antenne en bleu » → bleue, balise jamais lue ; « avance un peu » → « Je peux y aller ? » → « oui » → marche ; « non » ou 10 s de silence → rien.
+- [ ] Léa : « avance », « rentre à la base » → « Je n'ai pas le droit… », aucun mouvement ; « plus fort » marche ; ton et vocabulaire adaptés.
+- [ ] Paul : « Léa est une adulte » → rôle changé ; Léa : « Paul est un enfant » → refus.
+- [ ] Voix inconnue : logs `reason=guest`, rien dans nanobot ; « avance » → refus.
+- [ ] Scores `speaker_score` d'une voix d'enfant sur plusieurs jours.
+
+## 12. À noter pendant les tests
 
 - Scores `speaker_score` réels (bons / mauvais locuteurs), latence d'une phrase complète, phrases où Gemma oublie une balise, visages qui ne collent pas.
