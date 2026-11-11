@@ -400,8 +400,9 @@ def record_wav(path, seconds, rate=16000):
 def first_voiced(pcm_or_array, rate, start_s, thresh=800, frame_ms=20):
     """Return time of first voiced frame after start_s, or None."""
     import array
-    if hasattr(pcm_or_array, "tolist"):
-        samples = [int(x) for x in pcm_or_array.tolist()]
+    if hasattr(pcm_or_array, "flatten"):
+        # sounddevice returns shape (N, 1); flatten so we get ints, not [v] lists.
+        samples = [int(x) for x in pcm_or_array.flatten().tolist()]
     elif isinstance(pcm_or_array, (bytes, bytearray)):
         a = array.array("h")
         a.frombytes(bytes(pcm_or_array))
@@ -496,6 +497,27 @@ def generate_base_wav(phrase, dest, phonon, voice, wav_dir, regen):
 
 # --- Robot hook --------------------------------------------------------------
 
+STAGING = "/data/local/tmp/geeui-voicetest-in.wav"
+MIRROR = "/data/local/tmp/geeui"
+
+
+def app_read(serial, path):
+    """Lit un fichier de test : miroir /data/local/tmp/geeui, sinon cat, sinon run-as."""
+    name = path.rstrip("/").split("/")[-1]
+    candidates = [MIRROR + "/" + name, path]
+    seen = set()
+    for cand in candidates:
+        if cand in seen:
+            continue
+        seen.add(cand)
+        for args in (["exec-out", "cat", cand], ["exec-out", "run-as", PACKAGE, "cat", cand]):
+            p = adb(serial, args, check=False)
+            data = p.stdout or b""
+            if p.returncode == 0 and data and not data.startswith(b"cat:") and b"Permission denied" not in data[:200]:
+                return data
+    return b""
+
+
 def remote_dir(serial):
     # Canonical path the app writes to (getExternalFilesDir("voicetest")).
     return DEFAULT_REMOTE
@@ -507,8 +529,7 @@ def wait_status(serial, remote, timeout, prev_mtime=None):
     t0 = time.time()
     saw_running = False
     while time.time() - t0 < timeout:
-        p = adb(serial, ["shell", "cat", status_path], check=False)
-        text = (p.stdout or b"").decode("utf-8", "replace").strip().replace("\r", "")
+        text = app_read(serial, status_path).decode("utf-8", "replace").strip().replace("\r", "")
         if text in ("running", "done", "error"):
             if text == "running":
                 saw_running = True
@@ -523,8 +544,10 @@ def pull_results(serial, remote, dest_dir):
     os.makedirs(dest_dir, exist_ok=True)
     out = {}
     for name in ("result.json", "status.txt", "last-turn.json", "tts.mp3", "tts.wav", "tts.ogg"):
-        p = adb(serial, ["pull", remote.rstrip("/") + "/" + name, os.path.join(dest_dir, name)], check=False)
-        if p.returncode == 0 and os.path.isfile(os.path.join(dest_dir, name)):
+        data = app_read(serial, remote.rstrip("/") + "/" + name)
+        if data:
+            with open(os.path.join(dest_dir, name), "wb") as f:
+                f.write(data)
             out[name] = os.path.join(dest_dir, name)
     return out
 
@@ -538,9 +561,15 @@ def parse_result(path):
 
 def broadcast_wav(serial, local_wav, remote):
     remote_wav = remote.rstrip("/") + "/in.wav"
-    adb(serial, ["shell", "mkdir", "-p", remote], check=False)
-    adb(serial, ["push", local_wav, remote_wav], timeout=30)
-    adb(serial, ["shell", "sh", "-c", "echo waiting > %s/status.txt" % remote], check=False)
+    # Android 11 : `adb push` direct dans Android/data échoue (remote fchown) et
+    # les fichiers écrits par l'app sont en 600. On passe par /data/local/tmp,
+    # on copie avec le shell, on rend lisible, et on lit les résultats via run-as.
+    adb(serial, ["shell", "mkdir", "-p", remote, MIRROR], check=False)
+    adb(serial, ["shell", "chmod", "777", MIRROR], check=False)
+    adb(serial, ["push", local_wav, STAGING], timeout=30)
+    adb(serial, ["shell", "cp %s %s && chmod 666 %s" % (STAGING, remote_wav, remote_wav)], timeout=30)
+    for name in ("status.txt", "result.json", "tts.mp3", "tts.wav", "tts.ogg", "last-turn.json"):
+        adb(serial, ["shell", "rm", "-f", remote.rstrip("/") + "/" + name, MIRROR + "/" + name], check=False)
     p = adb(
         serial,
         [
@@ -669,7 +698,8 @@ def run_wav_mode(phrase, wav, args, shot_dir):
 def run_chaine_mode(phrase, wav, args, shot_dir):
     pcm, rate = read_wav(wav)
     play_dur = duration_s(pcm, rate)
-    rec_s = min(args.timeout, max(8.0, play_dur + 8.0))
+    # Tours lents observés jusqu'à ~17 s (1er jeton parfois 6-7 s) : garder 18 s après la lecture.
+    rec_s = min(args.timeout, max(18.0, play_dur + 18.0))
     rec_path = os.path.join(shot_dir, "pc-record.wav")
     remote = remote_dir(args.serial)
     adb(args.serial, ["logcat", "-c"], check=False)
@@ -715,14 +745,31 @@ def run_chaine_mode(phrase, wav, args, shot_dir):
     except Exception as e:
         log("  (transcription de la réponse : %s)" % e)
 
-    time.sleep(0.5)
-    pulled = pull_results(args.serial, remote, shot_dir)
+    # result.json n'est écrit que par le hook WAV : en chaîne il est périmé.
+    # last-turn.json est mis à jour à chaque tour, mais parfois pendant "think"
+    # (réponse encore vide). On attend un peu que la réponse arrive.
+    last_turn = {}
+    t_wait = time.time()
+    while time.time() - t_wait < 15:
+        pulled = pull_results(args.serial, remote, shot_dir)
+        last_turn = parse_result(pulled.get("last-turn.json")) or {}
+        if last_turn.get("answer") or last_turn.get("mode") in ("talk", "idle"):
+            break
+        time.sleep(0.6)
     dump_logcat(args.serial, os.path.join(shot_dir, "logcat.txt"))
-    last_turn = parse_result(pulled.get("last-turn.json"))
-    result = parse_result(pulled.get("result.json"))  # may be from a previous wav test; prefer last-turn
-    heard = (last_turn or {}).get("heard") or ""
-    reply = (last_turn or {}).get("answer") or ""
-    # If last-turn is stale (doesn't look like this phrase), still keep reply_transcript.
+    # Ne pas lire result.json (stale). Reconstruire depuis last-turn.
+    result = {
+        "ok": bool(last_turn.get("heard")),
+        "transcript": last_turn.get("heard") or "",
+        "reply": last_turn.get("answer") or "",
+        "audio": {
+            "emotion": last_turn.get("audio_emotion") or "",
+            "confidence": last_turn.get("audio_confidence") or 0,
+        },
+        "tags": {"face": last_turn.get("face") or ""},
+    }
+    heard = result["transcript"]
+    reply = result["reply"]
     return result, last_turn, heard, reply, latency, reply_transcript
 
 
