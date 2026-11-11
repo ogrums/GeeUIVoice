@@ -17,6 +17,7 @@ APK=app/build/outputs/apk/debug/app-debug.apk
 | 1 | #15 emoji → visages, #16 web + météo, #17 qui parle | #2 qui parle |
 | 2 | #18 initiative | #3 initiative (empilée sur #2) |
 | 3 | #19 souvenirs (empilée sur #18) | #4 souvenirs (empilée sur #3) |
+| 4 | #21 humeur (empilée sur #18) | #6 humeur (empilée sur #4) |
 
 Conflits attendus entre PR GeeUIVoice : ajouts en fin de `deploy/nanobot/README.md` et `workspace/AGENTS.md` (garder tous les blocs), `VoiceSession.kt` entre #15 et #18 (garder les deux constantes et les deux lignes de `spoken()`).
 
@@ -80,6 +81,14 @@ Puis sur le PC qui construit l'APK : `./gradlew :app:assembleDebug && adb instal
 - [ ] « Oublie tout sur moi » → « oui » → section `## Paul` retirée, log sidecar `forget voice person=paul removed=True`.
 - [ ] Bout en bout : « J'ai un entretien mardi chez Dupont » (Paul), Dream la nuit, le mercredi Paul parle → le robot demande comment ça s'est passé.
 
-## 7. À noter pendant les tests
+## 7. Humeur (#21, sidecar #6)
+
+- [ ] `.env` sidecar : `ROBOT_MOOD_ENABLED=1` ; `docker compose up -d`. `curl http://nimbus:13306/v1/robot/mood` → `calme`, visage h0059.
+- [ ] Trois « merci, t'es trop mignon » → `joyeux`, au repos visage h0006 en moins de 15 s ; la bouche (h0292) reste pendant les réponses ; logs nanobot : message qui commence par « (humeur de RUX : de très bonne humeur) ».
+- [ ] `adb logcat | grep -i visage` : pas d'erreur de lecture vidéo pour h0063, h0042, h0010, h0039.
+- [ ] Seul 4 h en journée → `ennuye` (h0042) ; revenir → réponse « content de te revoir » une fois. Après 21 h 30 → `fatigue` (h0039).
+- [ ] Une journée normale : l'humeur ne doit pas être pénible ; régler `ROBOT_MOOD_*` sinon.
+
+## 8. À noter pendant les tests
 
 - Scores `speaker_score` réels (bons / mauvais locuteurs), latence d'une phrase complète, phrases où Gemma oublie une balise, visages qui ne collent pas.
