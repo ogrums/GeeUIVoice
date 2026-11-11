@@ -8,3 +8,9 @@ local.properties
 
 # Rapports locaux de campagne
 sidecar/tests/reports/
+
+# Rapports et caches locaux de la campagne vocale
+tools/voicetest/out/
+tools/voicetest/wavs/_cache/
+
+tools/voicetest/__pycache__/
