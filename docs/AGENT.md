@@ -1,6 +1,8 @@
 # Donner de l'autonomie au robot avec nanobot
 
-Proposition d'architecture. Le déploiement est prêt dans [`deploy/nanobot/`](../deploy/nanobot/README.md), mais le sidecar et l'app ne sont pas encore modifiés.
+Proposition d'architecture. Le déploiement est prêt dans [`deploy/nanobot/`](../deploy/nanobot/README.md). Le sidecar peut transmettre le chat à nanobot (si `NANOBOT_URL` est défini) ; l'app n'est pas encore modifiée.
+
+Suite : [PERSONNALISATION.md](PERSONNALISATION.md) (reconnaître qui parle, initiative, souvenirs utiles) et la [roadmap](ROADMAP.md).
 
 Principe : on ne code pas d'agent nous-mêmes. [nanobot](https://github.com/HKUDS/nanobot) (MIT, Python) tourne sur nimbus et devient le cerveau du robot : soul, mémoire, skills, MCP. Le sidecar garde la détection d'émotion et lui transmet les phrases. Le robot garde la voix et exécute les actions qu'on lui renvoie sous forme de balises. Tout reste compatible OpenAI.
 
@@ -154,10 +156,10 @@ Règles appliquées par l'app, pas par le modèle :
 
 ## 9. Ce qu'il reste à coder
 
-**Sidecar** (`emo_server.py`) :
-1. Si `NANOBOT_URL` est défini, `/v1/chat/completions` n'envoie à nanobot que la dernière phrase de l'utilisateur, sans le message système. Il ajoute devant l'émotion entendue, le `session_id` `rux` et la clé `NANOBOT_API_KEY`, puis il relaie le flux.
-2. Le choix du modèle : `/model lourd` avant une demande lourde, `/model rapide` après.
-3. Le secours : si nanobot ne répond pas, ou si le flux se termine sans `[DONE]`, il renvoie la requête d'origine à Lemonade.
+**Sidecar** (`emo_server.py`) — fait (branche locale `sidecar-nanobot`, à pousser) :
+1. Si `NANOBOT_URL` est défini, `/v1/chat/completions` n'envoie à nanobot que la dernière phrase de l'utilisateur, sans le message système. Il ajoute devant l'émotion entendue (si l'intensité du mood est encore significative), le `session_id` (`NANOBOT_SESSION`, défaut `rux`) et la clé `NANOBOT_API_KEY`, puis il relaie le flux. Variables : `NANOBOT_FAST` / `NANOBOT_HEAVY` (presets), `NANOBOT_HEAVY_WORDS`, `NANOBOT_HEAVY_CHARS`, `NANOBOT_TIMEOUT`.
+2. Le choix du modèle : `/model lourd` avant une demande lourde, `/model rapide` après (verrou par session).
+3. Le secours : si nanobot ne répond pas (ou avant le premier octet), la requête d'origine part vers Lemonade ; si le flux SSE s'arrête sans `[DONE]`, le sidecar en ajoute un.
 
 **App** :
 1. Envoyer le chat au sidecar plutôt qu'à Lemonade, avec un réglage pour revenir à Lemonade en direct.
@@ -169,7 +171,7 @@ Règles appliquées par l'app, pas par le modèle :
 
 1. Sur nimbus : vérifier avec `curl` que Gemma et Qwen3 renvoient des `tool_calls`, y compris en streaming. Si Gemma FLM échoue, passer sur `Gemma-4-E2B-it-GGUF` ou `E4B`.
 2. Lancer nanobot (`deploy/nanobot`), tester avec `curl`, mesurer la latence.
-3. Sidecar vers nanobot, puis les balises d'action et la confirmation dans l'app.
+3. Sidecar vers nanobot (code prêt) : déployer sur nimbus, puis les balises d'action et la confirmation dans l'app.
 4. `/dream` chaque soir, puis les skills à la voix.
 5. MCP (Home Assistant en premier), puis les capteurs et la caméra.
 
