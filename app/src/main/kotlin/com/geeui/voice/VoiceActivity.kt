@@ -488,12 +488,19 @@ class VoiceActivity : Activity() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             send(VoiceService.ACTION_START)
         } else {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA), 1)
+        }
+        // The camera is optional: without it, "qu'est-ce que tu vois ?" just says it cannot see.
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.CAMERA), 2)
         }
     }
 
     override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, grants: IntArray) {
         super.onRequestPermissionsResult(code, perms, grants)
+        if (code == 2) return // camera: optional, refused = no vision
         if (code == 1 && grants.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
             send(VoiceService.ACTION_START)
         } else {

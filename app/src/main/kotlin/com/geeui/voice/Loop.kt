@@ -49,7 +49,9 @@ class VoiceLoop(
     cosyModel: String = CosyTts.MODEL,
     phonon: String = "",
     phononVoice: String = com.geeui.voice.engine.PhononTts.VOICE,
+    vision: Boolean = true,
 ) {
+    private val camera = if (vision) RobotCamera(audio) else null
     private val client = LemonadeClient(
         baseUrl,
         sttModel = sttModel,
@@ -85,6 +87,14 @@ class VoiceLoop(
         plan = plan,
         audioAffect = { stt.lastAudioAffect },
         fusion = com.geeui.voiceemo.EmotionFusion(),
+        camera = camera?.let { cam ->
+            {
+                VoiceHud.line = "je regarde…"
+                val jpeg = cam.snapshot()
+                VoiceHud.diag = if (jpeg == null) "caméra : ${cam.lastError}" else "photo ${jpeg.size / 1024} Ko"
+                jpeg
+            }
+        },
         sidecarOkAt = {
             val now = System.currentTimeMillis()
             if (sidecar.isNotBlank() && now - sidecarOk.get() > 5_000L) pingSidecar(sidecar)

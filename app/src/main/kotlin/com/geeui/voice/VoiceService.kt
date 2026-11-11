@@ -37,6 +37,8 @@ class VoiceService : Service() {
     private var phonon = ""
     private var phononVoice = com.geeui.voice.engine.PhononTts.VOICE
     private val vad = mutableMapOf<String, String?>()
+    /** Extra "vision" = "0" : jamais de photo, même sur « qu'est-ce que tu vois ? ». */
+    private var vision = true
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -61,11 +63,12 @@ class VoiceService : Service() {
             intent.getStringExtra("phonon_voice")?.let {
                 phononVoice = it.trim().ifEmpty { com.geeui.voice.engine.PhononTts.VOICE }
             }
+            intent.getStringExtra("vision")?.let { vision = it.trim() !in setOf("0", "false", "non") }
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
-                sidecar, cosyModel, phonon, phononVoice,
+                sidecar, cosyModel, phonon, phononVoice, vision,
             )
             loop?.start()
             VoiceHud.running = true

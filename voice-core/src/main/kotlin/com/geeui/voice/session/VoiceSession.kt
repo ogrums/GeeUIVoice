@@ -36,10 +36,26 @@ class VoiceSession(
     private val plan: TtsPlan? = null,
     private val pause: (Long) -> Unit = { Thread.sleep(it) },
     private val fusion: com.geeui.voiceemo.EmotionFusion? = null,
+    /** One JPEG on demand ("qu'est-ce que tu vois ?"), or null when the camera fails. Null = no vision. */
+    private val camera: (() -> ByteArray?)? = null,
 ) {
     private val skills = SkillRouter(bus, charging)
     var state: Dialogue = Dialogue.Idle
         private set
+
+    /** Takes the photo for a vision phrase and attaches it to the next chat turn. */
+    private fun look(text: String): String {
+        val shoot = camera ?: return text
+        if (!VisionIntent.wants(text)) return text
+        val jpeg = try {
+            shoot()
+        } catch (_: Exception) {
+            null
+        }
+        if (jpeg == null || jpeg.isEmpty()) return VisionIntent.BLIND + text
+        chat.attachImage(jpeg)
+        return text
+    }
 
     fun onUserText(text: String): String {
         state = Dialogue.Listening
@@ -49,6 +65,7 @@ class VoiceSession(
             return ""
         }
         state = Dialogue.Speaking
+        val asked = look(text)
         val answer = StringBuilder()
         val tags = com.geeui.voiceemo.EmotionTagParser()
         var tagged = false
@@ -62,10 +79,10 @@ class VoiceSession(
             answer.append(parsed.text)
         }
         if (chat is StreamingChat) {
-            chat.stream(text) { piece -> delta(piece) }
+            chat.stream(asked) { piece -> delta(piece) }
             answer.append(tags.finish().text)
         } else {
-            delta(chat.reply(text))
+            delta(chat.reply(asked))
             answer.append(tags.finish().text)
         }
         val whole = spoken(answer.toString())
