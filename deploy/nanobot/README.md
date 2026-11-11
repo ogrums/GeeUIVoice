@@ -146,7 +146,23 @@ Si nanobot est arrêté, le sidecar journalise `chat route=lemonade fallback` et
 ## Bon à savoir
 
 - **Une seule phrase par requête** : l'API refuse un message `system` ou un historique (`400 Only a single user message is supported`). Le sidecar doit n'envoyer que la dernière phrase.
-- **Souvenirs** : seul le « Dream » écrit dans `USER.md` et `memory/MEMORY.md`. `nanobot serve` ne le lance pas tout seul (c'est le `gateway` qui le planifie), d'où le `/dream` ci-dessus, à mettre dans un cron le soir. Chaque Dream est versionné en git dans le workspace : `/dream-log` et `/dream-restore` pour revenir en arrière. Dream peut aussi retoucher `SOUL.md`, garder une copie.
+- **Souvenirs** : seul le « Dream » écrit dans `USER.md` et `memory/MEMORY.md`. `nanobot serve` ne le lance pas tout seul (c'est le `gateway` qui le planifie), d'où le `/dream` ci-dessus. Avec l'initiative du sidecar (`INITIATIVE_ENABLED=1`), c'est le sidecar qui envoie chaque nuit `/compact` à chaque session `rux-<personne>` puis `/dream` (`NIGHTLY_AT`) : ne pas garder de cron système en plus. Sans initiative, mettre ce `/dream` dans un cron le soir. Chaque Dream est versionné en git dans le workspace : `/dream-log` et `/dream-restore` pour revenir en arrière. Dream peut aussi retoucher `SOUL.md`, garder une copie.
 - **Soul et skills** : ce sont des fichiers dans `data/workspace/`. On les modifie à la main puis `docker compose restart`. Les skills créés à la voix arrivent dans `data/workspace/skills/<nom>/SKILL.md`.
 - **Sécurité** : pas de shell (`tools.exec.enable: false`), pas de web, fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
 - **Alléger le prompt** : `"tools": {"file": {"enable": false}}` divise la requête par deux (11 000 caractères), mais nanobot ne peut alors plus lire ni créer de skills.
+
+
+## Initiative (sidecar)
+
+Le sidecar ([GeeUIVoiceSidecar](https://github.com/ogrums/GeeUIVoiceSidecar), section « Initiative ») décide quand le robot parle le premier. nanobot écrit seulement la phrase :
+
+- Un message qui commence par « (initiative de RUX, personne n'a parlé) » demande une phrase d'initiative (suivi, attention). Voir `workspace/AGENTS.md`.
+- Pour un rappel à heure précise, nanobot écrit à la fin de sa réponse `[rappel:+minutes|texte]` ou `[rappel:AAAA-MM-JJTHH:MM|texte]`. Le sidecar le lit et le garde ; l'app ne le lit jamais à voix haute.
+- Le sidecar lit la section « ## À suivre » de `memory/MEMORY.md`. Il faut lui monter le workspace **en lecture seule**, dans le `docker-compose.yml` du sidecar :
+
+```yaml
+    volumes:
+      - /home/bob/nanobot/data/workspace:/nanobot-workspace:ro
+```
+
+et `NANOBOT_WORKSPACE=/nanobot-workspace` dans son `.env`. Adapter le chemin à l'emplacement réel du dossier `data/` de ce déploiement. En Docker rootless, le sidecar doit pouvoir lire ces fichiers (droits de lecture pour l'utilisateur du conteneur, uid 1000).
