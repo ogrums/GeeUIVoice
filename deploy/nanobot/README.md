@@ -94,6 +94,43 @@ curl -s http://127.0.0.1:8900/v1/chat/completions \
 
 Mesurer la latence avec `curl -w "%{time_total}\n" -o /dev/null ...` : nanobot envoie environ 20 000 caractères (5 000 tokens) à chaque tour, dont 15 000 pour la description des outils.
 
+
+
+## 4. Brancher le sidecar (`emo_server.py`)
+
+Quand `NANOBOT_URL` est défini, le sidecar envoie chaque tour de chat à nanobot au lieu de Lemonade (sinon comportement inchangé).
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `NANOBOT_URL` | *(vide)* | Base OpenAI de nanobot, ex. `http://127.0.0.1:8900/v1`. Vide = désactivé |
+| `NANOBOT_API_KEY` | *(vide)* | Bearer obligatoire côté nanobot |
+| `NANOBOT_SESSION` | `rux` | `session_id` envoyé à chaque requête |
+| `NANOBOT_FAST` | `rapide` | Preset Gemma après une tâche lourde |
+| `NANOBOT_HEAVY` | `lourd` | Preset Qwen3 pour les demandes longues / mots-clés |
+| `NANOBOT_HEAVY_WORDS` | explique,résume,… | Mots (FR) qui déclenchent le preset lourd |
+| `NANOBOT_HEAVY_CHARS` | `200` | Au-delà, la phrase est traitée comme lourde |
+| `NANOBOT_TIMEOUT` | `120` | Délai max (s) pour un tour nanobot |
+
+Exemple (nimbus, sidecar déjà lancé sur 13306) :
+
+```bash
+export NANOBOT_URL=http://127.0.0.1:8900/v1
+export NANOBOT_API_KEY=...   # même clé que nanobot
+# redémarrer le sidecar pour prendre l'env
+
+# Via le sidecar (comme l'app le fera) : une phrase simple
+curl -s http://127.0.0.1:13306/v1/chat/completions   -H "Content-Type: application/json"   -d '{"messages":[{"role":"user","content":"Salut"}],"stream":false}'
+
+# Streaming
+curl -sN http://127.0.0.1:13306/v1/chat/completions   -H "Content-Type: application/json"   -d '{"messages":[{"role":"user","content":"Avance un peu"}],"stream":true}'
+# Attendu : flux SSE puis data: [DONE]. Logs sidecar : chat route=nanobot ...
+
+# Demande lourde (le sidecar envoie /model lourd, la phrase, /model rapide)
+curl -s http://127.0.0.1:13306/v1/chat/completions   -H "Content-Type: application/json"   -d '{"messages":[{"role":"user","content":"explique-moi la photosynthèse"}]}'
+```
+
+Si nanobot est arrêté, le sidecar journalise `chat route=lemonade fallback` et renvoie la requête d'origine à Lemonade.
+
 ## Bon à savoir
 
 - **Une seule phrase par requête** : l'API refuse un message `system` ou un historique (`400 Only a single user message is supported`). Le sidecar doit n'envoyer que la dernière phrase.
