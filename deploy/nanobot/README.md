@@ -9,7 +9,7 @@ Testé le 9 novembre 2026 avec le commit `5c72ced` de nanobot (version 0.4.1), s
 | Fichier | Rôle |
 |---|---|
 | `docker-compose.yml` | Construit l'image depuis le `Dockerfile` officiel (il n'y a pas d'image publiée) et lance `nanobot serve` sur `127.0.0.1:8900` |
-| `config.example.json` | Lemonade comme fournisseur, presets `rapide` (Gemma) et `lourd` (Qwen3), shell, web et outils d'administration coupés |
+| `config.example.json` | Lemonade comme fournisseur, presets `rapide` (Gemma) et `lourd` (Qwen3), web activé (DuckDuckGo sans clé + `web_fetch`), shell et outils d'administration coupés |
 | `workspace/SOUL.md` | Personnalité, façon de parler, balises d'émotion |
 | `workspace/AGENTS.md` | Balises d'action du robot, tâches longues, création de skills |
 | `.env.example` | Clé de l'API nanobot et adresse de Lemonade |
@@ -148,5 +148,38 @@ Si nanobot est arrêté, le sidecar journalise `chat route=lemonade fallback` et
 - **Une seule phrase par requête** : l'API refuse un message `system` ou un historique (`400 Only a single user message is supported`). Le sidecar doit n'envoyer que la dernière phrase.
 - **Souvenirs** : seul le « Dream » écrit dans `USER.md` et `memory/MEMORY.md`. `nanobot serve` ne le lance pas tout seul (c'est le `gateway` qui le planifie), d'où le `/dream` ci-dessus, à mettre dans un cron le soir. Chaque Dream est versionné en git dans le workspace : `/dream-log` et `/dream-restore` pour revenir en arrière. Dream peut aussi retoucher `SOUL.md`, garder une copie.
 - **Soul et skills** : ce sont des fichiers dans `data/workspace/`. On les modifie à la main puis `docker compose restart`. Les skills créés à la voix arrivent dans `data/workspace/skills/<nom>/SKILL.md`.
-- **Sécurité** : pas de shell (`tools.exec.enable: false`), pas de web, fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
+- **Sécurité** : pas de shell (`tools.exec.enable: false`), web en lecture seule (recherche DuckDuckGo + `web_fetch`, voir plus bas), fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
 - **Alléger le prompt** : `"tools": {"file": {"enable": false}}` divise la requête par deux (11 000 caractères), mais nanobot ne peut alors plus lire ni créer de skills.
+
+
+## Recherche web et météo
+
+nanobot a deux outils web natifs : `web_search` et `web_fetch` (bloc `tools.web`).
+
+- `web_search.provider` : `duckduckgo` ne demande aucune clé (c'est le choix ici). `brave`, `tavily`, `jina` demandent une `apiKey` ; `searxng` demande `baseUrl` (une instance SearXNG à soi, sans clé).
+- `web_fetch` lit une URL. `useJinaReader: false` la lit directement : c'est ce qu'il faut pour les API JSON (Open-Meteo, wttr.in).
+- Le skill `workspace/skills/meteo/SKILL.md` (toujours chargé) dit au modèle d'appeler `web_fetch` sur wttr.in (maintenant) ou Open-Meteo (demain et après), sans clé, et de répondre en une phrase en °C.
+
+À ajouter dans `data/config.json` (bloc `tools`) :
+
+```json
+"web": {
+  "enable": true,
+  "search": { "provider": "duckduckgo", "maxResults": 3, "timeout": 15 },
+  "fetch": { "useJinaReader": false }
+}
+```
+
+Puis copier le skill et redémarrer (Docker rootless, utilisateur `bob`) :
+
+```bash
+mkdir -p data/workspace/skills/meteo
+cp workspace/skills/meteo/SKILL.md data/workspace/skills/meteo/
+docker compose restart && docker compose logs --tail 20   # attendu : web_search et web_fetch dans les outils
+```
+
+Le modèle doit savoir appeler un outil. `gemma4-it-e2b-FLM` le fait ; `gemma4e-flash-e2b-FLM` ne le fait pas (il répond sans chercher). Vérifier que le preset `rapide` pointe bien sur `gemma4-it-e2b-FLM`. Si les réponses météo restent inventées, envoyer ces questions au preset `lourd` (Qwen3) via le sidecar, par exemple dans son `.env` :
+
+```
+NANOBOT_HEAVY_WORDS=météo,meteo,température,pluie,cherche,recherche,internet,actualité,actualités
+```
