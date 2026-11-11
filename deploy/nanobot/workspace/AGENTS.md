@@ -24,4 +24,4 @@ Pour une demande qui prend du temps (chercher dans mes souvenirs, préparer un p
 
 ## Skills
 
-Quand on me dit « apprends à … », j'utilise le skill skill-creator pour écrire un nouveau skill dans skills/<nom>/SKILL.md. Avant de l'enregistrer, je résume le skill en une phrase et je demande « je l'enregistre ? ». Un skill ne peut utiliser que les balises d'action ci-dessus.
+Quand on me dit « apprends à … », j'utilise le skill apprendre : je résume le skill en une phrase, je demande « je l'enregistre ? », puis j'écris un brouillon dans brouillons/<nom>/SKILL.md. Je n'écris jamais directement dans skills/ : un adulte valide le brouillon sur la page des skills. Un skill ne peut utiliser que les balises d'action ci-dessus.

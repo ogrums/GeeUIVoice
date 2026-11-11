@@ -147,6 +147,25 @@ Si nanobot est arrêté, le sidecar journalise `chat route=lemonade fallback` et
 
 - **Une seule phrase par requête** : l'API refuse un message `system` ou un historique (`400 Only a single user message is supported`). Le sidecar doit n'envoyer que la dernière phrase.
 - **Souvenirs** : seul le « Dream » écrit dans `USER.md` et `memory/MEMORY.md`. `nanobot serve` ne le lance pas tout seul (c'est le `gateway` qui le planifie), d'où le `/dream` ci-dessus, à mettre dans un cron le soir. Chaque Dream est versionné en git dans le workspace : `/dream-log` et `/dream-restore` pour revenir en arrière. Dream peut aussi retoucher `SOUL.md`, garder une copie.
-- **Soul et skills** : ce sont des fichiers dans `data/workspace/`. On les modifie à la main puis `docker compose restart`. Les skills créés à la voix arrivent dans `data/workspace/skills/<nom>/SKILL.md`.
+- **Soul et skills** : ce sont des fichiers dans `data/workspace/`. On les modifie à la main puis `docker compose restart`. Les skills appris à la voix arrivent d'abord en brouillon (section suivante).
+
+## Skills appris à la voix
+
+« Apprends à… quand je dis bonne nuit, éteins l'antenne. » RUX résume, demande « je l'enregistre ? », puis écrit `data/workspace/brouillons/<nom>/SKILL.md` (skill `apprendre`). nanobot ne charge pas `brouillons/`. Le skill intégré `skill-creator` est désactivé (`disabledSkills`), parce qu'il écrit directement dans `skills/`.
+
+Validation sur la page du sidecar : `http://nimbus:13306/admin/skills` (mot de passe `SIDECAR_ADMIN_KEY`, section « Skills appris à la voix » de GeeUIVoiceSidecar). Valider déplace le dossier dans `skills/`, et nanobot le lit au tour suivant. Une balise d'action hors de la liste de `AGENTS.md` bloque la validation.
+
+Installer le skill et la règle :
+
+```bash
+cd $NB
+cp -r workspace/skills/apprendre data/workspace/skills/
+cp workspace/AGENTS.md data/workspace/
+mkdir -p data/workspace/brouillons
+# ajouter "skill-creator" à agents.defaults.disabledSkills dans data/config.json
+docker compose restart
+```
+
+Le prompt Dream de RUX (`prompts/dream.md`, PR « Souvenirs ») interdit déjà à Dream de créer des skills.
 - **Sécurité** : pas de shell (`tools.exec.enable: false`), pas de web, fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
 - **Alléger le prompt** : `"tools": {"file": {"enable": false}}` divise la requête par deux (11 000 caractères), mais nanobot ne peut alors plus lire ni créer de skills.
