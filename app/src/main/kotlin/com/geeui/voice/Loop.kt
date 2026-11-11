@@ -85,6 +85,7 @@ class VoiceLoop(
         plan = plan,
         audioAffect = { stt.lastAudioAffect },
         fusion = com.geeui.voiceemo.EmotionFusion(),
+        allowedActions = { stt.lastAllowedActions },
         sidecarOkAt = {
             val now = System.currentTimeMillis()
             if (sidecar.isNotBlank() && now - sidecarOk.get() > 5_000L) pingSidecar(sidecar)

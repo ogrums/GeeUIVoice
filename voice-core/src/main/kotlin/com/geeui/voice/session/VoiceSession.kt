@@ -36,14 +36,38 @@ class VoiceSession(
     private val plan: TtsPlan? = null,
     private val pause: (Long) -> Unit = { Thread.sleep(it) },
     private val fusion: com.geeui.voiceemo.EmotionFusion? = null,
+    /** Action kinds allowed for the person who just spoke (sidecar allowed_actions); null = all. */
+    private val allowedActions: () -> Set<String>? = { null },
 ) {
     private val skills = SkillRouter(bus, charging)
+    /** Walk or go home, waiting for « oui ». */
+    private var pending: RobotAction? = null
+    private var pendingAt = 0L
     var state: Dialogue = Dialogue.Idle
         private set
 
     fun onUserText(text: String): String {
         state = Dialogue.Listening
+        val waiting = pending
+        pending = null
+        if (waiting != null && now() - pendingAt <= CONFIRM_MS) {
+            if (ActionTags.isYes(text)) {
+                if (allowed(waiting.kind)) run(waiting) else say(REFUSED)
+                state = Dialogue.Idle
+                return ""
+            }
+            if (NO.containsMatchIn(text)) {
+                say(CANCELLED)
+                state = Dialogue.Idle
+                return ""
+            }
+        }
         val hit = SkillLexicon.match(text)
+        if (hit != null && !allowed(kindOf(hit.id))) {
+            say(REFUSED)
+            state = Dialogue.Idle
+            return ""
+        }
         if (hit != null && skills.handle(hit)) {
             state = Dialogue.Idle
             return ""
@@ -68,7 +92,8 @@ class VoiceSession(
             delta(chat.reply(text))
             answer.append(tags.finish().text)
         }
-        val whole = spoken(answer.toString())
+        val (withoutActions, actions) = ActionTags.split(answer.toString())
+        val whole = spoken(withoutActions)
         var moved = false
         if (mood != null) {
             val reaction = fusion?.fuse(audioAffect().emotion, audioAffect().confidence.toDouble(),
@@ -101,8 +126,55 @@ class VoiceSession(
             pause(PoseTiming.REST_AFTER_MS)
             bus.standAtAttention()
         }
+        // AGENTS.md: one action tag per reply. Others are dropped.
+        actions.firstOrNull()?.let { act(it) }
         state = Dialogue.Idle
         return whole
+    }
+
+    private fun allowed(kind: String): Boolean = allowedActions()?.contains(kind) ?: true
+
+    private fun act(action: RobotAction) {
+        when {
+            !allowed(action.kind) -> say(REFUSED)
+            action.needsConfirmation -> {
+                say(ASK)
+                pending = action
+                pendingAt = now()
+            }
+            else -> run(action)
+        }
+    }
+
+    private fun run(action: RobotAction) {
+        val hit = action.hit
+        if (hit != null) {
+            skills.handle(hit)
+        } else if (action.light != null) {
+            bus.antennaLight(action.light != 0, action.light)
+        }
+    }
+
+    private fun say(line: String) {
+        state = Dialogue.Speaking
+        tts.speak(line, language)
+    }
+
+    companion object {
+        const val CONFIRM_MS = 10_000L
+        const val ASK = "Je peux y aller ?"
+        const val CANCELLED = "D'accord, je ne bouge pas."
+        const val REFUSED = "Je n'ai pas le droit de faire ça pour toi."
+        private val NO = Regex("^\\W*(non|nan|stop|attends|annule|pas maintenant)\\b", RegexOption.IGNORE_CASE)
+
+        /** Local phrase skill → action kind, for allowed_actions. */
+        fun kindOf(skill: String): String = when (skill) {
+            "actin" -> "move"
+            "goHome" -> "home"
+            "takePhoto" -> "photo"
+            "volumeUp", "volumeDown", "volumemax", "volumemix", "volumeadjust" -> "volume"
+            else -> "other"
+        }
     }
 
     /** Kokoro reads '*' aloud. Keep letters, spaces and normal punctuation. */
