@@ -28,5 +28,13 @@
             android:name=".VoiceService"
             android:exported="true"
             android:foregroundServiceType="microphone" />
+        <!-- Exported for adb only. Paths are allowlisted in WavTestAccess; does nothing until broadcast. -->
+        <receiver
+            android:name=".TestWavReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.geeui.voice.TEST_WAV" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

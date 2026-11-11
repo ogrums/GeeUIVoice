@@ -1,0 +1,3 @@
+# Optionnel, uniquement pour le mode "chaine" (haut-parleur + micro du PC).
+sounddevice>=0.4
+numpy>=1.20
