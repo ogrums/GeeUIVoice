@@ -8,3 +8,6 @@ local.properties
 
 # Rapports locaux de campagne
 sidecar/tests/reports/
+
+# Jeton Home Assistant
+deploy/nanobot/ha.env
