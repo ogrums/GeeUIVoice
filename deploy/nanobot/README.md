@@ -167,5 +167,8 @@ La mémoire reste une par workspace : `USER.md` a une section par personne (voir
 Vérifier côté nanobot qu'une session par personne existe :
 
 ```bash
-ls data/workspace/sessions/ | grep rux-   # attendu : api_rux-paul.jsonl … après une conversation
+# Les sessions sont dans une base SQLite, sous data/ mais hors du workspace.
+DB=$(find data -name sessions.sqlite3 | head -1)
+python3 -c "import sqlite3,sys; print([r[0] for r in sqlite3.connect(sys.argv[1]).execute('select key from sessions')])" "$DB"
+# attendu après une conversation : 'api:rux-paul'
 ```
