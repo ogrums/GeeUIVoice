@@ -111,7 +111,18 @@ class VoiceLoop(
             VoiceHud.line = text
             session.say(text)
         },
+        onMood = { label -> restFace(label) },
     )
+    /** Robot mood from the sidecar: change the rest face, and show it now if the robot is resting. */
+    private fun restFace(label: String) {
+        val rest = com.geeui.voice.bus.RestFace
+        val face = rest.forMood(label)
+        if (face == rest.current) return
+        val resting = VoiceHud.face.isBlank() || rest.isRest(VoiceHud.face)
+        rest.current = face
+        if (resting) bus.showFace(face)
+    }
+
     private val running = AtomicBoolean(false)
     private var thread: Thread? = null
 
