@@ -68,6 +68,7 @@ class VoiceService : Service() {
                 sidecar, cosyModel, phonon, phononVoice,
             )
             loop?.start()
+            VoiceHud.running = true
         }
         return START_STICKY
     }
@@ -75,6 +76,7 @@ class VoiceService : Service() {
     private fun stopMic() {
         loop?.stop()
         loop = null
+        VoiceHud.running = false
         VoiceHud.mode = "idle"
         VoiceHud.level = 0f
         VoiceHud.mic = false
@@ -84,6 +86,7 @@ class VoiceService : Service() {
     override fun onDestroy() {
         loop?.stop()
         loop = null
+        VoiceHud.running = false
         super.onDestroy()
     }
 
@@ -104,6 +107,6 @@ class VoiceService : Service() {
     companion object {
         const val ACTION_START = "com.geeui.voice.START"
         const val ACTION_STOP = "com.geeui.voice.STOP"
-        private val VAD_KEYS = listOf("vad_threshold", "vad_start_ms", "vad_hangover_ms", "vad_min_ms", "vad_max_ms")
+        private val VAD_KEYS = listOf("vad_threshold", "vad_start_ms", "vad_hangover_ms", "vad_min_ms", "vad_max_ms", "vad_preroll_ms")
     }
 }

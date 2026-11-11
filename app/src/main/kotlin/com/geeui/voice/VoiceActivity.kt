@@ -66,7 +66,13 @@ class VoiceActivity : Activity() {
         super.onCreate(savedInstanceState)
         debug = debugLaunch(intent.getStringExtra("mode"), intent.getStringExtra("debug"))
         bus = AidlBus(this)
-        val screen = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        // The robot ROM has no autofill service: AutofillManager throws a NullPointerException
+        // (IAutoFillManager null) as soon as an EditText becomes visible. Keep every view out of it.
+        window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        val screen = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        }
         faceView = TextureView(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -129,6 +135,7 @@ class VoiceActivity : Activity() {
                 textSize = 13f
                 setBackgroundColor(Color.rgb(32, 32, 32))
                 setPadding(12, 6, 12, 6)
+                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
             }
             editors[key] = edit
             box.addView(edit)
@@ -147,6 +154,7 @@ class VoiceActivity : Activity() {
             setBackgroundColor(Color.argb(235, 0, 0, 0))
             isClickable = true
             visibility = View.GONE
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
             addView(box)
         }
     }
@@ -154,7 +162,12 @@ class VoiceActivity : Activity() {
     private fun openMenu() {
         val values = VoiceSettings.effective(this, intent)
         for ((key, edit) in editors) edit.setText(values[key].orEmpty())
-        menu?.visibility = View.VISIBLE
+        try {
+            menu?.visibility = View.VISIBLE
+        } catch (e: RuntimeException) {
+            // Last guard against the ROM autofill bug: the menu shows even if the framework throws.
+            android.util.Log.w("GeeUIVoice", "openMenu: ${e.javaClass.simpleName} ${e.message}")
+        }
     }
 
     private fun closeMenu() {
@@ -164,7 +177,8 @@ class VoiceActivity : Activity() {
     private fun saveMenu() {
         VoiceSettings.save(this, editors.mapValues { it.value.text.toString() })
         closeMenu()
-        if (VoiceHud.mic) send(VoiceService.ACTION_START)
+        // Restart the loop so the new hosts apply, unless the user had stopped the mic.
+        if (VoiceHud.running || VoiceHud.mic) send(VoiceService.ACTION_START)
     }
 
     private fun paintDebug() {
