@@ -89,5 +89,6 @@ class EmotionParseTest {
         assertEquals("h0033", SdkMap.pose(Emotion.DISGUST).faceId)
         assertEquals("PURPLE", SdkMap.pose(Emotion.DISGUST).light)
         assertEquals(24, SdkMap.pose(Emotion.DISGUST).action)
+        assertEquals("a0033", SdkMap.pose(Emotion.DISGUST).sound)
     }
 }

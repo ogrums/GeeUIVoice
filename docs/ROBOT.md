@@ -123,7 +123,7 @@ One pose is a face, an ear move, a light, an optional gesture, and an optional c
 | angry | `h0001` 愤怒 | cmd 2, 2 steps, 200 ms, 70° | `RED` | 15 stomp | `a0020` |
 | fear | `h0133` 害怕 | cmd 1, 1 step, 400 ms, 30° | `CYAN` | 44 dodge | `a0037` |
 | surprise | `h0046` 惊讶 | cmd 3, 1 step, 150 ms, 90° | `WHITE` | 76 nod | `a0095` |
-| disgust | `h0033` 抗拒 | cmd 2, 1 step, 300 ms, 50° | `PURPLE` | 24 small shake | none |
+| disgust | `h0033` 抗拒 | cmd 2, 1 step, 300 ms, 50° | `PURPLE` | 24 small shake | `a0033` |
 | neutral | `h0059` 常规环 | cmd 1, angle 0 | off | none | none |
 
 Mood half-life is 45 s. Audio emotion at or above 0.70 (configurable) takes priority over the LLM reply tag. The tag is only used when audio is neutral or below that threshold. A skill turn, such as "avance", must not also play this pose.
@@ -141,7 +141,7 @@ Other face ids that look like emotions but are not used:
 | `h0211` | 伤心2 | a second sad, not the one we send |
 | `h0018` | 狂怒 | a stronger angry |
 
-The public face sheet stops at `h0302`. Ids `h0290`–`h0302` are empty. The full named subset we care about is in `GeeUIVoiceEmo/docs/FACES.md`.
+The public face sheet stops at `h0302`. Ids `h0290`–`h0302` are empty. The full official list, with French names, is in [tags/EXPRESSIONS-VISAGES.md](tags/EXPRESSIONS-VISAGES.md). Sounds are in [tags/SONS.md](tags/SONS.md).
 
 ## Dialogue faces
 
@@ -165,17 +165,20 @@ GeeUIFace plays `assets/video/<id>.mp4` in a loop. The automatic robot mode pick
 
 Clips GeeUIVoiceEmo may play:
 
-| id | Meaning |
-|---|---|
-| `a0020` | angry |
-| `a0032` | laugh |
-| `a0037` | fear |
-| `a0039` | pleasant surprise |
-| `a0070` | panic |
-| `a0086` | sad |
-| `a0095` | surprise |
-| `a0107` | embarrassed |
-| `a0133` | disappointed |
+| id | Nom | Meaning |
+|---|---|---|
+| `a0020` | 生气 | angry. Angry pose |
+| `a0032` | 哈哈哈 | laugh. Happy pose |
+| `a0033` | 反感 | aversion / disgust. Disgust pose |
+| `a0037` | 害怕 | fear. Fear pose |
+| `a0039` | 惊喜感 | pleasant surprise |
+| `a0070` | 慌张 | panic |
+| `a0086` | 难过 | sad. Sad pose |
+| `a0095` | 惊讶 | surprise. Surprise pose |
+| `a0107` | 尴尬 | embarrassed |
+| `a0133` | 失落 | disappointed |
+
+The complete official list is in [tags/SONS.md](tags/SONS.md).
 
 The firmware also accepts symbolic names (`happy`, `sad`, `angry`, `cry`, `wake`, `sleep`, `charge`, `lowPower`, and others listed in [BUS.md](BUS.md)). Those names are not proven to be the same files as `aNNNN`. Do not mix them in one call.
 

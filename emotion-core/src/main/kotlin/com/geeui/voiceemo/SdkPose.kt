@@ -25,8 +25,8 @@ object SdkMap {
         Emotion.ANGRY -> SdkPose(FaceCodes.of(Emotion.ANGRY), 2, 2, 200, 70, "RED", 15, "a0020")
         Emotion.FEAR -> SdkPose(FaceCodes.of(Emotion.FEAR), 1, 1, 400, 30, "CYAN", 44, "a0037")
         Emotion.SURPRISE -> SdkPose(FaceCodes.of(Emotion.SURPRISE), 3, 1, 150, 90, "WHITE", 76, "a0095")
-        // Recoil: ears pull in, purple (not angry red), a small shudder. No stock a00xx for disgust.
-        Emotion.DISGUST -> SdkPose(FaceCodes.of(Emotion.DISGUST), 2, 1, 300, 50, "PURPLE", 24, null)
+        // Recoil: ears pull in, purple (not angry red), a small shudder. a0033 反感 = aversion / disgust.
+        Emotion.DISGUST -> SdkPose(FaceCodes.of(Emotion.DISGUST), 2, 1, 300, 50, "PURPLE", 24, "a0033")
         Emotion.NEUTRAL -> SdkPose(FaceCodes.of(Emotion.NEUTRAL), 1, 1, 400, 0, null, null, null)
     }
 }

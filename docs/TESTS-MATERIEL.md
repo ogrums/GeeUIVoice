@@ -39,7 +39,7 @@ Puis sur le PC qui construit l'APK : `./gradlew :app:assembleDebug && adb instal
 
 ## 2. Visages depuis les emoji (#15)
 
-- [ ] Faire répondre nanobot avec un emoji (« réponds avec un emoji qui rit ») → visage h0002, l'emoji n'est pas lu.
+- [ ] Faire répondre nanobot avec un emoji (« réponds avec un emoji qui rit ») → visage h0006 (大笑), l'emoji n'est pas lu.
 - [ ] 🥰 → h0027, 🤔 → h0181, 😊 → h0006. `adb logcat | grep -i face` pour voir le code envoyé.
 - [ ] Regarder chaque vidéo de la table `FaceCodes.kt` sur le robot et changer celles qui ne collent pas.
 
@@ -87,7 +87,7 @@ Puis sur le PC qui construit l'APK : `./gradlew :app:assembleDebug && adb instal
 
 - [ ] `.env` sidecar : `ROBOT_MOOD_ENABLED=1` ; `docker compose up -d`. `curl http://nimbus:13306/v1/robot/mood` → `calme`, visage h0059.
 - [ ] Trois « merci, t'es trop mignon » → `joyeux`, au repos visage h0006 en moins de 15 s ; la bouche (h0292) reste pendant les réponses ; logs nanobot : message qui commence par « (humeur de RUX : de très bonne humeur) ».
-- [ ] `adb logcat | grep -i visage` : pas d'erreur de lecture vidéo pour h0063, h0042, h0010, h0039.
+- [ ] `adb logcat | grep -i visage` : pas d'erreur de lecture vidéo pour h0060, h0058, h0042, h0010, h0039, h0033, h0036.
 - [ ] Seul 4 h en journée → `ennuye` (h0042) ; revenir → réponse « content de te revoir » une fois. Après 21 h 30 → `fatigue` (h0039).
 - [ ] Une journée normale : l'humeur ne doit pas être pénible ; régler `ROBOT_MOOD_*` sinon.
 

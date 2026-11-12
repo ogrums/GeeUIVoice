@@ -1,0 +1,475 @@
+[
+  {
+    "cmd_tag": "a0001",
+    "cmd_tag_name": "嘟",
+    "name_fr": "Bip",
+    "usage": "Court bip."
+  },
+  {
+    "cmd_tag": "a0005",
+    "cmd_tag_name": "打铁声",
+    "name_fr": "Coup de forge",
+    "usage": "Bruit de marteau sur le fer."
+  },
+  {
+    "cmd_tag": "a0007",
+    "cmd_tag_name": "激光",
+    "name_fr": "Laser",
+    "usage": "Effet laser."
+  },
+  {
+    "cmd_tag": "a0010",
+    "cmd_tag_name": "脉冲",
+    "name_fr": "Impulsion",
+    "usage": "Impulsion électronique."
+  },
+  {
+    "cmd_tag": "a0011",
+    "cmd_tag_name": "电磁",
+    "name_fr": "Électromagnétique",
+    "usage": "Effet électromagnétique."
+  },
+  {
+    "cmd_tag": "a0012",
+    "cmd_tag_name": "电磁2",
+    "name_fr": "Électromagnétique 2",
+    "usage": "Variante de a0011."
+  },
+  {
+    "cmd_tag": "a0014",
+    "cmd_tag_name": "冲锋枪",
+    "name_fr": "Mitraillette",
+    "usage": "Rafale d'arme (effet sonore)."
+  },
+  {
+    "cmd_tag": "a0019",
+    "cmd_tag_name": "咕咚",
+    "name_fr": "Glouglou / plouf",
+    "usage": "Onomatopée d'un objet qui tombe dans l'eau, ou d'une gorgée."
+  },
+  {
+    "cmd_tag": "a0020",
+    "cmd_tag_name": "生气",
+    "name_fr": "Colère",
+    "usage": "Son de l'émotion colère (SdkMap)."
+  },
+  {
+    "cmd_tag": "a0021",
+    "cmd_tag_name": "嗡嗡",
+    "name_fr": "Bourdonnement",
+    "usage": "Vrombissement / buzz."
+  },
+  {
+    "cmd_tag": "a0024",
+    "cmd_tag_name": "避障",
+    "name_fr": "Évitement d'obstacle",
+    "usage": "Son d'évitement."
+  },
+  {
+    "cmd_tag": "a0025",
+    "cmd_tag_name": "充电",
+    "name_fr": "Charge",
+    "usage": "Branche / charge."
+  },
+  {
+    "cmd_tag": "a0026",
+    "cmd_tag_name": "充电2",
+    "name_fr": "Charge 2",
+    "usage": "Variante de charge."
+  },
+  {
+    "cmd_tag": "a0027",
+    "cmd_tag_name": "充电3",
+    "name_fr": "Charge 3",
+    "usage": "Variante de charge."
+  },
+  {
+    "cmd_tag": "a0028",
+    "cmd_tag_name": "点击",
+    "name_fr": "Clic",
+    "usage": "Clic d'interface."
+  },
+  {
+    "cmd_tag": "a0029",
+    "cmd_tag_name": "闹钟",
+    "name_fr": "Réveil",
+    "usage": "Sonnerie d'alarme."
+  },
+  {
+    "cmd_tag": "a0030",
+    "cmd_tag_name": "舒服",
+    "name_fr": "Bien-être",
+    "usage": "Soupir de confort."
+  },
+  {
+    "cmd_tag": "a0031",
+    "cmd_tag_name": "疑惑",
+    "name_fr": "Perplexité",
+    "usage": "Son interrogateur."
+  },
+  {
+    "cmd_tag": "a0032",
+    "cmd_tag_name": "哈哈哈",
+    "name_fr": "Ha ha ha",
+    "usage": "Rire. Son de l'émotion joyeux (SdkMap)."
+  },
+  {
+    "cmd_tag": "a0033",
+    "cmd_tag_name": "反感",
+    "name_fr": "Dégoût / aversion",
+    "usage": "Son le plus proche du dégoût. Utilisé par l'émotion « disgust »."
+  },
+  {
+    "cmd_tag": "a0034",
+    "cmd_tag_name": "眩晕",
+    "name_fr": "Vertige",
+    "usage": "Son d'étourdissement."
+  },
+  {
+    "cmd_tag": "a0035",
+    "cmd_tag_name": "眩晕2",
+    "name_fr": "Vertige 2",
+    "usage": "Variante de a0034."
+  },
+  {
+    "cmd_tag": "a0036",
+    "cmd_tag_name": "疲劳",
+    "name_fr": "Fatigue",
+    "usage": "Son de fatigue."
+  },
+  {
+    "cmd_tag": "a0037",
+    "cmd_tag_name": "害怕",
+    "name_fr": "Peur",
+    "usage": "Son de l'émotion peur (SdkMap)."
+  },
+  {
+    "cmd_tag": "a0038",
+    "cmd_tag_name": "寻人",
+    "name_fr": "Recherche de quelqu'un",
+    "usage": "Son de tracking / recherche de personne."
+  },
+  {
+    "cmd_tag": "a0039",
+    "cmd_tag_name": "惊喜感",
+    "name_fr": "Bonne surprise",
+    "usage": "Surprise agréable. Pas le son de l'émotion surprise (a0095)."
+  },
+  {
+    "cmd_tag": "a0040",
+    "cmd_tag_name": "完成",
+    "name_fr": "Terminé",
+    "usage": "Jingle de fin / succès."
+  },
+  {
+    "cmd_tag": "a0041",
+    "cmd_tag_name": "和29重复",
+    "name_fr": "Doublon de a0029",
+    "usage": "Même clip que le réveil a0029, d'après le nom officiel."
+  },
+  {
+    "cmd_tag": "a0053",
+    "cmd_tag_name": "讨厌",
+    "name_fr": "Déplaisir",
+    "usage": "« Je n'aime pas ». Proche du dégoût, moins précis que a0033 反感."
+  },
+  {
+    "cmd_tag": "a0054",
+    "cmd_tag_name": "我是乐天派",
+    "name_fr": "« Je suis Letianpai »",
+    "usage": "Phrase de marque du fabricant."
+  },
+  {
+    "cmd_tag": "a0055",
+    "cmd_tag_name": "低电量",
+    "name_fr": "Batterie faible",
+    "usage": "Alerte batterie."
+  },
+  {
+    "cmd_tag": "a0056",
+    "cmd_tag_name": "警报",
+    "name_fr": "Alerte",
+    "usage": "Alarme générique."
+  },
+  {
+    "cmd_tag": "a0057",
+    "cmd_tag_name": "没电了",
+    "name_fr": "Plus de batterie",
+    "usage": "Batterie vide."
+  },
+  {
+    "cmd_tag": "a0058",
+    "cmd_tag_name": "主跳转",
+    "name_fr": "Navigation principale",
+    "usage": "Sans doute un jingle de changement d'écran principal.",
+    "uncertain": true
+  },
+  {
+    "cmd_tag": "a0059",
+    "cmd_tag_name": "错误",
+    "name_fr": "Erreur",
+    "usage": "Son d'erreur."
+  },
+  {
+    "cmd_tag": "a0064",
+    "cmd_tag_name": "喘气",
+    "name_fr": "Essoufflement",
+    "usage": "Hors d'haleine."
+  },
+  {
+    "cmd_tag": "a0067",
+    "cmd_tag_name": "啊呜",
+    "name_fr": "Ahou / miam",
+    "usage": "Onomatopée (morsure ou cri « ahou »).",
+    "uncertain": true
+  },
+  {
+    "cmd_tag": "a0069",
+    "cmd_tag_name": "噔噔噔~",
+    "name_fr": "Dun-dun-dun",
+    "usage": "Accord de suspense / révélation."
+  },
+  {
+    "cmd_tag": "a0070",
+    "cmd_tag_name": "慌张",
+    "name_fr": "Panique",
+    "usage": "Affolement. Plus agité que a0037 害怕."
+  },
+  {
+    "cmd_tag": "a0071",
+    "cmd_tag_name": "和51重复",
+    "name_fr": "Doublon de a0051",
+    "usage": "Le nom dit « même clip que 51 », mais a0051 n'est pas dans cette liste.",
+    "uncertain": true
+  },
+  {
+    "cmd_tag": "a0074",
+    "cmd_tag_name": "和31重复",
+    "name_fr": "Doublon de a0031",
+    "usage": "Même clip que la perplexité a0031, d'après le nom officiel."
+  },
+  {
+    "cmd_tag": "a0077",
+    "cmd_tag_name": "打呼噜",
+    "name_fr": "Ronflements",
+    "usage": "Ronfle."
+  },
+  {
+    "cmd_tag": "a0078",
+    "cmd_tag_name": "和36重复",
+    "name_fr": "Doublon de a0036",
+    "usage": "Même clip que la fatigue a0036, d'après le nom officiel."
+  },
+  {
+    "cmd_tag": "a0082",
+    "cmd_tag_name": "和70重复",
+    "name_fr": "Doublon de a0070",
+    "usage": "Même clip que la panique a0070, d'après le nom officiel."
+  },
+  {
+    "cmd_tag": "a0083",
+    "cmd_tag_name": "和64重复",
+    "name_fr": "Doublon de a0064",
+    "usage": "Même clip que l'essoufflement a0064, d'après le nom officiel."
+  },
+  {
+    "cmd_tag": "a0084",
+    "cmd_tag_name": "回应",
+    "name_fr": "Réponse",
+    "usage": "Petite réponse vocale / ack."
+  },
+  {
+    "cmd_tag": "a0086",
+    "cmd_tag_name": "难过",
+    "name_fr": "Tristesse",
+    "usage": "Son de l'émotion triste (SdkMap)."
+  },
+  {
+    "cmd_tag": "a0088",
+    "cmd_tag_name": "关机",
+    "name_fr": "Extinction",
+    "usage": "Jingle d'arrêt."
+  },
+  {
+    "cmd_tag": "a0089",
+    "cmd_tag_name": "啾~~",
+    "name_fr": "Tchiou",
+    "usage": "Onomatopée légère (baiser ou oiseau).",
+    "uncertain": true
+  },
+  {
+    "cmd_tag": "a0090",
+    "cmd_tag_name": "害羞",
+    "name_fr": "Timidité",
+    "usage": "Son timide."
+  },
+  {
+    "cmd_tag": "a0091",
+    "cmd_tag_name": "和77重复",
+    "name_fr": "Doublon de a0077",
+    "usage": "Même clip que les ronflements a0077, d'après le nom officiel."
+  },
+  {
+    "cmd_tag": "a0092",
+    "cmd_tag_name": "偷瞄",
+    "name_fr": "Coup d'œil furtif",
+    "usage": "Son d'un regard en cachette."
+  },
+  {
+    "cmd_tag": "a0093",
+    "cmd_tag_name": "开机",
+    "name_fr": "Allumage",
+    "usage": "Jingle de démarrage."
+  },
+  {
+    "cmd_tag": "a0094",
+    "cmd_tag_name": "寻人2",
+    "name_fr": "Recherche de quelqu'un 2",
+    "usage": "Variante de a0038."
+  },
+  {
+    "cmd_tag": "a0095",
+    "cmd_tag_name": "惊讶",
+    "name_fr": "Surprise",
+    "usage": "Son de l'émotion surprise (SdkMap)."
+  },
+  {
+    "cmd_tag": "a0097",
+    "cmd_tag_name": "和95一样",
+    "name_fr": "Identique à a0095",
+    "usage": "Même clip que la surprise a0095, d'après le nom officiel."
+  },
+  {
+    "cmd_tag": "a0098",
+    "cmd_tag_name": "累了",
+    "name_fr": "Fatigué",
+    "usage": "Soupir de fatigue."
+  },
+  {
+    "cmd_tag": "a0099",
+    "cmd_tag_name": "睡醒",
+    "name_fr": "Sortie de sommeil",
+    "usage": "Vient de se réveiller."
+  },
+  {
+    "cmd_tag": "a0100",
+    "cmd_tag_name": "生日快乐",
+    "name_fr": "Joyeux anniversaire",
+    "usage": "Jingle d'anniversaire."
+  },
+  {
+    "cmd_tag": "a0104",
+    "cmd_tag_name": "噔噔噔~",
+    "name_fr": "Dun-dun-dun",
+    "usage": "Accord de suspense / révélation."
+  },
+  {
+    "cmd_tag": "a0106",
+    "cmd_tag_name": "打乌拉",
+    "name_fr": "« Da wula »",
+    "usage": "Nom opaque. Peut-être une onomatopée ou un surnom interne ; à confirmer en écoutant le clip.",
+    "uncertain": true
+  },
+  {
+    "cmd_tag": "a0107",
+    "cmd_tag_name": "尴尬",
+    "name_fr": "Gêne",
+    "usage": "Son d'embarras."
+  },
+  {
+    "cmd_tag": "a0108",
+    "cmd_tag_name": "叮铃铃",
+    "name_fr": "Dring-dring",
+    "usage": "Sonnette aiguë."
+  },
+  {
+    "cmd_tag": "a0112",
+    "cmd_tag_name": "恩？",
+    "name_fr": "Hein ?",
+    "usage": "Interjection « hein ? » / « hm ? »."
+  },
+  {
+    "cmd_tag": "a0113",
+    "cmd_tag_name": "咬碎",
+    "name_fr": "Mastication",
+    "usage": "Bruit de quelque chose qu'on croque."
+  },
+  {
+    "cmd_tag": "a0114",
+    "cmd_tag_name": "敲鼓",
+    "name_fr": "Tambour",
+    "usage": "Coup de tambour."
+  },
+  {
+    "cmd_tag": "a0115",
+    "cmd_tag_name": "得意",
+    "name_fr": "Fierté",
+    "usage": "Air satisfait, un peu fanfaron."
+  },
+  {
+    "cmd_tag": "a0117",
+    "cmd_tag_name": "和107一样",
+    "name_fr": "Identique à a0107",
+    "usage": "Même clip que la gêne a0107, d'après le nom officiel."
+  },
+  {
+    "cmd_tag": "a0118",
+    "cmd_tag_name": "按喇叭",
+    "name_fr": "Klaxon",
+    "usage": "Coup de klaxon."
+  },
+  {
+    "cmd_tag": "a0120",
+    "cmd_tag_name": "蝉鸣",
+    "name_fr": "Cigale",
+    "usage": "Chant de cigale."
+  },
+  {
+    "cmd_tag": "a0121",
+    "cmd_tag_name": "门铃",
+    "name_fr": "Sonnette",
+    "usage": "Sonnette de porte."
+  },
+  {
+    "cmd_tag": "a0124",
+    "cmd_tag_name": "咕嘟咕嘟",
+    "name_fr": "Glouglou",
+    "usage": "Liquide qui s'écoule ou qu'on boit."
+  },
+  {
+    "cmd_tag": "a0125",
+    "cmd_tag_name": "打字",
+    "name_fr": "Frappe au clavier",
+    "usage": "Bruit de clavier."
+  },
+  {
+    "cmd_tag": "a0126",
+    "cmd_tag_name": "新消息",
+    "name_fr": "Nouveau message",
+    "usage": "Notification de message."
+  },
+  {
+    "cmd_tag": "a0127",
+    "cmd_tag_name": "新消息2",
+    "name_fr": "Nouveau message 2",
+    "usage": "Variante de notification."
+  },
+  {
+    "cmd_tag": "a0128",
+    "cmd_tag_name": "新消息3",
+    "name_fr": "Nouveau message 3",
+    "usage": "Variante de notification."
+  },
+  {
+    "cmd_tag": "a0132",
+    "cmd_tag_name": "电话声2",
+    "name_fr": "Sonnerie de téléphone 2",
+    "usage": "Sonnerie (la variante 1 n'est pas dans cette liste)."
+  },
+  {
+    "cmd_tag": "a0133",
+    "cmd_tag_name": "失落",
+    "name_fr": "Déception",
+    "usage": "Son déçu. Plus abattu que a0086 难过."
+  }
+]

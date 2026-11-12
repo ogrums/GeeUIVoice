@@ -2,29 +2,28 @@ package com.geeui.voiceemo
 
 /**
  * Face videos h0xxx.mp4 already on the robot (GeeUIFace app/src/main/assets/video).
- * Codes are picked from how GeeUIFace's GestureCenter uses them; edit here to taste.
+ * Official names: [docs/tags/EXPRESSIONS-VISAGES.md]. Codes follow those names;
+ * GestureCenter is only a hint when several clips share a meaning.
  *
- * | key      | code  | where GeeUIFace uses it / why we picked it                |
+ * | key      | code  | official name / why                                       |
  * |----------|-------|-----------------------------------------------------------|
- * | happy    | h0006 | wakeupSpeak, foundOwner, win                              |
- * | sad      | h0119 | existing app choice (HandsGestureCenter, unlabeled)       |
- * | angry    | h0001 | getWakeupFennuGesture (愤怒 = anger)                      |
- * | fear     | h0133 | existing app choice (gun hand gesture)                    |
- * | surprise | h0046 | existing app choice (youPinGestures, unlabeled)           |
- * | disgust  | h0033 | 抗拒 (refuse / reject). Closest unused clip to disgust:   |
- * |          |       | a rejection, not the rage of h0001 愤怒, and not the     |
- * |          |       | mild frowned idle ring h0058 皱眉环 (same family as the  |
- * |          |       | idle face h0059). See GeeUIVoiceEmo/docs/FACES.md.      |
- * | neutral  | h0059 | idle / standby                                            |
- * | love     | h0027 | MCUCommandConsts.COMMAND_VALUE_LOVE                       |
- * | heart    | h0116 | hands gesture 比心 (finger heart)                          |
- * | laugh    | h0002 | getNoListWinGesture (big win)                             |
- * | cry      | h0010 | getLossGesture                                            |
- * | thinking | h0181 | getUnderstandGesture (AI thinking)                        |
- * | sleepy   | h0039 | goToSleepGesture                                          |
- * | cold     | h0051 | miFeelCold                                                |
- * | hot      | h0099 | miFeelHot                                                 |
- * | wink     | h0131 | hands gesture "yeah"                                      |
+ * | happy    | h0006 | 大笑 (big laugh)                                          |
+ * | sad      | h0119 | 哭泣 (crying). h0211 is 伤心2, unused                     |
+ * | angry    | h0001 | 愤怒 (anger). h0018 is 狂怒, stronger, unused             |
+ * | fear     | h0133 | 害怕 (fear). Not the music screen h0134                   |
+ * | surprise | h0046 | 惊讶 (surprise). h0047 is 惊讶2                           |
+ * | disgust  | h0033 | 抗拒 (refuse / reject). No 恶心/厌恶 clip; not the       |
+ * |          |       | rage of h0001 nor the idle frown loop h0058 皱眉环        |
+ * | neutral  | h0059 | 常规环 (idle loop). Sister loops: h0060 笑容环, h0058    |
+ * | love     | h0027 | 爱心 (heart)                                               |
+ * | heart    | h0116 | 比心 (finger heart)                                        |
+ * | laugh    | h0006 | 大笑, same clip as happy. Was h0002 傲慢 (arrogant)       |
+ * | cry      | h0010 | 哭泣1 (crying, variant)                                    |
+ * | thinking | h0181 | 语音思考 (voice thinking)                                  |
+ * | sleepy   | h0039 | 睡觉 (sleeping)                                            |
+ * | cold     | h0051 | 发抖 (shivering)                                           |
+ * | hot      | h0099 | 感到热 (feeling hot)                                       |
+ * | wink     | h0036 | 单眨眼 (single wink). Was h0131 V5 (slang "awesome")      |
  */
 object FaceCodes {
     val EMOTION: Map<Emotion, String> = mapOf(
@@ -41,8 +40,8 @@ object FaceCodes {
     val NUANCE: Map<String, Pair<Emotion, String>> = mapOf(
         "love" to (Emotion.HAPPY to "h0027"),
         "heart" to (Emotion.HAPPY to "h0116"),
-        "laugh" to (Emotion.HAPPY to "h0002"),
-        "wink" to (Emotion.HAPPY to "h0131"),
+        "laugh" to (Emotion.HAPPY to "h0006"),
+        "wink" to (Emotion.HAPPY to "h0036"),
         "cry" to (Emotion.SAD to "h0010"),
         "thinking" to (Emotion.NEUTRAL to "h0181"),
         "sleepy" to (Emotion.NEUTRAL to "h0039"),

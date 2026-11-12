@@ -7,13 +7,13 @@ package com.geeui.voice.bus
 object RestFace {
     /** Mood label from the sidecar (robot_mood.py) → face id. Unknown label → h0059. */
     val BY_MOOD = mapOf(
-        "calme" to IDLE_FACE, // yeux neutres
-        "content" to "h0063", // petit sourire
-        "joyeux" to "h0006", // grand sourire
-        "ennuye" to "h0042", // regarde à gauche et à droite
-        "boudeur" to "h0119", // moue
-        "triste" to "h0010", // larmes
-        "fatigue" to "h0039", // yeux qui se ferment
+        "calme" to IDLE_FACE, // h0059 常规环, boucle neutre
+        "content" to "h0060", // 笑容环, boucle sourire (pas h0063 回正黄)
+        "joyeux" to "h0006", // 大笑, plus franc que la boucle sourire
+        "ennuye" to "h0042", // 左下斜, regard en bas à gauche (pas d'ennui dédié)
+        "boudeur" to "h0058", // 皱眉环, boucle froncée (pas h0119 哭泣)
+        "triste" to "h0010", // 哭泣1, larmes
+        "fatigue" to "h0039", // 睡觉, yeux qui se ferment
     )
 
     @Volatile
