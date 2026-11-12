@@ -29,9 +29,10 @@ class EmojiExpressionTest {
             onEmotion = { face = it.pose.faceId },
             now = { 1_000L },
             fusion = EmotionFusion(clock = { 1_000L }),
+            pause = {},
         )
         session.onUserText("bonjour")
-        return face to tts.spoken.single()
+        return face to (tts.spoken.singleOrNull() ?: "fr:")
     }
 
     @Test
@@ -55,8 +56,23 @@ class EmojiExpressionTest {
 
     @Test
     fun leadingTagWinsOverEmoji() {
-        val (_, said) = run(Pieces("[sad] Oh non", " 😊"))
+        val (face, said) = run(Pieces("[sad] Oh non", " 😊"))
         assertEquals("fr:Oh non", said)
+        assertEquals("h0119", face)
+    }
+
+    @Test
+    fun happyTagPlusSmileEmojiShowsTheHappyFace() {
+        // Regression: a leading [happy] used to skip the emoji cue, and the tag
+        // alone stayed under the old fusion threshold, so the face stayed h0059.
+        val (face, said) = run(Pieces("[happy] ", "\uD83D\uDE04"))
+        assertEquals("h0006", face)
+        assertEquals("fr:", said) // only the emoji, stripped
+    }
+
+    @Test
+    fun disgustEmojiMaps() {
+        assertEquals(Emotion.DISGUST, EmojiEmotion.of("Beurk \uD83E\uDD22"))
     }
 
     @Test

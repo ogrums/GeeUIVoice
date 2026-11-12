@@ -3,8 +3,10 @@ package com.geeui.voiceemo
 /** French instruction for a generative model, not a change to the model itself. */
 const val FRENCH_EMOTION_SYSTEM_PROMPT: String =
     "Commence toujours ta réponse par une seule balise parmi " +
-        "[happy] [sad] [angry] [fear] [surprise] [neutral] qui décrit le ton " +
-        "de ta réponse, puis réponds normalement sans répéter la balise."
+        "[happy] [sad] [angry] [fear] [surprise] [disgust] [neutral] qui décrit " +
+        "le ton de ta réponse. Prends neutral dès que le ton est ordinaire, et " +
+        "happy seulement si la réponse est vraiment joyeuse. Puis réponds " +
+        "normalement sans répéter la balise."
 
 /** [face] is set for a nuance tag such as [love] or [thinking] (see [FaceCodes.NUANCE]). */
 data class EmotionText(val emotion: Emotion, val text: String, val face: String? = null)
@@ -52,6 +54,6 @@ class EmotionTagParser {
 
     private companion object {
         const val MAX_TAG_LENGTH = 20
-        val TAGS = setOf("happy", "sad", "angry", "fear", "surprise", "neutral")
+        val TAGS = setOf("happy", "sad", "angry", "fear", "surprise", "disgust", "neutral")
     }
 }

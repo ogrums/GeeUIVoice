@@ -96,7 +96,7 @@ Valeurs attendues (pass/fail dans le rapport) :
 | Mots de la réponse | `expect_reply` (ex. « rux », « paris », un degré) dans la réponse. |
 | Début coupé | Pour « Voiture » et les phrases `loud_start`, le premier mot n'est pas un suffixe ni absent. |
 | emotion2vec | Label = `expect_audio_emotion`. Neutral accepte aussi une confiance &lt; 0,45. Un label de même valence (happy/surprise, sad/angry/fear) est noté en échec « proche ». |
-| Visage | `h0006` happy, `h0119` sad, `h0001` angry, `h0059` (ou vide) neutral — seulement si la fusion dépasse 0,45. |
+| Visage | `h0006` happy, `h0119` sad, `h0001` angry, `h0133` fear, `h0046` surprise, `h0033` disgust (抗拒), `h0059` (ou vide) neutral. Le juge lit `face_during_speech` (visage pendant la parole), pas le repos h0059. L'audio ≥ 0,70 l'emporte sur la balise LLM. |
 | VAD | En chaîne, les phrases calmes / à distance doivent quand même produire un `heard`. |
 | Latence | En chaîne, fin de phrase → voix du robot &lt; 8 s (la valeur mesurée est toujours reportée). |
 | Stabilité émotion | Sur la suite `voice`, au plus deux labels francs (confiance ≥ 0,45) différents. |
