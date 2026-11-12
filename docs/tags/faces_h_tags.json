@@ -1,0 +1,1818 @@
+[
+  {
+    "cmd_tag": "h0059",
+    "cmd_tag_name": "常规环",
+    "name_fr": "Anneau au repos",
+    "usage": "Boucle d'attente neutre. Visage de repos par défaut (émotion neutre, humeur calme)."
+  },
+  {
+    "cmd_tag": "h0060",
+    "cmd_tag_name": "笑容环",
+    "name_fr": "Anneau sourire",
+    "usage": "Boucle d'attente souriante. Humeur « content » au repos."
+  },
+  {
+    "cmd_tag": "h0058",
+    "cmd_tag_name": "皱眉环",
+    "name_fr": "Anneau froncé",
+    "usage": "Boucle d'attente sourcils froncés. Humeur « boudeur » au repos. À ne pas confondre avec le dégoût (h0033)."
+  },
+  {
+    "cmd_tag": "h0006",
+    "cmd_tag_name": "大笑",
+    "name_fr": "Grand rire",
+    "usage": "Rire franc. Émotion joyeux (h0006) et nuance « laugh » des emoji 😂🤣."
+  },
+  {
+    "cmd_tag": "h0027",
+    "cmd_tag_name": "爱心",
+    "name_fr": "Cœur",
+    "usage": "Cœur à l'écran. Nuance « love » (🥰😍😘❤)."
+  },
+  {
+    "cmd_tag": "h0017",
+    "cmd_tag_name": "皱眉",
+    "name_fr": "Froncement de sourcils",
+    "usage": "Sourcils froncés, une fois (pas la boucle h0058)."
+  },
+  {
+    "cmd_tag": "h0007",
+    "cmd_tag_name": "大小眼",
+    "name_fr": "Yeux dépareillés",
+    "usage": "Un œil plus grand que l'autre."
+  },
+  {
+    "cmd_tag": "h0010",
+    "cmd_tag_name": "哭泣1",
+    "name_fr": "Pleurs 1",
+    "usage": "Larmes. Humeur « triste » au repos."
+  },
+  {
+    "cmd_tag": "h0011",
+    "cmd_tag_name": "眩晕",
+    "name_fr": "Vertige",
+    "usage": "Yeux qui tournent, étourdissement."
+  },
+  {
+    "cmd_tag": "h0016",
+    "cmd_tag_name": "害怕",
+    "name_fr": "Peur",
+    "usage": "Émotion peur. L'app utilise h0133, pas l'écran musique h0134."
+  },
+  {
+    "cmd_tag": "h0034",
+    "cmd_tag_name": "摇头",
+    "name_fr": "Hochement de tête (non)",
+    "usage": "Dit non de la tête."
+  },
+  {
+    "cmd_tag": "h0076",
+    "cmd_tag_name": "左上看",
+    "name_fr": "Regard en haut à gauche",
+    "usage": "Regarde vers le haut à gauche."
+  },
+  {
+    "cmd_tag": "h0024",
+    "cmd_tag_name": "左倾听",
+    "name_fr": "Écoute à gauche",
+    "usage": "Oriente l'écoute vers la gauche."
+  },
+  {
+    "cmd_tag": "h0061",
+    "cmd_tag_name": "斜看",
+    "name_fr": "Regard de biais",
+    "usage": "Regard en coin."
+  },
+  {
+    "cmd_tag": "h0001",
+    "cmd_tag_name": "愤怒",
+    "name_fr": "Colère",
+    "usage": "Émotion colère (h0001). h0018 狂怒 est plus violent."
+  },
+  {
+    "cmd_tag": "h0002",
+    "cmd_tag_name": "傲慢",
+    "name_fr": "Arrogance",
+    "usage": "Air superior. Anciennement utilisé à tort pour 😂 (getNoListWinGesture)."
+  },
+  {
+    "cmd_tag": "h0003",
+    "cmd_tag_name": "汗颜",
+    "name_fr": "Gêne (sueur)",
+    "usage": "Gêné, une goutte de sueur."
+  },
+  {
+    "cmd_tag": "h0004",
+    "cmd_tag_name": "睡着",
+    "name_fr": "Endormi",
+    "usage": "Déjà endormi. Pour s'endormir, voir h0039 睡觉."
+  },
+  {
+    "cmd_tag": "h0005",
+    "cmd_tag_name": "芭比Q",
+    "name_fr": "« Barbie Q » (grillés)",
+    "usage": "Argot : BBQ, « c'est mort / on est cuits ».",
+    "uncertain": true
+  },
+  {
+    "cmd_tag": "h0008",
+    "cmd_tag_name": "闹钟",
+    "name_fr": "Réveil",
+    "usage": "Alarme / réveil-matin."
+  },
+  {
+    "cmd_tag": "h0009",
+    "cmd_tag_name": "疑惑",
+    "name_fr": "Perplexité",
+    "usage": "Air interrogateur."
+  },
+  {
+    "cmd_tag": "h0012",
+    "cmd_tag_name": "睁眼睡",
+    "name_fr": "Dors les yeux ouverts",
+    "usage": "Sommeil les yeux ouverts."
+  },
+  {
+    "cmd_tag": "h0013",
+    "cmd_tag_name": "邪笑",
+    "name_fr": "Sourire malicieux",
+    "usage": "Sourire en coin, un peu fourbe."
+  },
+  {
+    "cmd_tag": "h0014",
+    "cmd_tag_name": "嫉妒",
+    "name_fr": "Jalousie",
+    "usage": "Air jaloux."
+  },
+  {
+    "cmd_tag": "h0015",
+    "cmd_tag_name": "期待",
+    "name_fr": "Attente",
+    "usage": "A hâte, attend quelque chose."
+  },
+  {
+    "cmd_tag": "h0018",
+    "cmd_tag_name": "狂怒",
+    "name_fr": "Rage",
+    "usage": "Colère plus forte que h0001. Non utilisée par l'app."
+  },
+  {
+    "cmd_tag": "h0019",
+    "cmd_tag_name": "左右看",
+    "name_fr": "Regard gauche-droite",
+    "usage": "Regarde de gauche à droite."
+  },
+  {
+    "cmd_tag": "h0020",
+    "cmd_tag_name": "快乐",
+    "name_fr": "Joie",
+    "usage": "Content, plus doux que le grand rire h0006."
+  },
+  {
+    "cmd_tag": "h0021",
+    "cmd_tag_name": "无奈",
+    "name_fr": "Résignation",
+    "usage": "Soupir, rien à faire."
+  },
+  {
+    "cmd_tag": "h0022",
+    "cmd_tag_name": "无奈1",
+    "name_fr": "Résignation 1",
+    "usage": "Variante de h0021 无奈."
+  },
+  {
+    "cmd_tag": "h0023",
+    "cmd_tag_name": "无奈2",
+    "name_fr": "Résignation 2",
+    "usage": "Variante de h0021 无奈."
+  },
+  {
+    "cmd_tag": "h0025",
+    "cmd_tag_name": "右倾听",
+    "name_fr": "Écoute à droite",
+    "usage": "Oriente l'écoute vers la droite."
+  },
+  {
+    "cmd_tag": "h0026",
+    "cmd_tag_name": "向下看",
+    "name_fr": "Regard vers le bas",
+    "usage": "Baisse les yeux."
+  },
+  {
+    "cmd_tag": "h0028",
+    "cmd_tag_name": "疼",
+    "name_fr": "Douleur",
+    "usage": "A mal."
+  },
+  {
+    "cmd_tag": "h0029",
+    "cmd_tag_name": "喘气",
+    "name_fr": "Essoufflement",
+    "usage": "Hors d'haleine."
+  },
+  {
+    "cmd_tag": "h0030",
+    "cmd_tag_name": "偷看",
+    "name_fr": "Coup d'œil furtif",
+    "usage": "Regarde en cachette."
+  },
+  {
+    "cmd_tag": "h0031",
+    "cmd_tag_name": "偷看1",
+    "name_fr": "Coup d'œil furtif 1",
+    "usage": "Variante de coup d'œil furtif."
+  },
+  {
+    "cmd_tag": "h0032",
+    "cmd_tag_name": "拍照",
+    "name_fr": "Photo",
+    "usage": "Prend une photo / pose appareil."
+  },
+  {
+    "cmd_tag": "h0033",
+    "cmd_tag_name": "抗拒",
+    "name_fr": "Refus / rejet",
+    "usage": "Repousse, refuse. Visage du dégoût dans l'app : pas de clip 恶心/厌恶 dans la liste."
+  },
+  {
+    "cmd_tag": "h0035",
+    "cmd_tag_name": "闭嘴",
+    "name_fr": "Tais-toi",
+    "usage": "Bouche fermée, « silence »."
+  },
+  {
+    "cmd_tag": "h0036",
+    "cmd_tag_name": "单眨眼",
+    "name_fr": "Clin d'œil",
+    "usage": "Un seul clin d'œil. Nuance « wink » des emoji 😉😜."
+  },
+  {
+    "cmd_tag": "h0037",
+    "cmd_tag_name": "单眨眼1",
+    "name_fr": "Clin d'œil 1",
+    "usage": "Variante de clin d'œil."
+  },
+  {
+    "cmd_tag": "h0038",
+    "cmd_tag_name": "单眨眼2",
+    "name_fr": "Clin d'œil 2",
+    "usage": "Variante de clin d'œil."
+  },
+  {
+    "cmd_tag": "h0039",
+    "cmd_tag_name": "睡觉",
+    "name_fr": "Sommeil",
+    "usage": "S'endort / dort. Humeur « fatigué » et nuance « sleepy »."
+  },
+  {
+    "cmd_tag": "h0040",
+    "cmd_tag_name": "抱歉",
+    "name_fr": "Excuse",
+    "usage": "Air désolé."
+  },
+  {
+    "cmd_tag": "h0041",
+    "cmd_tag_name": "眯眼",
+    "name_fr": "Yeux plissés",
+    "usage": "Plisse les yeux."
+  },
+  {
+    "cmd_tag": "h0042",
+    "cmd_tag_name": "左下斜",
+    "name_fr": "Regard en bas à gauche",
+    "usage": "Humeur « ennuyé » (approximation : pas de clip « ennui » dédié)."
+  },
+  {
+    "cmd_tag": "h0043",
+    "cmd_tag_name": "左上斜",
+    "name_fr": "Regard en haut à gauche",
+    "usage": "Regard en diagonale haut-gauche."
+  },
+  {
+    "cmd_tag": "h0044",
+    "cmd_tag_name": "右下斜",
+    "name_fr": "Regard en bas à droite",
+    "usage": "Regard en diagonale bas-droite."
+  },
+  {
+    "cmd_tag": "h0045",
+    "cmd_tag_name": "右上斜",
+    "name_fr": "Regard en haut à droite",
+    "usage": "Regard en diagonale haut-droite."
+  },
+  {
+    "cmd_tag": "h0046",
+    "cmd_tag_name": "惊讶",
+    "name_fr": "Surprise",
+    "usage": "Émotion surprise (h0046). h0047 est la variante 2."
+  },
+  {
+    "cmd_tag": "h0047",
+    "cmd_tag_name": "惊讶2",
+    "name_fr": "Surprise 2",
+    "usage": "Variante de h0046 惊讶."
+  },
+  {
+    "cmd_tag": "h0048",
+    "cmd_tag_name": "怀疑",
+    "name_fr": "Soupçon",
+    "usage": "Air méfiant."
+  },
+  {
+    "cmd_tag": "h0049",
+    "cmd_tag_name": "怀疑2",
+    "name_fr": "Soupçon 2",
+    "usage": "Variante de h0048 怀疑."
+  },
+  {
+    "cmd_tag": "h0050",
+    "cmd_tag_name": "思考",
+    "name_fr": "Réflexion",
+    "usage": "Réfléchit (visage générique). L'app utilise h0181 pour la voix."
+  },
+  {
+    "cmd_tag": "h0051",
+    "cmd_tag_name": "发抖",
+    "name_fr": "Tremblements",
+    "usage": "Tremble, a froid. Nuance « cold » 🥶."
+  },
+  {
+    "cmd_tag": "h0052",
+    "cmd_tag_name": "难受",
+    "name_fr": "Malaise",
+    "usage": "Mal à l'aise, pas bien."
+  },
+  {
+    "cmd_tag": "h0053",
+    "cmd_tag_name": "起床气",
+    "name_fr": "Humeur du réveil",
+    "usage": "De mauvais poil au saut du lit."
+  },
+  {
+    "cmd_tag": "h0054",
+    "cmd_tag_name": "委屈",
+    "name_fr": "Vexation",
+    "usage": "Se sent lésé, a les larmes aux yeux."
+  },
+  {
+    "cmd_tag": "h0055",
+    "cmd_tag_name": "打哈欠",
+    "name_fr": "Bâillement",
+    "usage": "Bâille."
+  },
+  {
+    "cmd_tag": "h0056",
+    "cmd_tag_name": "哭泣",
+    "name_fr": "Pleurs",
+    "usage": "Larmes. L'émotion triste utilise h0119."
+  },
+  {
+    "cmd_tag": "h0057",
+    "cmd_tag_name": "左右看",
+    "name_fr": "Regard gauche-droite",
+    "usage": "Regarde de gauche à droite."
+  },
+  {
+    "cmd_tag": "h0062",
+    "cmd_tag_name": "回正白",
+    "name_fr": "Retour au centre (blanc)",
+    "usage": "Revient de face, variante yeux clairs."
+  },
+  {
+    "cmd_tag": "h0063",
+    "cmd_tag_name": "回正黄",
+    "name_fr": "Retour au centre (jaune)",
+    "usage": "Revient de face, variante yeux jaunes. Anciennement humeur « content » (mal nommé)."
+  },
+  {
+    "cmd_tag": "h0064",
+    "cmd_tag_name": "吃香蕉",
+    "name_fr": "Mange une banane",
+    "usage": "Animation ludique."
+  },
+  {
+    "cmd_tag": "h0065",
+    "cmd_tag_name": "汽车",
+    "name_fr": "Voiture",
+    "usage": "Animation voiture."
+  },
+  {
+    "cmd_tag": "h0066",
+    "cmd_tag_name": "对话",
+    "name_fr": "Dialogue",
+    "usage": "Bulle / conversation."
+  },
+  {
+    "cmd_tag": "h0067",
+    "cmd_tag_name": "云朵",
+    "name_fr": "Nuage",
+    "usage": "Animation nuage."
+  },
+  {
+    "cmd_tag": "h0068",
+    "cmd_tag_name": "喝果汁",
+    "name_fr": "Boit un jus",
+    "usage": "Animation ludique."
+  },
+  {
+    "cmd_tag": "h0069",
+    "cmd_tag_name": "看书",
+    "name_fr": "Lit un livre",
+    "usage": "Animation lecture."
+  },
+  {
+    "cmd_tag": "h0070",
+    "cmd_tag_name": "吃面",
+    "name_fr": "Mange des nouilles",
+    "usage": "Animation ludique."
+  },
+  {
+    "cmd_tag": "h0071",
+    "cmd_tag_name": "喷图",
+    "name_fr": "Projection d'image",
+    "usage": "Peut désigner un jet d'image, un sticker ou un « dump » visuel.",
+    "uncertain": true
+  },
+  {
+    "cmd_tag": "h0072",
+    "cmd_tag_name": "弹球",
+    "name_fr": "Bille / flipper",
+    "usage": "Joue à la bille."
+  },
+  {
+    "cmd_tag": "h0073",
+    "cmd_tag_name": "踢球",
+    "name_fr": "Joue au foot",
+    "usage": "Animation ballon."
+  },
+  {
+    "cmd_tag": "h0074",
+    "cmd_tag_name": "俄罗斯",
+    "name_fr": "« Russie »",
+    "usage": "Très probablement le jeu Tetris (俄罗斯方块), le nom est abrégé.",
+    "uncertain": true
+  },
+  {
+    "cmd_tag": "h0075",
+    "cmd_tag_name": "打字",
+    "name_fr": "Tape au clavier",
+    "usage": "Animation dactylographie."
+  },
+  {
+    "cmd_tag": "h0077",
+    "cmd_tag_name": "举铁",
+    "name_fr": "Musculation",
+    "usage": "Soulève des poids."
+  },
+  {
+    "cmd_tag": "h0078",
+    "cmd_tag_name": "更好自己",
+    "name_fr": "Meilleure version de soi",
+    "usage": "Animation « améliorer » / coaching."
+  },
+  {
+    "cmd_tag": "h0079",
+    "cmd_tag_name": "紫GPT1",
+    "name_fr": "GPT violet 1",
+    "usage": "Habillage de l'assistant GPT violet. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0080",
+    "cmd_tag_name": "紫GPT2",
+    "name_fr": "GPT violet 2",
+    "usage": "Habillage GPT violet. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0081",
+    "cmd_tag_name": "紫GPT3",
+    "name_fr": "GPT violet 3",
+    "usage": "Habillage GPT violet. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0082",
+    "cmd_tag_name": "紫GPT4",
+    "name_fr": "GPT violet 4",
+    "usage": "Habillage GPT violet. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0083",
+    "cmd_tag_name": "绿GPT1",
+    "name_fr": "GPT vert 1",
+    "usage": "Habillage GPT vert. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0084",
+    "cmd_tag_name": "绿GPT2",
+    "name_fr": "GPT vert 2",
+    "usage": "Habillage GPT vert. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0085",
+    "cmd_tag_name": "绿GPT3",
+    "name_fr": "GPT vert 3",
+    "usage": "Habillage GPT vert. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0086",
+    "cmd_tag_name": "绿GPT4",
+    "name_fr": "GPT vert 4",
+    "usage": "Habillage GPT vert. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0087",
+    "cmd_tag_name": "生日快乐",
+    "name_fr": "Joyeux anniversaire",
+    "usage": "Animation d'anniversaire."
+  },
+  {
+    "cmd_tag": "h0088",
+    "cmd_tag_name": "紫GPT1",
+    "name_fr": "GPT violet 1",
+    "usage": "Habillage de l'assistant GPT violet. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0089",
+    "cmd_tag_name": "紫GPT2",
+    "name_fr": "GPT violet 2",
+    "usage": "Habillage GPT violet. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0090",
+    "cmd_tag_name": "紫GPT3",
+    "name_fr": "GPT violet 3",
+    "usage": "Habillage GPT violet. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0091",
+    "cmd_tag_name": "紫GPT4",
+    "name_fr": "GPT violet 4",
+    "usage": "Habillage GPT violet. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0092",
+    "cmd_tag_name": "紫GPT听",
+    "name_fr": "GPT violet écoute",
+    "usage": "Habillage GPT violet, état d'écoute. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0093",
+    "cmd_tag_name": "猜拳计时",
+    "name_fr": "Compte à rebours (PFC)",
+    "usage": "Timer du pierre-feuille-ciseaux."
+  },
+  {
+    "cmd_tag": "h0094",
+    "cmd_tag_name": "布赢",
+    "name_fr": "Papier gagne",
+    "usage": "Résultat du jeu : la feuille gagne."
+  },
+  {
+    "cmd_tag": "h0095",
+    "cmd_tag_name": "剪刀赢",
+    "name_fr": "Ciseaux gagnent",
+    "usage": "Résultat du jeu : les ciseaux gagnent."
+  },
+  {
+    "cmd_tag": "h0096",
+    "cmd_tag_name": "剪刀输",
+    "name_fr": "Ciseaux perdent",
+    "usage": "Résultat du jeu : les ciseaux perdent."
+  },
+  {
+    "cmd_tag": "h0097",
+    "cmd_tag_name": "打呼噜",
+    "name_fr": "Ronflements",
+    "usage": "Ronfle."
+  },
+  {
+    "cmd_tag": "h0098",
+    "cmd_tag_name": "语音听",
+    "name_fr": "Écoute vocale",
+    "usage": "État d'écoute de l'assistant. L'app utilise h0180, pas h0098."
+  },
+  {
+    "cmd_tag": "h0099",
+    "cmd_tag_name": "感到热",
+    "name_fr": "A chaud",
+    "usage": "A trop chaud. Nuance « hot » 🥵."
+  },
+  {
+    "cmd_tag": "h0100",
+    "cmd_tag_name": "烹饪完成",
+    "name_fr": "Cuisine terminée",
+    "usage": "Alerte / fin de cuisson."
+  },
+  {
+    "cmd_tag": "h0101",
+    "cmd_tag_name": "燃气警报",
+    "name_fr": "Alerte gaz",
+    "usage": "Alerte domestique."
+  },
+  {
+    "cmd_tag": "h0102",
+    "cmd_tag_name": "浸水警报",
+    "name_fr": "Alerte inondation",
+    "usage": "Alerte domestique (eau)."
+  },
+  {
+    "cmd_tag": "h0103",
+    "cmd_tag_name": "烟雾警报",
+    "name_fr": "Alerte fumée",
+    "usage": "Alerte incendie / fumée."
+  },
+  {
+    "cmd_tag": "h0104",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0105",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0106",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0107",
+    "cmd_tag_name": "白GPT听",
+    "name_fr": "GPT blanc écoute",
+    "usage": "Habillage GPT blanc, état d'écoute. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0108",
+    "cmd_tag_name": "白色环顾",
+    "name_fr": "Regard circulaire (blanc)",
+    "usage": "Regarde autour, habillage blanc."
+  },
+  {
+    "cmd_tag": "h0109",
+    "cmd_tag_name": "白GPT听",
+    "name_fr": "GPT blanc écoute",
+    "usage": "Habillage GPT blanc, état d'écoute. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0110",
+    "cmd_tag_name": "星火说",
+    "name_fr": "Spark parle",
+    "usage": "Habillage iFlytek Spark, parole. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0111",
+    "cmd_tag_name": "星火说2",
+    "name_fr": "Spark parle 2",
+    "usage": "Habillage Spark. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0112",
+    "cmd_tag_name": "星火说3",
+    "name_fr": "Spark parle 3",
+    "usage": "Habillage Spark. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0113",
+    "cmd_tag_name": "星火说4",
+    "name_fr": "Spark parle 4",
+    "usage": "Habillage Spark. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0114",
+    "cmd_tag_name": "星火听",
+    "name_fr": "Spark écoute",
+    "usage": "Habillage Spark, écoute. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0115",
+    "cmd_tag_name": "666",
+    "name_fr": "« 666 »",
+    "usage": "Argot internet chinois : « trop fort », « bravo »."
+  },
+  {
+    "cmd_tag": "h0116",
+    "cmd_tag_name": "比心",
+    "name_fr": "Cœur avec les doigts",
+    "usage": "Geste 比心. Nuance « heart » 🫶."
+  },
+  {
+    "cmd_tag": "h0117",
+    "cmd_tag_name": "good",
+    "name_fr": "Good",
+    "usage": "Signe « good » / pouce ou OK visuel."
+  },
+  {
+    "cmd_tag": "h0118",
+    "cmd_tag_name": "害羞",
+    "name_fr": "Timidité",
+    "usage": "Air timide, rougit."
+  },
+  {
+    "cmd_tag": "h0119",
+    "cmd_tag_name": "哭泣",
+    "name_fr": "Pleurs",
+    "usage": "Larmes. L'émotion triste utilise h0119."
+  },
+  {
+    "cmd_tag": "h0120",
+    "cmd_tag_name": "飘过云",
+    "name_fr": "Nuage qui passe",
+    "usage": "Un nuage traverse l'écran."
+  },
+  {
+    "cmd_tag": "h0121",
+    "cmd_tag_name": "give me five",
+    "name_fr": "Tape-m'en cinq",
+    "usage": "Geste high five."
+  },
+  {
+    "cmd_tag": "h0122",
+    "cmd_tag_name": "砸玻璃",
+    "name_fr": "Brise une vitre",
+    "usage": "Animation qui casse une vitre."
+  },
+  {
+    "cmd_tag": "h0123",
+    "cmd_tag_name": "愚公移山",
+    "name_fr": "Yu Gong déplace les montagnes",
+    "usage": "Fable : persévérance. Yu Gong creuse la montagne."
+  },
+  {
+    "cmd_tag": "h0124",
+    "cmd_tag_name": "香蕉皮",
+    "name_fr": "Peau de banane",
+    "usage": "Glissade / peau de banane."
+  },
+  {
+    "cmd_tag": "h0125",
+    "cmd_tag_name": "右看",
+    "name_fr": "Regard à droite",
+    "usage": "Regarde à droite."
+  },
+  {
+    "cmd_tag": "h0126",
+    "cmd_tag_name": "左看",
+    "name_fr": "Regard à gauche",
+    "usage": "Regarde à gauche."
+  },
+  {
+    "cmd_tag": "h0127",
+    "cmd_tag_name": "选择题",
+    "name_fr": "Question à choix",
+    "usage": "Affiche un QCM / un choix."
+  },
+  {
+    "cmd_tag": "h0128",
+    "cmd_tag_name": "Rock",
+    "name_fr": "Rock (pierre)",
+    "usage": "Pierre du pierre-feuille-ciseaux, ou geste rock.",
+    "uncertain": true
+  },
+  {
+    "cmd_tag": "h0129",
+    "cmd_tag_name": "点头",
+    "name_fr": "Hochement de tête (oui)",
+    "usage": "Dit oui de la tête."
+  },
+  {
+    "cmd_tag": "h0130",
+    "cmd_tag_name": "ok",
+    "name_fr": "OK",
+    "usage": "Signe OK."
+  },
+  {
+    "cmd_tag": "h0131",
+    "cmd_tag_name": "V5",
+    "name_fr": "V5",
+    "usage": "Argot 威武 (« impressionnant »), souvent un V de victoire. Ancienne nuance « wink »."
+  },
+  {
+    "cmd_tag": "h0132",
+    "cmd_tag_name": "听声波",
+    "name_fr": "Écoute d'ondes",
+    "usage": "Visualisation d'ondes sonores."
+  },
+  {
+    "cmd_tag": "h0133",
+    "cmd_tag_name": "害怕",
+    "name_fr": "Peur",
+    "usage": "Émotion peur. L'app utilise h0133, pas l'écran musique h0134."
+  },
+  {
+    "cmd_tag": "h0134",
+    "cmd_tag_name": "听歌星光",
+    "name_fr": "Écoute de musique (étoiles)",
+    "usage": "Écran musique, pas une émotion. Ne pas prendre pour de la peur."
+  },
+  {
+    "cmd_tag": "h0135",
+    "cmd_tag_name": "低头看",
+    "name_fr": "Regard baissé",
+    "usage": "Baisse la tête pour regarder."
+  },
+  {
+    "cmd_tag": "h0136",
+    "cmd_tag_name": "东张西望",
+    "name_fr": "Regard aux alentours",
+    "usage": "Regarde un peu partout."
+  },
+  {
+    "cmd_tag": "h0137",
+    "cmd_tag_name": "瞎看",
+    "name_fr": "Regard au hasard",
+    "usage": "Regarde n'importe où."
+  },
+  {
+    "cmd_tag": "h0138",
+    "cmd_tag_name": "偷看",
+    "name_fr": "Coup d'œil furtif",
+    "usage": "Regarde en cachette."
+  },
+  {
+    "cmd_tag": "h0139",
+    "cmd_tag_name": "抖机灵",
+    "name_fr": "Fait le malin",
+    "usage": "Petite vanne, air espiègle."
+  },
+  {
+    "cmd_tag": "h0140",
+    "cmd_tag_name": "眨眼笑",
+    "name_fr": "Clin d'œil souriant",
+    "usage": "Cligne de l'œil en souriant."
+  },
+  {
+    "cmd_tag": "h0141",
+    "cmd_tag_name": "眨眼笑2",
+    "name_fr": "Clin d'œil souriant 2",
+    "usage": "Variante de h0140."
+  },
+  {
+    "cmd_tag": "h0142",
+    "cmd_tag_name": "惊呆",
+    "name_fr": "Stupéfaction",
+    "usage": "Reste bouche bée. Plus figé que 惊讶."
+  },
+  {
+    "cmd_tag": "h0143",
+    "cmd_tag_name": "眯眼看",
+    "name_fr": "Regard les yeux plissés",
+    "usage": "Observe en plissant les yeux."
+  },
+  {
+    "cmd_tag": "h0144",
+    "cmd_tag_name": "想笑",
+    "name_fr": "Envie de rire",
+    "usage": "Retient un rire."
+  },
+  {
+    "cmd_tag": "h0145",
+    "cmd_tag_name": "想笑2",
+    "name_fr": "Envie de rire 2",
+    "usage": "Variante de h0144."
+  },
+  {
+    "cmd_tag": "h0146",
+    "cmd_tag_name": "想笑3",
+    "name_fr": "Envie de rire 3",
+    "usage": "Variante de h0144."
+  },
+  {
+    "cmd_tag": "h0147",
+    "cmd_tag_name": "想笑4",
+    "name_fr": "Envie de rire 4",
+    "usage": "Variante de h0144."
+  },
+  {
+    "cmd_tag": "h0148",
+    "cmd_tag_name": "惊呆2",
+    "name_fr": "Stupéfaction 2",
+    "usage": "Variante de h0142."
+  },
+  {
+    "cmd_tag": "h0149",
+    "cmd_tag_name": "想一想",
+    "name_fr": "Réfléchit un peu",
+    "usage": "Court moment de réflexion."
+  },
+  {
+    "cmd_tag": "h0150",
+    "cmd_tag_name": "笑看天下",
+    "name_fr": "Rit en regardant le monde",
+    "usage": "Rire ample, contemplatif."
+  },
+  {
+    "cmd_tag": "h0151",
+    "cmd_tag_name": "偷看2",
+    "name_fr": "Coup d'œil furtif 2",
+    "usage": "Variante de coup d'œil furtif."
+  },
+  {
+    "cmd_tag": "h0152",
+    "cmd_tag_name": "斜看",
+    "name_fr": "Regard de biais",
+    "usage": "Regard en coin."
+  },
+  {
+    "cmd_tag": "h0153",
+    "cmd_tag_name": "左右看看",
+    "name_fr": "Regarde à gauche et à droite",
+    "usage": "Balaye du regard."
+  },
+  {
+    "cmd_tag": "h0154",
+    "cmd_tag_name": "偷看3",
+    "name_fr": "Coup d'œil furtif 3",
+    "usage": "Variante de coup d'œil furtif."
+  },
+  {
+    "cmd_tag": "h0155",
+    "cmd_tag_name": "瞅一瞅",
+    "name_fr": "Jette un œil",
+    "usage": "Coup d'œil rapide."
+  },
+  {
+    "cmd_tag": "h0156",
+    "cmd_tag_name": "眨眼",
+    "name_fr": "Clignement",
+    "usage": "Cligne des deux yeux (pas un clin d'œil)."
+  },
+  {
+    "cmd_tag": "h0157",
+    "cmd_tag_name": "瞪眼",
+    "name_fr": "Yeux écarquillés",
+    "usage": "Ouvre grand les yeux."
+  },
+  {
+    "cmd_tag": "h0158",
+    "cmd_tag_name": "瞪眼看",
+    "name_fr": "Regard les yeux écarquillés",
+    "usage": "Fixe en ouvrant grand les yeux."
+  },
+  {
+    "cmd_tag": "h0159",
+    "cmd_tag_name": "瞅右边",
+    "name_fr": "Coup d'œil à droite",
+    "usage": "Jette un œil à droite."
+  },
+  {
+    "cmd_tag": "h0160",
+    "cmd_tag_name": "瞪大眼",
+    "name_fr": "Grands yeux écarquillés",
+    "usage": "Ouvre encore plus les yeux."
+  },
+  {
+    "cmd_tag": "h0161",
+    "cmd_tag_name": "瞅右边2",
+    "name_fr": "Coup d'œil à droite 2",
+    "usage": "Variante de h0159."
+  },
+  {
+    "cmd_tag": "h0162",
+    "cmd_tag_name": "悄悄看",
+    "name_fr": "Regard discret",
+    "usage": "Regarde sans se faire remarquer."
+  },
+  {
+    "cmd_tag": "h0163",
+    "cmd_tag_name": "扫视",
+    "name_fr": "Balayage du regard",
+    "usage": "Parcourt la scène des yeux."
+  },
+  {
+    "cmd_tag": "h0164",
+    "cmd_tag_name": "瞪大眼2",
+    "name_fr": "Grands yeux écarquillés 2",
+    "usage": "Variante de h0160."
+  },
+  {
+    "cmd_tag": "h0165",
+    "cmd_tag_name": "瞅右边3",
+    "name_fr": "Coup d'œil à droite 3",
+    "usage": "Variante de h0159."
+  },
+  {
+    "cmd_tag": "h0166",
+    "cmd_tag_name": "瞅右边4",
+    "name_fr": "Coup d'œil à droite 4",
+    "usage": "Variante de h0159."
+  },
+  {
+    "cmd_tag": "h0167",
+    "cmd_tag_name": "瞅右边5",
+    "name_fr": "Coup d'œil à droite 5",
+    "usage": "Variante de h0159."
+  },
+  {
+    "cmd_tag": "h0168",
+    "cmd_tag_name": "瞅右边6",
+    "name_fr": "Coup d'œil à droite 6",
+    "usage": "Variante de h0159."
+  },
+  {
+    "cmd_tag": "h0169",
+    "cmd_tag_name": "瞅右边7",
+    "name_fr": "Coup d'œil à droite 7",
+    "usage": "Variante de h0159."
+  },
+  {
+    "cmd_tag": "h0170",
+    "cmd_tag_name": "考虑",
+    "name_fr": "Réflexion",
+    "usage": "Pèse le pour et le contre."
+  },
+  {
+    "cmd_tag": "h0171",
+    "cmd_tag_name": "眨眼2",
+    "name_fr": "Clignement 2",
+    "usage": "Variante de clignement."
+  },
+  {
+    "cmd_tag": "h0172",
+    "cmd_tag_name": "瞪眼4",
+    "name_fr": "Yeux écarquillés 4",
+    "usage": "Variante de h0157."
+  },
+  {
+    "cmd_tag": "h0173",
+    "cmd_tag_name": "眨眼笑3",
+    "name_fr": "Clin d'œil souriant 3",
+    "usage": "Variante de h0140."
+  },
+  {
+    "cmd_tag": "h0174",
+    "cmd_tag_name": "超左看",
+    "name_fr": "Regard loin à gauche",
+    "usage": "Regarde tout à gauche."
+  },
+  {
+    "cmd_tag": "h0175",
+    "cmd_tag_name": "眨眼3",
+    "name_fr": "Clignement 3",
+    "usage": "Variante de clignement."
+  },
+  {
+    "cmd_tag": "h0176",
+    "cmd_tag_name": "眨眼4",
+    "name_fr": "Clignement 4",
+    "usage": "Variante de clignement."
+  },
+  {
+    "cmd_tag": "h0177",
+    "cmd_tag_name": "收音",
+    "name_fr": "Prise de son",
+    "usage": "Enregistre / capte le son."
+  },
+  {
+    "cmd_tag": "h0178",
+    "cmd_tag_name": "失落",
+    "name_fr": "Déception",
+    "usage": "Air déçu, abattu."
+  },
+  {
+    "cmd_tag": "h0179",
+    "cmd_tag_name": "偷看2",
+    "name_fr": "Coup d'œil furtif 2",
+    "usage": "Variante de coup d'œil furtif."
+  },
+  {
+    "cmd_tag": "h0180",
+    "cmd_tag_name": "语音听",
+    "name_fr": "Écoute vocale",
+    "usage": "État d'écoute de l'assistant. L'app utilise h0180, pas h0098."
+  },
+  {
+    "cmd_tag": "h0181",
+    "cmd_tag_name": "语音思考",
+    "name_fr": "Réflexion vocale",
+    "usage": "L'assistant réfléchit. Visage « think » et nuance 🤔."
+  },
+  {
+    "cmd_tag": "h0182",
+    "cmd_tag_name": "拍照",
+    "name_fr": "Photo",
+    "usage": "Prend une photo / pose appareil."
+  },
+  {
+    "cmd_tag": "h0183",
+    "cmd_tag_name": "紫GPT思考",
+    "name_fr": "GPT violet réfléchit",
+    "usage": "Habillage GPT violet. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0184",
+    "cmd_tag_name": "紫GPT听",
+    "name_fr": "GPT violet écoute",
+    "usage": "Habillage GPT violet, état d'écoute. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0185",
+    "cmd_tag_name": "星火听",
+    "name_fr": "Spark écoute",
+    "usage": "Habillage Spark, écoute. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0186",
+    "cmd_tag_name": "星火思考",
+    "name_fr": "Spark réfléchit",
+    "usage": "Habillage Spark, réflexion. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0187",
+    "cmd_tag_name": "看手势",
+    "name_fr": "Regard vers un geste",
+    "usage": "Regarde un geste de la main."
+  },
+  {
+    "cmd_tag": "h0188",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0189",
+    "cmd_tag_name": "摸头",
+    "name_fr": "Caresse sur la tête",
+    "usage": "Réaction au toucher (caresse). Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0190",
+    "cmd_tag_name": "拍头",
+    "name_fr": "Tape sur la tête",
+    "usage": "Réaction au toucher (petite tape). Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0191",
+    "cmd_tag_name": "长按头",
+    "name_fr": "Appui long sur la tête",
+    "usage": "Réaction au toucher (appui long). Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0192",
+    "cmd_tag_name": "障碍",
+    "name_fr": "Obstacle",
+    "usage": "Rencontre un obstacle."
+  },
+  {
+    "cmd_tag": "h0193",
+    "cmd_tag_name": "障碍2",
+    "name_fr": "Obstacle 2",
+    "usage": "Variante d'obstacle."
+  },
+  {
+    "cmd_tag": "h0194",
+    "cmd_tag_name": "障碍3",
+    "name_fr": "Obstacle 3",
+    "usage": "Variante d'obstacle."
+  },
+  {
+    "cmd_tag": "h0195",
+    "cmd_tag_name": "障碍4",
+    "name_fr": "Obstacle 4",
+    "usage": "Variante d'obstacle."
+  },
+  {
+    "cmd_tag": "h0196",
+    "cmd_tag_name": "挣扎",
+    "name_fr": "Se débat",
+    "usage": "Essaie de se dégager."
+  },
+  {
+    "cmd_tag": "h0197",
+    "cmd_tag_name": "左右扫",
+    "name_fr": "Balayage gauche-droite",
+    "usage": "Balaye du regard, plus ample."
+  },
+  {
+    "cmd_tag": "h0198",
+    "cmd_tag_name": "瞪眼看",
+    "name_fr": "Regard les yeux écarquillés",
+    "usage": "Fixe en ouvrant grand les yeux."
+  },
+  {
+    "cmd_tag": "h0199",
+    "cmd_tag_name": "瞪左看",
+    "name_fr": "Regard écarquillé à gauche",
+    "usage": "Yeux grands ouverts vers la gauche."
+  },
+  {
+    "cmd_tag": "h0200",
+    "cmd_tag_name": "瞪左看2",
+    "name_fr": "Regard écarquillé à gauche 2",
+    "usage": "Variante de h0199."
+  },
+  {
+    "cmd_tag": "h0201",
+    "cmd_tag_name": "跳看",
+    "name_fr": "Regard saccadé",
+    "usage": "Le regard saute d'un point à l'autre."
+  },
+  {
+    "cmd_tag": "h0202",
+    "cmd_tag_name": "朝左看2",
+    "name_fr": "Regard vers la gauche 2",
+    "usage": "Regarde à gauche, variante."
+  },
+  {
+    "cmd_tag": "h0203",
+    "cmd_tag_name": "朝左看3",
+    "name_fr": "Regard vers la gauche 3",
+    "usage": "Regarde à gauche, variante."
+  },
+  {
+    "cmd_tag": "h0204",
+    "cmd_tag_name": "生日快乐2",
+    "name_fr": "Joyeux anniversaire 2",
+    "usage": "Variante d'anniversaire."
+  },
+  {
+    "cmd_tag": "h0205",
+    "cmd_tag_name": "能做什么",
+    "name_fr": "Que puis-je faire",
+    "usage": "Présentation des capacités."
+  },
+  {
+    "cmd_tag": "h0206",
+    "cmd_tag_name": "奸笑",
+    "name_fr": "Rire narquois",
+    "usage": "Rire un peu sournois."
+  },
+  {
+    "cmd_tag": "h0207",
+    "cmd_tag_name": "奸笑2",
+    "name_fr": "Rire narquois 2",
+    "usage": "Variante de h0206."
+  },
+  {
+    "cmd_tag": "h0208",
+    "cmd_tag_name": "右拽拽",
+    "name_fr": "Attitude prétentieuse à droite",
+    "usage": "Air « je suis trop fort », côté droit. 拽 = fanfaron."
+  },
+  {
+    "cmd_tag": "h0209",
+    "cmd_tag_name": "左拽拽",
+    "name_fr": "Attitude prétentieuse à gauche",
+    "usage": "Air « je suis trop fort », côté gauche."
+  },
+  {
+    "cmd_tag": "h0210",
+    "cmd_tag_name": "大笑",
+    "name_fr": "Grand rire",
+    "usage": "Rire franc. Émotion joyeux (h0006) et nuance « laugh » des emoji 😂🤣."
+  },
+  {
+    "cmd_tag": "h0211",
+    "cmd_tag_name": "伤心2",
+    "name_fr": "Tristesse 2",
+    "usage": "Autre visage triste. L'app garde h0119 哭泣."
+  },
+  {
+    "cmd_tag": "h0212",
+    "cmd_tag_name": "弹吉他",
+    "name_fr": "Joue de la guitare",
+    "usage": "Animation guitare."
+  },
+  {
+    "cmd_tag": "h0213",
+    "cmd_tag_name": "不错",
+    "name_fr": "Pas mal",
+    "usage": "Air satisfait, « pas mal »."
+  },
+  {
+    "cmd_tag": "h0214",
+    "cmd_tag_name": "嘿嘿嘿",
+    "name_fr": "Hi hi hi",
+    "usage": "Petit rire « héhéhé »."
+  },
+  {
+    "cmd_tag": "h0215",
+    "cmd_tag_name": "眨眼",
+    "name_fr": "Clignement",
+    "usage": "Cligne des deux yeux (pas un clin d'œil)."
+  },
+  {
+    "cmd_tag": "h0216",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0217",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0218",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0219",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0220",
+    "cmd_tag_name": "低电量",
+    "name_fr": "Batterie faible",
+    "usage": "Indicateur de batterie faible."
+  },
+  {
+    "cmd_tag": "h0221",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0222",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0223",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0224",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0225",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0226",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0227",
+    "cmd_tag_name": "监控中",
+    "name_fr": "Surveillance en cours",
+    "usage": "Mode monitoring."
+  },
+  {
+    "cmd_tag": "h0228",
+    "cmd_tag_name": "文心思考",
+    "name_fr": "Wenxin réfléchit",
+    "usage": "Habillage Baidu Wenxin. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0229",
+    "cmd_tag_name": "文心说",
+    "name_fr": "Wenxin parle",
+    "usage": "Habillage Wenxin, parole. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0230",
+    "cmd_tag_name": "文心说2",
+    "name_fr": "Wenxin parle 2",
+    "usage": "Habillage Wenxin. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0231",
+    "cmd_tag_name": "文心说3",
+    "name_fr": "Wenxin parle 3",
+    "usage": "Habillage Wenxin. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0232",
+    "cmd_tag_name": "文心说4",
+    "name_fr": "Wenxin parle 4",
+    "usage": "Habillage Wenxin. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0233",
+    "cmd_tag_name": "文心听",
+    "name_fr": "Wenxin écoute",
+    "usage": "Habillage Wenxin, écoute. Non utilisé."
+  },
+  {
+    "cmd_tag": "h0234",
+    "cmd_tag_name": "该喝水",
+    "name_fr": "Il faut boire",
+    "usage": "Rappel santé : boire."
+  },
+  {
+    "cmd_tag": "h0235",
+    "cmd_tag_name": "该运动",
+    "name_fr": "Il faut bouger",
+    "usage": "Rappel santé : se dépenser."
+  },
+  {
+    "cmd_tag": "h0236",
+    "cmd_tag_name": "该健身",
+    "name_fr": "Il faut faire du sport",
+    "usage": "Rappel santé : musculation / sport."
+  },
+  {
+    "cmd_tag": "h0237",
+    "cmd_tag_name": "注意坐姿",
+    "name_fr": "Attention à la posture",
+    "usage": "Rappel de s'asseoir droit."
+  },
+  {
+    "cmd_tag": "h0238",
+    "cmd_tag_name": "该喝水2",
+    "name_fr": "Il faut boire 2",
+    "usage": "Variante du rappel boire."
+  },
+  {
+    "cmd_tag": "h0239",
+    "cmd_tag_name": "该运动2",
+    "name_fr": "Il faut bouger 2",
+    "usage": "Variante du rappel mouvement."
+  },
+  {
+    "cmd_tag": "h0240",
+    "cmd_tag_name": "该健身2",
+    "name_fr": "Il faut faire du sport 2",
+    "usage": "Variante du rappel sport."
+  },
+  {
+    "cmd_tag": "h0241",
+    "cmd_tag_name": "注意坐姿2",
+    "name_fr": "Attention à la posture 2",
+    "usage": "Variante du rappel posture."
+  },
+  {
+    "cmd_tag": "h0242",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0243",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0244",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0245",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0246",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0247",
+    "cmd_tag_name": "要提醒了",
+    "name_fr": "Rappel imminent",
+    "usage": "Un rappel va sonner."
+  },
+  {
+    "cmd_tag": "h0248",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0249",
+    "cmd_tag_name": "无",
+    "name_fr": "Sans nom",
+    "usage": "Réservé, pas de nom officiel."
+  },
+  {
+    "cmd_tag": "h0250",
+    "cmd_tag_name": "鸟叫",
+    "name_fr": "Cri d'oiseau",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0251",
+    "cmd_tag_name": "老虎叫",
+    "name_fr": "Cri du tigre",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0252",
+    "cmd_tag_name": "豹子叫",
+    "name_fr": "Cri du léopard",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0253",
+    "cmd_tag_name": "狮子叫",
+    "name_fr": "Cri du lion",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0254",
+    "cmd_tag_name": "猪叫",
+    "name_fr": "Cri du cochon",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0255",
+    "cmd_tag_name": "羊叫",
+    "name_fr": "Bêlement",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0256",
+    "cmd_tag_name": "小狗叫",
+    "name_fr": "Aboiement",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0257",
+    "cmd_tag_name": "牛叫",
+    "name_fr": "Meuglement",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0258",
+    "cmd_tag_name": "狼叫",
+    "name_fr": "Hurlement de loup",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0259",
+    "cmd_tag_name": "苍蝇叫",
+    "name_fr": "Bourdonnement de mouche",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0260",
+    "cmd_tag_name": "蚊子叫",
+    "name_fr": "Bourdonnement de moustique",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0261",
+    "cmd_tag_name": "蜜蜂叫",
+    "name_fr": "Bourdonnement d'abeille",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0262",
+    "cmd_tag_name": "知了叫",
+    "name_fr": "Cigale",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0263",
+    "cmd_tag_name": "青蛙叫",
+    "name_fr": "Coassement",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0264",
+    "cmd_tag_name": "马叫",
+    "name_fr": "Hennissement",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0265",
+    "cmd_tag_name": "公鸡打鸣",
+    "name_fr": "Chant du coq",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0266",
+    "cmd_tag_name": "猫叫",
+    "name_fr": "Miaulement",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0267",
+    "cmd_tag_name": "鸭子叫",
+    "name_fr": "Coin-coin",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0268",
+    "cmd_tag_name": "乌鸦叫",
+    "name_fr": "Croassement",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0269",
+    "cmd_tag_name": "大象叫",
+    "name_fr": "Barrit d'éléphant",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0270",
+    "cmd_tag_name": "大鹅叫",
+    "name_fr": "Cri de l'oie",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0271",
+    "cmd_tag_name": "老鹰叫",
+    "name_fr": "Cri de l'aigle",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0272",
+    "cmd_tag_name": "鹤叫",
+    "name_fr": "Cri de la grue",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0273",
+    "cmd_tag_name": "老鼠叫",
+    "name_fr": "Cri de souris",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0274",
+    "cmd_tag_name": "骆驼叫",
+    "name_fr": "Cri du chameau",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0275",
+    "cmd_tag_name": "驴叫",
+    "name_fr": "Braiment",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0276",
+    "cmd_tag_name": "倾听",
+    "name_fr": "Écoute attentive",
+    "usage": "Le nom dit « écouter », mais le clip connu montre une libellule, pas un visage d'écoute. Ne pas l'utiliser pour l'écoute vocale."
+  },
+  {
+    "cmd_tag": "h0277",
+    "cmd_tag_name": "蛐蛐",
+    "name_fr": "Grillon",
+    "usage": "Imitation animale (蛐蛐). Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0278",
+    "cmd_tag_name": "蛇叫",
+    "name_fr": "Sifflement de serpent",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0279",
+    "cmd_tag_name": "母鸡叫",
+    "name_fr": "Cot-cot de poule",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0280",
+    "cmd_tag_name": "熊叫",
+    "name_fr": "Cri de l'ours",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0281",
+    "cmd_tag_name": "蟋蟀叫",
+    "name_fr": "Cri du grillon",
+    "usage": "Imitation animale (蟋蟀). Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0282",
+    "cmd_tag_name": "蝈蝈叫",
+    "name_fr": "Cri de la sauterelle",
+    "usage": "Imitation animale (蝈蝈). Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0283",
+    "cmd_tag_name": "海豚叫",
+    "name_fr": "Cri du dauphin",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0284",
+    "cmd_tag_name": "猴子叫",
+    "name_fr": "Cri du singe",
+    "usage": "Imitation animale. Pas une émotion."
+  },
+  {
+    "cmd_tag": "h0285",
+    "cmd_tag_name": "表演",
+    "name_fr": "Spectacle",
+    "usage": "Animation de représentation."
+  },
+  {
+    "cmd_tag": "h0286",
+    "cmd_tag_name": "BBOX",
+    "name_fr": "Beatbox",
+    "usage": "Animation beatbox (B-box)."
+  },
+  {
+    "cmd_tag": "h0287",
+    "cmd_tag_name": "圣诞节",
+    "name_fr": "Noël",
+    "usage": "Animation de Noël."
+  },
+  {
+    "cmd_tag": "h0288",
+    "cmd_tag_name": "新年",
+    "name_fr": "Nouvel An",
+    "usage": "Animation du Nouvel An."
+  },
+  {
+    "cmd_tag": "h0289",
+    "cmd_tag_name": "复活节",
+    "name_fr": "Pâques",
+    "usage": "Animation de Pâques."
+  },
+  {
+    "cmd_tag": "h0290",
+    "cmd_tag_name": "h0290",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0291",
+    "cmd_tag_name": "h0291",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0292",
+    "cmd_tag_name": "h0292",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0293",
+    "cmd_tag_name": "h0293",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0294",
+    "cmd_tag_name": "h0294",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0295",
+    "cmd_tag_name": "h0295",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0296",
+    "cmd_tag_name": "h0296",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0297",
+    "cmd_tag_name": "h0297",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0298",
+    "cmd_tag_name": "h0298",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0299",
+    "cmd_tag_name": "h0299",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0300",
+    "cmd_tag_name": "h0300",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0301",
+    "cmd_tag_name": "h0301",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0302",
+    "cmd_tag_name": "h0302",
+    "name_fr": "Réservé (sans nom)",
+    "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  }
+]

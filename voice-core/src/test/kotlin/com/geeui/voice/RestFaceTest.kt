@@ -21,7 +21,11 @@ class RestFaceTest {
     @Test
     fun moodLabelsMapToFaces() {
         assertEquals(IDLE_FACE, RestFace.forMood("calme"))
+        assertEquals("h0060", RestFace.forMood("content"))
+        assertEquals("h0006", RestFace.forMood("joyeux"))
         assertEquals("h0042", RestFace.forMood("ennuye"))
+        assertEquals("h0058", RestFace.forMood("boudeur"))
+        assertEquals("h0010", RestFace.forMood("triste"))
         assertEquals("h0039", RestFace.forMood(" Fatigue "))
         assertEquals(IDLE_FACE, RestFace.forMood("inconnu"))
         assertEquals(7, RestFace.BY_MOOD.size)
@@ -37,8 +41,8 @@ class RestFaceTest {
 
     @Test
     fun moodFaceIsRestSoTheMouthStillShowsWhileSpeaking() {
-        RestFace.current = "h0063"
-        assertEquals(SPEAK_FACE, dialogueFace("talk", true, "h0063"))
+        RestFace.current = "h0060"
+        assertEquals(SPEAK_FACE, dialogueFace("talk", true, "h0060"))
         assertEquals("h0001", dialogueFace("talk", true, "h0001"))
     }
 
