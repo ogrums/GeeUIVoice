@@ -9,7 +9,7 @@ Testé le 9 novembre 2026 avec le commit `5c72ced` de nanobot (version 0.4.1), s
 | Fichier | Rôle |
 |---|---|
 | `docker-compose.yml` | Construit l'image depuis le `Dockerfile` officiel (il n'y a pas d'image publiée) et lance `nanobot serve` sur `127.0.0.1:8900` |
-| `config.example.json` | Lemonade comme fournisseur, presets `rapide` (Gemma) et `lourd` (Qwen3), shell, web et outils d'administration coupés |
+| `config.example.json` | Lemonade comme fournisseur, presets `rapide` (Gemma) et `lourd` (Qwen3), web activé (DuckDuckGo sans clé + `web_fetch`), shell et outils d'administration coupés |
 | `workspace/SOUL.md` | Personnalité, façon de parler, balises d'émotion |
 | `workspace/AGENTS.md` | Balises d'action du robot, tâches longues, création de skills |
 | `.env.example` | Clé de l'API nanobot et adresse de Lemonade |
@@ -146,95 +146,50 @@ Si nanobot est arrêté, le sidecar journalise `chat route=lemonade fallback` et
 ## Bon à savoir
 
 - **Une seule phrase par requête** : l'API refuse un message `system` ou un historique (`400 Only a single user message is supported`). Le sidecar doit n'envoyer que la dernière phrase.
-- **Souvenirs** : seul le « Dream » écrit dans `USER.md` et `memory/MEMORY.md`. `nanobot serve` ne le lance pas tout seul (c'est le `gateway` qui le planifie), d'où le `/dream` ci-dessus. Avec l'initiative du sidecar (`INITIATIVE_ENABLED=1`), c'est le sidecar qui envoie chaque nuit `/compact` à chaque session `rux-<personne>` puis `/dream` (`NIGHTLY_AT`) : ne pas garder de cron système en plus. Sans initiative, mettre ce `/dream` dans un cron le soir. Chaque Dream est versionné en git dans le workspace : `/dream-log` et `/dream-restore` pour revenir en arrière. Dream peut aussi retoucher `SOUL.md`, garder une copie.
-- **Soul et skills** : ce sont des fichiers dans `data/workspace/`. On les modifie à la main puis `docker compose restart`. Les skills créés à la voix arrivent dans `data/workspace/skills/<nom>/SKILL.md`.
-- **Sécurité** : pas de shell (`tools.exec.enable: false`), pas de web, fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
-- **Alléger le prompt** : `"tools": {"file": {"enable": false}}` divise la requête par deux (11 000 caractères), mais nanobot ne peut alors plus lire ni créer de skills.
+- **Souvenirs** : seul le « Dream » écrit dans `USER.md` et `memory/MEMORY.md`. `nanobot serve` ne le lance pas tout seul (c'est le `gateway` qui le planifie), d'où le `/dream` ci-dessus, à mettre dans un cron le soir. Chaque Dream est versionné en git dans le workspace : `/dream-log` et `/dream-restore` pour revenir en arrière. Dream peut aussi retoucher `SOUL.md`, garder une copie.
+- **Soul et skills** : ce sont des fichiers dans `data/workspace/`. On les modifie à la main puis `docker compose restart`. Les skills appris à la voix arrivent d'abord en brouillon (section suivante).
 
+## Skills appris à la voix
 
-## Initiative (sidecar)
+« Apprends à… quand je dis bonne nuit, éteins l'antenne. » RUX résume, demande « je l'enregistre ? », puis écrit `data/workspace/brouillons/<nom>/SKILL.md` (skill `apprendre`). nanobot ne charge pas `brouillons/`. Le skill intégré `skill-creator` est désactivé (`disabledSkills`), parce qu'il écrit directement dans `skills/`.
 
-Le sidecar ([GeeUIVoiceSidecar](https://github.com/ogrums/GeeUIVoiceSidecar), section « Initiative ») décide quand le robot parle le premier. nanobot écrit seulement la phrase :
+Validation sur la page du sidecar : `http://nimbus:13306/admin/skills` (mot de passe `SIDECAR_ADMIN_KEY`, section « Skills appris à la voix » de GeeUIVoiceSidecar). Valider déplace le dossier dans `skills/`, et nanobot le lit au tour suivant. Une balise d'action hors de la liste de `AGENTS.md` bloque la validation.
 
-- Un message qui commence par « (initiative de RUX, personne n'a parlé) » demande une phrase d'initiative (suivi, attention). Voir `workspace/AGENTS.md`.
-- Pour un rappel à heure précise, nanobot écrit à la fin de sa réponse `[rappel:+minutes|texte]` ou `[rappel:AAAA-MM-JJTHH:MM|texte]`. Le sidecar le lit et le garde ; l'app ne le lit jamais à voix haute.
-- Le sidecar lit la section « ## À suivre » de `memory/MEMORY.md`. Il faut lui monter le workspace **en lecture seule**, dans le `docker-compose.yml` du sidecar :
-
-```yaml
-    volumes:
-      - /home/bob/nanobot/data/workspace:/nanobot-workspace:ro
-```
-
-et `NANOBOT_WORKSPACE=/nanobot-workspace` dans son `.env`. Adapter le chemin à l'emplacement réel du dossier `data/` de ce déploiement. En Docker rootless, le sidecar doit pouvoir lire ces fichiers (droits de lecture pour l'utilisateur du conteneur, uid 1000).
-
-
-## Souvenirs utiles
-
-Fichiers fournis dans `workspace/` :
-
-| Fichier | Rôle |
-|---|---|
-| `USER.md` | Une section `## Prénom` par personne (dates, goûts, habitudes) |
-| `memory/MEMORY.md` | « Faits de la maison » et « À suivre » (`- AAAA-MM-JJ | Prénom | sujet | quoi faire`, lu par le sidecar pour l'initiative) |
-| `prompts/dream.md` | Prompt de Dream : celui de nanobot (sans la partie skills) plus les « Règles de RUX » (ranger par personne, rien des invités, format « À suivre », ne pas réécrire ce qui a été oublié, pas de skill) |
-| `skills/oublie/SKILL.md` | « Oublie ça », « oublie que… », « oublie tout sur moi » (avec confirmation ; `[oubli:voix]` fait effacer l'empreinte vocale par le sidecar) |
-
-Installation, **sans écraser** une mémoire déjà remplie :
+Installer le skill et la règle :
 
 ```bash
-cd ~/nanobot   # dossier de ce déploiement
-cp -n workspace/USER.md data/workspace/USER.md
-mkdir -p data/workspace/memory data/workspace/prompts data/workspace/skills/oublie
-cp -n workspace/memory/MEMORY.md data/workspace/memory/MEMORY.md
-cp workspace/prompts/dream.md data/workspace/prompts/dream.md
-cp workspace/skills/oublie/SKILL.md data/workspace/skills/oublie/SKILL.md
+cd $NB
+cp -r workspace/skills/apprendre data/workspace/skills/
+cp workspace/AGENTS.md data/workspace/
+mkdir -p data/workspace/brouillons
+# ajouter "skill-creator" à agents.defaults.disabledSkills dans data/config.json
 docker compose restart
 ```
 
-Si `USER.md` ou `MEMORY.md` existent déjà, les remettre à la main dans la structure ci-dessus (titres `## Prénom`, `## Faits de la maison`, `## À suivre`).
+Le prompt Dream de RUX (`prompts/dream.md`, PR « Souvenirs ») interdit déjà à Dream de créer des skills.
+- **Sécurité** : pas de shell (`tools.exec.enable: false`), pas de web, fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
+- **Soul et skills** : ce sont des fichiers dans `data/workspace/`. On les modifie à la main puis `docker compose restart`. Les skills créés à la voix arrivent dans `data/workspace/skills/<nom>/SKILL.md`.
+- **Sécurité** : pas de shell (`tools.exec.enable: false`), web en lecture seule (recherche DuckDuckGo + `web_fetch`, voir plus bas), fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
+- **Alléger le prompt** : `"tools": {"file": {"enable": false}}` divise la requête par deux (11 000 caractères), mais nanobot ne peut alors plus lire ni créer de skills.
 
-Le prompt de Dream remplacé est le texte de nanobot au commit lu (voir `docs/PERSONNALISATION.md`). Après une mise à jour de nanobot, comparer avec `/dream-prompt init` dans un workspace vide.
 
-Vérifier un Dream à la main (avec Qwen3) :
+## Qui parle (sidecar)
 
-```bash
-KEY=…   # NANOBOT_API_KEY
-for m in "/model lourd" "(Paul parle) J'ai un entretien d'embauche mardi chez Dupont." "/compact" "/dream"; do
-  curl -s http://127.0.0.1:8900/v1/chat/completions -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
-    -d "{\"session_id\": \"rux-paul\", \"messages\": [{\"role\": \"user\", \"content\": \"$m\"}]}"; echo
-done
-cat data/workspace/memory/MEMORY.md   # attendu : - <mercredi> | Paul | entretien d'embauche chez Dupont | …
-```
+La reconnaissance de la voix est faite par le sidecar ([GeeUIVoiceSidecar](https://github.com/ogrums/GeeUIVoiceSidecar), section « Qui parle »), pas par nanobot. Ce que nanobot voit :
 
-`/dream-log` montre le dernier changement, `/dream-restore` revient en arrière.
-
-### Effacement complet
-
-« Oublie » retire la ligne des fichiers de mémoire, mais le texte reste ailleurs : la conversation dans la base des sessions (`sessions.sqlite3`, rangée **hors** du workspace, sous `data/`), les résumés dans `memory/history.jsonl` et l'historique git du workspace (chaque Dream fait un commit). Attention, `/new` ne suffit pas : il archive la session dans `history.jsonl`. Pour un vrai effacement de Paul, sur nimbus (procédure à valider une première fois sur une copie) :
-
-```bash
-cd ~/nanobot && docker compose stop
-DB=$(find data -name sessions.sqlite3 | head -1)
-python3 -c "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute('PRAGMA foreign_keys=ON'); c.execute(\"delete from sessions where key='api:rux-paul'\"); c.commit()" "$DB"
-grep -v 'Paul' data/workspace/memory/history.jsonl > /tmp/h && mv /tmp/h data/workspace/memory/history.jsonl   # grossier : relire avant
-rm -rf data/workspace/.git                                  # perd /dream-log et /dream-restore
-docker compose start
-```
-## Humeur de RUX (sidecar + app)
-
-Avec `ROBOT_MOOD_ENABLED=1` dans le `.env` du sidecar (section « Humeur de RUX » de son README), RUX a une humeur lente : contentement (compliments, conversations, ou « t'es nul ») et énergie (basse la nuit), ennui quand on ne lui parle plus pendant des heures en journée.
-
-- nanobot reçoit « (humeur de RUX : un peu boudeur) » en début de message quand l'humeur n'est pas ordinaire. Voir `workspace/SOUL.md`.
-- L'app lit `mood.label` dans `/v1/robot/pending` (interrogé toutes les 15 s au repos, avec l'initiative activée) et change le visage au repos :
-
-| Humeur | Visage | Vidéo |
+| Qui | `session_id` | Début du message |
 |---|---|---|
-| calme | h0059 | yeux neutres (par défaut) |
-| content | h0063 | petit sourire |
-| joyeux | h0006 | grand sourire |
-| ennuye | h0042 | regarde à gauche et à droite |
-| boudeur | h0119 | moue |
-| triste | h0010 | larmes |
-| fatigue | h0039 | yeux qui se ferment |
+| Fonction éteinte, ou personne d'enregistré | `rux` | `(ton entendu : sad)` si besoin |
+| Paul reconnu | `rux-paul` | `(Paul parle, ton entendu : sad)` |
+| Inconnu | `rux-invite` | `(un invité parle)` |
 
-La voix et les gestes ne changent pas encore avec l'humeur : à décider après l'avoir vue sur le robot.
+La mémoire reste une par workspace : `USER.md` a une section par personne (voir `workspace/SOUL.md` et `workspace/AGENTS.md`). Après une mise à jour, recopier ces deux fichiers dans `data/workspace/` puis `docker compose restart`.
+
+Vérifier côté nanobot qu'une session par personne existe :
+
+```bash
+# Les sessions sont dans une base SQLite, sous data/ mais hors du workspace.
+DB=$(find data -name sessions.sqlite3 | head -1)
+python3 -c "import sqlite3,sys; print([r[0] for r in sqlite3.connect(sys.argv[1]).execute('select key from sessions')])" "$DB"
+# attendu après une conversation : 'api:rux-paul'
+```

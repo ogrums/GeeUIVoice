@@ -18,7 +18,7 @@ class ProsodyTest {
 
     @Test
     fun atThresholdNothingChanges() {
-        assertEquals(Prosody.NEUTRAL, EmotionProsody.of(Emotion.HAPPY, EmotionFusion.THRESHOLD))
+        assertEquals(Prosody.NEUTRAL, EmotionProsody.of(Emotion.HAPPY, EmotionProsody.FLOOR))
         assertEquals(Prosody.NEUTRAL, EmotionProsody.of(Emotion.SAD, 0.2))
     }
 
@@ -29,7 +29,7 @@ class ProsodyTest {
 
     @Test
     fun halfwayIsHalfTheDeviation() {
-        val score = EmotionFusion.THRESHOLD + (1.0 - EmotionFusion.THRESHOLD) / 2
+        val score = EmotionProsody.FLOOR + (1.0 - EmotionProsody.FLOOR) / 2
         val p = EmotionProsody.of(Emotion.HAPPY, score)
         assertEquals(1.04f, p.speed, 1e-4f)
         assertEquals(1.03f, p.pitch, 1e-4f)

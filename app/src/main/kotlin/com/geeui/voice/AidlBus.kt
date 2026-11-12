@@ -82,7 +82,7 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
     }
 
     override fun showFace(faceId: String) {
-        VoiceHud.face = faceId
+        VoiceHud.recordFace(faceId)
         call("setExpression", "controlFace", faceCommand(faceId))
     }
 

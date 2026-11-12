@@ -1,8 +1,8 @@
 package com.geeui.voiceemo
 
-/** Six labels the TTS and the body both understand. */
+/** Labels the TTS, the face and the body all understand. [DISGUST] is the ONNX class `disgusted`. */
 enum class Emotion {
-    NEUTRAL, HAPPY, SAD, ANGRY, FEAR, SURPRISE;
+    NEUTRAL, HAPPY, SAD, ANGRY, FEAR, SURPRISE, DISGUST;
 
     companion object {
         fun parse(raw: String?): Emotion {
@@ -13,6 +13,7 @@ enum class Emotion {
                 "angry", "anger" -> ANGRY
                 "fear", "afraid", "fearful" -> FEAR
                 "surprise", "surprised" -> SURPRISE
+                "disgust", "disgusted", "dégout", "degout", "dégoût" -> DISGUST
                 else -> NEUTRAL
             }
         }

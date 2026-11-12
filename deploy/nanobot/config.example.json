@@ -30,7 +30,7 @@
       "timezone": "Europe/Paris",
       "maxToolIterations": 6,
       "maxConcurrentSubagents": 1,
-      "disabledSkills": ["clawhub", "github", "tmux", "image-generation", "nanobot-document", "weather", "cron", "summarize"],
+      "disabledSkills": ["skill-creator", "clawhub", "github", "tmux", "image-generation", "nanobot-document", "weather", "cron", "summarize"],
       "dream": { "enabled": true, "modelOverride": "lourd" }
     }
   },
@@ -43,7 +43,11 @@
   "tools": {
     "restrictToWorkspace": true,
     "exec": { "enable": false },
-    "web": { "enable": false },
+    "web": {
+      "enable": true,
+      "search": { "provider": "duckduckgo", "maxResults": 3, "timeout": 15 },
+      "fetch": { "useJinaReader": false }
+    },
     "cliApps": { "enable": false },
     "my": { "enable": false },
     "mcpServers": {}

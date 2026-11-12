@@ -38,9 +38,9 @@ fun RobotBus.applyPose(pose: SdkPose) {
     if (action != null) controlMotion(action, 1, 3)
 }
 
-/** How long the pose stays after the clip ends, before 立正. */
+/** How long the pose stays after the clip ends, before 立正. A short tail, not a 3 s hold. */
 object PoseTiming {
-    const val REST_AFTER_MS = 3_000L
+    const val REST_AFTER_MS = 800L
 }
 /** Motion 0 is AT+MOVEW,0 (立正). The rest face is RestFace.current (h0059, or the robot mood). Angle 0 is rewritten to 90, so the ears come back to 15. */
 fun RobotBus.standAtAttention() {
@@ -90,8 +90,9 @@ fun debugLaunch(mode: String?, debug: String? = null): Boolean {
     return flag == "1" || flag == "true" || flag == "yes"
 }
 
-class RecordingBus : RobotBus {
+class RecordingBus(private val clock: () -> Long = { System.currentTimeMillis() }) : RobotBus {
     val events = mutableListOf<String>()
+    val faces = mutableListOf<com.geeui.voice.session.FaceEvent>()
 
     override fun speechCmd(command: String, data: String) {
         events += "speech $command $data"
@@ -107,6 +108,7 @@ class RecordingBus : RobotBus {
 
     override fun showFace(faceId: String) {
         events += "face $faceId"
+        faces += com.geeui.voice.session.FaceEvent(faceId, clock())
     }
 
     override fun ears(cmd: Int, step: Int, speedMs: Int, angle: Int) {

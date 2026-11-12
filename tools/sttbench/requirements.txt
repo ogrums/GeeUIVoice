@@ -1,0 +1,13 @@
+# Dépendances optionnelles, selon les moteurs que l'on lance.
+# Le banc lui-même (normalisation, WER, inventaire HTTP, rapport) n'a besoin
+# que de Python 3.9+ et de la bibliothèque standard. ffmpeg est requis pour
+# prepare (conversion 16 kHz et variations).
+#
+#   python3 -m venv .venv && . .venv/bin/activate
+#   pip install -r requirements.txt
+#
+faster-whisper>=1.1.0
+vosk>=0.3.45
+# sherpa-onnx et numpy : Parakeet TDT 0.6B v3 / zipformer FR
+# sherpa-onnx>=1.10
+# numpy

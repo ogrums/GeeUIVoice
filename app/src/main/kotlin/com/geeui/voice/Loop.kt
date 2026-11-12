@@ -21,7 +21,12 @@ import com.geeui.voice.engine.TextToSpeech
 import com.geeui.voice.engine.TtsPlan
 import com.geeui.voice.session.LiveTurn
 import com.geeui.voice.session.VoiceSession
+import com.geeui.voice.session.WavTestResult
+import com.geeui.voice.session.WavTestTurn
+import com.geeui.voice.engine.TimingChat
+import com.geeui.voice.engine.TimingTts
 import com.geeui.voiceemo.Mood
+import android.util.Log
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -52,6 +57,7 @@ class VoiceLoop(
     /** Ask the sidecar every 15 s, when idle, if the robot should speak first. */
     private val initiative: Boolean = true,
 ) {
+    private val appContext = audio
     private val client = LemonadeClient(
         baseUrl,
         sttModel = sttModel,
@@ -73,16 +79,18 @@ class VoiceLoop(
             kokoro,
         )
     private val clips = PlannedTts(plan, base, cosy)
-    private val tts = PlayingTts(clips, cacheDir, audio) { plan.prosody }
+    private val player = PlayingTts(clips, cacheDir, audio) { plan.prosody }
+    private val tts = TimingTts(player)
     private val gateway = LemonadeClient(sidecar.trimEnd('/') + "/v1", sttModel = sttModel, systemPrompt = "")
     private val lemonStt = LemonadeStt(client)
     private val stt = EmotionStt(gateway, lemonStt) { ok ->
         if (!ok) sidecarOk.set(0)
     }
+    private val timingChat = TimingChat(LemonadeChat(client))
     private val session = VoiceSession(
         bus,
         tts,
-        LemonadeChat(client),
+        timingChat,
         mood = Mood(),
         plan = plan,
         audioAffect = { stt.lastAudioAffect },
@@ -124,25 +132,33 @@ class VoiceLoop(
     }
 
     private val running = AtomicBoolean(false)
+    private val wavTestBusy = AtomicBoolean(false)
+    private val wavTest = WavTestTurn(stt, session, timingChat, tts)
     private var thread: Thread? = null
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
         live.onUserText = {
-            VoiceHud.heard = it
+            VoiceHud.clearFaceEvents()
+            val who = stt.lastSpeakerName
+            VoiceHud.heard = if (who.isBlank()) it else "$who : $it"
             VoiceHud.answer = ""
             VoiceHud.line = it
             VoiceHud.mode = "think"
+            Log.i(TEST_TAG, "heard=$it")
+            writeLastTurn()
         }
         live.onAnswer = {
             VoiceHud.answer = it
             VoiceHud.line = it
             VoiceHud.mode = "talk"
+            Log.i(TEST_TAG, "answer=$it")
+            writeLastTurn()
         }
         live.onListen = { VoiceHud.mode = "hear" }
         live.onIdle = { VoiceHud.mode = "idle" }
         live.allowBargeIn = {
-            !VoiceHud.playing && System.currentTimeMillis() >= VoiceHud.hearAfter
+            !wavTestBusy.get() && !VoiceHud.playing && System.currentTimeMillis() >= VoiceHud.hearAfter
         }
         live.worker = { job -> turns.execute(job) }
         if (initiative && sidecar.isNotBlank()) {
@@ -235,6 +251,149 @@ class VoiceLoop(
             0
         }
         if (code in 200..299) sidecarOk.set(System.currentTimeMillis())
+    }
+
+    /**
+     * Feeds a WAV file instead of the microphone (STT → chat → TTS). The mic is
+     * ignored while this runs. Writes result.json, status.txt and a copy of the
+     * last TTS clip into [outDir]. Safe to call from a broadcast; work runs on the
+     * turn thread.
+     */
+    fun enqueueWavTest(path: String, outDir: File) {
+        outDir.mkdirs()
+        val running = File(outDir, "status.txt")
+        running.writeText("running\n")
+        publishForAdb(running)
+        turns.execute {
+            val result = try {
+                runWavTest(path, outDir)
+            } catch (e: Exception) {
+                WavTestResult.fail(path, e.message ?: e.javaClass.simpleName)
+            }
+            try {
+                val resultFile = File(outDir, "result.json")
+                resultFile.writeText(result.toJson())
+                publishForAdb(resultFile)
+                val statusFile = File(outDir, "status.txt")
+                statusFile.writeText(if (result.ok) "done\n" else "error\n")
+                publishForAdb(statusFile)
+                outDir.listFiles()?.forEach { f ->
+                    if (f.isFile && f.name.startsWith("tts.")) publishForAdb(f)
+                }
+            } catch (e: Exception) {
+                Log.e(TEST_TAG, "write result", e)
+            }
+        }
+    }
+
+    fun runWavTest(path: String, outDir: File): WavTestResult {
+        if (!com.geeui.voice.session.WavTestAccess.allowedPath(path)) {
+            return WavTestResult.fail(path, "chemin refusé")
+        }
+        val file = File(path)
+        if (!file.isFile) return WavTestResult.fail(path, "fichier introuvable")
+        val bytes = try {
+            file.readBytes()
+        } catch (e: Exception) {
+            return WavTestResult.fail(path, "lecture: ${e.message ?: e.javaClass.simpleName}")
+        }
+        wavTestBusy.set(true)
+        return try {
+            VoiceHud.clearFaceEvents()
+            val result = wavTest.run(bytes, path,
+                face = { VoiceHud.faceDuringSpeech().ifBlank { VoiceHud.face } },
+                faces = { VoiceHud.faceEvents.toList() },
+                audio = {
+                    com.geeui.voice.session.WavTestAudio(
+                        emotion = stt.lastAudioEmotion.ifBlank { stt.lastAudioAffect.emotion.name.lowercase() },
+                        confidence = stt.lastAudioConfidence.takeIf { it > 0.0 }
+                            ?: stt.lastAudioAffect.confidence.toDouble(),
+                        raw = stt.lastAudioEmotionRaw,
+                        rawConfidence = stt.lastAudioRawConfidence,
+                    )
+                },
+            )
+            val clip = copyLastTts(outDir)
+            result.copy(ttsFile = clip)
+        } finally {
+            wavTestBusy.set(false)
+        }
+    }
+
+
+    /** Android 11 : files in Android/data written by the app are mode 600, so
+     *  `adb pull` / `adb shell cat` fail. Make them world-readable and also
+     *  copy them to /data/local/tmp/geeui/ (writable by the app after the
+     *  voicetest script has mkdir'd it) so the PC campaign can collect them. */
+    private fun publishForAdb(file: File) {
+        try {
+            file.setReadable(true, false)
+            file.setWritable(true, false)
+        } catch (_: Exception) {
+        }
+        try {
+            val mirror = File("/data/local/tmp/geeui")
+            if (mirror.isDirectory || mirror.mkdirs()) {
+                val dest = File(mirror, file.name)
+                file.copyTo(dest, overwrite = true)
+                dest.setReadable(true, false)
+                dest.setWritable(true, false)
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun copyLastTts(outDir: File): String {
+        val src = listOf("tts.mp3", "tts.wav", "tts.ogg", "tts.flac")
+            .map { File(cacheDir, it) }
+            .filter { it.isFile }
+            .maxByOrNull { it.lastModified() } ?: return ""
+        outDir.mkdirs()
+        val dest = File(outDir, src.name)
+        src.copyTo(dest, overwrite = true)
+        return dest.absolutePath
+    }
+
+    private fun writeLastTurn() {
+        val dir = appContext.getExternalFilesDir("voicetest") ?: return
+        try {
+            dir.mkdirs()
+            val last = File(dir, "last-turn.json")
+            val facesJson = VoiceHud.faceEvents.joinToString(",", "[", "]") { it.toJson() }
+            last.writeText(
+                "{" +
+                    "\"heard\":${jsonStr(VoiceHud.heard)}," +
+                    "\"answer\":${jsonStr(VoiceHud.answer)}," +
+                    "\"face\":${jsonStr(VoiceHud.face)}," +
+                    "\"face_during_speech\":${jsonStr(VoiceHud.faceDuringSpeech())}," +
+                    "\"faces\":$facesJson," +
+                    "\"line\":${jsonStr(VoiceHud.line)}," +
+                    "\"mode\":${jsonStr(VoiceHud.mode)}," +
+                    "\"audio_emotion\":${jsonStr(stt.lastAudioEmotion.ifBlank { stt.lastAudioAffect.emotion.name.lowercase() })}," +
+                    "\"audio_confidence\":${stt.lastAudioConfidence.takeIf { it > 0.0 } ?: stt.lastAudioAffect.confidence.toDouble()}," +
+                    "\"audio_emotion_raw\":${jsonStr(stt.lastAudioEmotionRaw)}," +
+                    "\"audio_emotion_raw_confidence\":${stt.lastAudioRawConfidence}" +
+                    "}\n",
+            )
+            publishForAdb(last)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun jsonStr(value: String): String = buildString {
+        append('"')
+        for (c in value) when (c) {
+            '\\' -> append("\\\\")
+            '"' -> append("\\\"")
+            '\n' -> append("\\n")
+            '\r' -> append("\\r")
+            else -> append(c)
+        }
+        append('"')
+    }
+
+    companion object {
+        private const val TEST_TAG = "GeeUIVoiceTest"
     }
 }
 
