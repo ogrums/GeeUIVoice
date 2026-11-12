@@ -1,0 +1,11 @@
+# Image minimale pour servir un STT local en OpenAI-compatible.
+# À construire sur nimbus ou sur la box, jamais au détriment des autres services.
+FROM python:3.11-slim
+ARG EXTRA_PIP=""
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY engines.py wavutil.py normalize.py serve.py /app/
+RUN pip install --no-cache-dir ${EXTRA_PIP}
+EXPOSE 13310
+CMD ["python", "serve.py", "--help"]

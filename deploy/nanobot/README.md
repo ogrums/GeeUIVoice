@@ -9,7 +9,7 @@ Testé le 9 novembre 2026 avec le commit `5c72ced` de nanobot (version 0.4.1), s
 | Fichier | Rôle |
 |---|---|
 | `docker-compose.yml` | Construit l'image depuis le `Dockerfile` officiel (il n'y a pas d'image publiée) et lance `nanobot serve` sur `127.0.0.1:8900` |
-| `config.example.json` | Lemonade comme fournisseur, presets `rapide` (Gemma) et `lourd` (Qwen3), shell, web et outils d'administration coupés |
+| `config.example.json` | Lemonade comme fournisseur, presets `rapide` (Gemma) et `lourd` (Qwen3), web activé (DuckDuckGo sans clé + `web_fetch`), shell et outils d'administration coupés |
 | `workspace/SOUL.md` | Personnalité, façon de parler, balises d'émotion |
 | `workspace/AGENTS.md` | Balises d'action du robot, tâches longues, création de skills |
 | `.env.example` | Clé de l'API nanobot et adresse de Lemonade |
@@ -168,4 +168,28 @@ docker compose restart
 
 Le prompt Dream de RUX (`prompts/dream.md`, PR « Souvenirs ») interdit déjà à Dream de créer des skills.
 - **Sécurité** : pas de shell (`tools.exec.enable: false`), pas de web, fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
+- **Soul et skills** : ce sont des fichiers dans `data/workspace/`. On les modifie à la main puis `docker compose restart`. Les skills créés à la voix arrivent dans `data/workspace/skills/<nom>/SKILL.md`.
+- **Sécurité** : pas de shell (`tools.exec.enable: false`), web en lecture seule (recherche DuckDuckGo + `web_fetch`, voir plus bas), fichiers limités au workspace (`tools.restrictToWorkspace: true`), API sur la boucle locale uniquement, avec clé obligatoire. Les serveurs MCP s'ajoutent dans `tools.mcpServers` avec `enabledTools` pour limiter les outils. Une URL MCP du réseau local doit être ajoutée à `tools.ssrfWhitelist` (par exemple `"192.168.1.50/32"`).
 - **Alléger le prompt** : `"tools": {"file": {"enable": false}}` divise la requête par deux (11 000 caractères), mais nanobot ne peut alors plus lire ni créer de skills.
+
+
+## Qui parle (sidecar)
+
+La reconnaissance de la voix est faite par le sidecar ([GeeUIVoiceSidecar](https://github.com/ogrums/GeeUIVoiceSidecar), section « Qui parle »), pas par nanobot. Ce que nanobot voit :
+
+| Qui | `session_id` | Début du message |
+|---|---|---|
+| Fonction éteinte, ou personne d'enregistré | `rux` | `(ton entendu : sad)` si besoin |
+| Paul reconnu | `rux-paul` | `(Paul parle, ton entendu : sad)` |
+| Inconnu | `rux-invite` | `(un invité parle)` |
+
+La mémoire reste une par workspace : `USER.md` a une section par personne (voir `workspace/SOUL.md` et `workspace/AGENTS.md`). Après une mise à jour, recopier ces deux fichiers dans `data/workspace/` puis `docker compose restart`.
+
+Vérifier côté nanobot qu'une session par personne existe :
+
+```bash
+# Les sessions sont dans une base SQLite, sous data/ mais hors du workspace.
+DB=$(find data -name sessions.sqlite3 | head -1)
+python3 -c "import sqlite3,sys; print([r[0] for r in sqlite3.connect(sys.argv[1]).execute('select key from sessions')])" "$DB"
+# attendu après une conversation : 'api:rux-paul'
+```

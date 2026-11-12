@@ -95,10 +95,22 @@ class LemonadeClient(
         private set
     var lastAudioConfidence: Double = 0.0
         private set
+    /** ONNX class before parse_label (e.g. disgusted, other). Same as lastAudioEmotion when they match. */
+    var lastAudioEmotionRaw: String = "neutral"
+        private set
+    var lastAudioRawConfidence: Double = 0.0
+        private set
+
+    /** Sidecar « qui parle » : Paul, Invité, ou vide si la fonction est éteinte. */
+    var lastSpeakerName: String = ""
+        private set
 
     fun transcribe(wav: ByteArray): String {
         lastAudioEmotion = "neutral"
         lastAudioConfidence = 0.0
+        lastAudioEmotionRaw = "neutral"
+        lastAudioRawConfidence = 0.0
+        lastSpeakerName = ""
         return transcribeCore(wav)
     }
 
@@ -122,6 +134,9 @@ class LemonadeClient(
         if (at < 0) return raw
         lastAudioEmotion = stringField(raw, "emotion") ?: "neutral"
         lastAudioConfidence = numberField(raw, "emotion_confidence") ?: 0.0
+        lastAudioEmotionRaw = stringField(raw, "emotion_raw") ?: lastAudioEmotion
+        lastAudioRawConfidence = numberField(raw, "emotion_raw_confidence") ?: lastAudioConfidence
+        lastSpeakerName = stringField(raw, "speaker_name") ?: ""
         // Whisper (Lemonade) wraps the text in a leading space and a trailing "\n".
         return unquote(raw.substring(at + marker.length).trimStart()).trim()
     }
@@ -316,6 +331,12 @@ class EmotionStt(
 ) : SpeechToText {
     var lastAudioAffect = com.geeui.voiceemo.Affect.UNKNOWN
         private set
+    /** Prénom reconnu par le sidecar pour la dernière phrase, vide sinon. */
+    val lastSpeakerName: String get() = sidecar.lastSpeakerName
+    val lastAudioEmotion: String get() = sidecar.lastAudioEmotion
+    val lastAudioConfidence: Double get() = sidecar.lastAudioConfidence
+    val lastAudioEmotionRaw: String get() = sidecar.lastAudioEmotionRaw
+    val lastAudioRawConfidence: Double get() = sidecar.lastAudioRawConfidence
 
     override fun transcribe(pcm16le: ByteArray, sampleRate: Int): String {
         val raw = sidecar.transcribe(pcm16le)

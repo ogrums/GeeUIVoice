@@ -11,6 +11,7 @@ object TextAffect {
         Emotion.FEAR to listOf("peur", "afraid", "fear", "effrayé", "effraye"),
         Emotion.SURPRISE to listOf("surprise", "surpris", "incroyable", "wow"),
         Emotion.HAPPY to listOf("content", "heureux", "heureuse", "happy", "joie", "super"),
+        Emotion.DISGUST to listOf("dégoût", "degout", "dégoûtant", "degoutant", "beurk", "disgust", "disgusting"),
     )
 
     fun of(text: String): Affect {

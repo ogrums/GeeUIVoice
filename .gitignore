@@ -8,3 +8,28 @@ local.properties
 
 # Rapports locaux de campagne
 sidecar/tests/reports/
+
+# Rapports et caches locaux de la campagne vocale
+tools/voicetest/out/
+tools/voicetest/wavs/_cache/
+
+tools/voicetest/__pycache__/
+
+# Audio des corpus émotionnels (CC BY-NC-SA, ne pas committer)
+tools/voicetest/wavs/cafe-*.wav
+tools/voicetest/wavs/ravdess-*.wav
+tools/voicetest/_datasets/
+tools/voicetest/phrases-cafe.json
+tools/voicetest/phrases-ravdess.json
+tools/voicetest/phrases-chain-fr.json
+tools/voicetest/phrases-emotion-real.json
+
+# Banc STT : audio, modèles, rapports, venv (rien de tout ça dans git)
+tools/sttbench/out/
+tools/sttbench/wavs/
+tools/sttbench/models/
+tools/sttbench/manifest.json
+tools/sttbench/.venv/
+tools/sttbench/__pycache__/
+tools/sttbench/tests/__pycache__/
+tools/sttbench/.hf-cache/
