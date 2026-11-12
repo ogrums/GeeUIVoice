@@ -39,6 +39,8 @@ FACE = {
     "fear": "h0133",
     "surprise": "h0046",
     "neutral": "h0059",
+    "disgust": "h0033",
+    "disgusted": "h0033",
 }
 VALENCE = {
     "happy": "pos",
@@ -46,7 +48,16 @@ VALENCE = {
     "sad": "neg",
     "angry": "neg",
     "fear": "neg",
+    "disgust": "neg",
+    "disgusted": "neg",
     "neutral": "neu",
+}
+# Sidecar keeps the ONNX class `disgusted`; older phrase files may still say `disgust`.
+LABEL_ALIASES = {
+    "disgust": "disgusted",
+    "disgusted": "disgusted",
+    "fearful": "fear",
+    "surprised": "surprise",
 }
 # Post-prosodie si Phonon n'a pas de style d'émotion (vitesse, gain, demi-tons).
 EMOTION_PROSODY = {
@@ -630,7 +641,7 @@ def judge(phrase, heard, reply, result, last_turn, mode, latency=None, reply_tra
             ok = (got_emo in ("", "neutral") or conf < 0.45)
             add("emotion2vec:%s" % expect_emo, ok, "audio=%s confiance=%.2f" % (got_emo or "?", conf))
         else:
-            exact = got_emo == expect_emo
+            exact = got_emo == expect_emo or LABEL_ALIASES.get(got_emo, got_emo) == LABEL_ALIASES.get(expect_emo, expect_emo)
             same = VALENCE.get(got_emo) == VALENCE.get(expect_emo) and got_emo != ""
             if exact:
                 add("emotion2vec:%s" % expect_emo, True, "confiance=%.2f" % conf)
