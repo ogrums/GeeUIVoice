@@ -41,8 +41,8 @@
     "emotion": "happy",
     "expect_heard": ["bonjour", "comment"],
     "expect_audio_emotion": "happy",
-    "expect_face_code": "h0006",
-    "notes": "Même phrase, débit plus vif et voix un peu plus aiguë. emotion2vec doit voir happy ; visage attendu h0006 si la fusion dépasse 0,45."
+    "expect_face_code": "h0020",
+    "notes": "Même phrase, débit plus vif et voix un peu plus aiguë. emotion2vec doit voir happy ; visage attendu h0020 快乐 si la fusion dépasse 0,45 (h0006 est le rire en X, réservé à 😂)."
   },
   {
     "id": "emotion-sad",

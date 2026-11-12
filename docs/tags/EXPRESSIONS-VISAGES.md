@@ -8,7 +8,8 @@ Les vidéos vivent dans l'app système GeeUIFace (`assets/video/<id>.mp4`). GeeU
 
 - `h0001` — colère
 - `h0002` — arrogance — bundlé pour l'ancienne nuance « laugh », plus mappée
-- `h0006` — grand rire — joyeux et nuance laugh
+- `h0006` — grand rire (yeux en X / XD) — nuance laugh seulement
+- `h0020` — joie — émotion joyeux et humeur joyeux
 - `h0010` — pleurs 1 — humeur triste
 - `h0027` — cœur — nuance love
 - `h0033` — refus / rejet — dégoût
@@ -38,7 +39,7 @@ Les six visages d'émotion d'origine (PR #15 et la série « Bundle the six emot
 
 | Rôle | Tag | Nom chinois | Traduction |
 |------|-----|-------------|------------|
-| joyeux | `h0006` | 大笑 | Grand rire |
+| joyeux | `h0020` | 快乐 | Joie |
 | triste | `h0119` | 哭泣 | Pleurs |
 | colère | `h0001` | 愤怒 | Colère |
 | peur | `h0133` | 害怕 | Peur |
@@ -54,7 +55,7 @@ Il n'existe pas de clip nommé 恶心 ou 厌恶 (dégoût). `h0033` 抗拒 (refu
 |------|-----|-------------|------------|
 | love (🥰😍😘❤💖💕💗) | `h0027` | 爱心 | Cœur |
 | heart (🫶) | `h0116` | 比心 | Cœur avec les doigts |
-| laugh (😂🤣😆😁) | `h0006` | 大笑 | Grand rire |
+| laugh (😂🤣😆😁) | `h0006` | 大笑 | Grand rire (yeux en X / XD) |
 | wink (😉😜) | `h0036` | 单眨眼 | Clin d'œil |
 | cry (😭) | `h0010` | 哭泣1 | Pleurs 1 |
 | thinking (🤔🧐) | `h0181` | 语音思考 | Réflexion vocale |
@@ -62,7 +63,7 @@ Il n'existe pas de clip nommé 恶心 ou 厌恶 (dégoût). `h0033` 抗拒 (refu
 | cold (🥶) | `h0051` | 发抖 | Tremblements |
 | hot (🥵) | `h0099` | 感到热 | A chaud |
 
-L'amour (`love`) pointe déjà vers `h0027` 爱心. Le rire des emoji 😂 utilisait `h0002` 傲慢 (arrogance, choisi d'après un geste « big win » de GeeUIFace) : on le rattache à `h0006` 大笑, déjà bundlé. Le clin d'œil utilisait `h0131` V5 (argot « impressionnant ») : on le rattache à `h0036` 单眨眼, désormais dans l'APK.
+L'amour (`love`) pointe déjà vers `h0027` 爱心. L'utilisateur a confirmé que `h0006` 大笑 montre les yeux en grand X un peu aplati (rire « XD »), pas un sourire : on le garde pour la nuance « laugh » (😂🤣😆😁), et on met l'émotion joyeux (`HAPPY`, `[happy]`, 😊🙂) sur `h0020` 快乐 (joie), présent dans GeeUIFace et désormais dans l'APK. Il n'existe pas de clip nommé 微笑, 开心 ou 高兴 ; `h0060` 笑容环 reste la boucle sourire de l'humeur « content » au repos, pas la réaction joyeux. Le clin d'œil utilisait `h0131` V5 : on le rattache à `h0036` 单眨眼.
 
 ### Humeur au repos (`RestFace`)
 
@@ -72,7 +73,7 @@ Les trois boucles d'attente du fabricant sont faites pour tourner à l'infini : 
 |------|-----|-------------|------------|
 | calme | `h0059` | 常规环 | Anneau au repos |
 | content | `h0060` | 笑容环 | Anneau sourire |
-| joyeux | `h0006` | 大笑 | Grand rire |
+| joyeux | `h0020` | 快乐 | Joie |
 | ennuyé | `h0042` | 左下斜 | Regard en bas à gauche |
 | boudeur | `h0058` | 皱眉环 | Anneau froncé |
 | triste | `h0010` | 哭泣1 | Pleurs 1 |
@@ -99,7 +100,7 @@ Les trois boucles d'attente du fabricant sont faites pour tourner à l'infini : 
 | `h0059` | 常规环 | Anneau au repos | Boucle d'attente neutre. Visage de repos par défaut (émotion neutre, humeur calme). |
 | `h0060` | 笑容环 | Anneau sourire | Boucle d'attente souriante. Humeur « content » au repos. |
 | `h0058` | 皱眉环 | Anneau froncé | Boucle d'attente sourcils froncés. Humeur « boudeur » au repos. À ne pas confondre avec le dégoût (h0033). |
-| `h0006` | 大笑 | Grand rire | Rire franc. Émotion joyeux (h0006) et nuance « laugh » des emoji 😂🤣. |
+| `h0006` | 大笑 | Grand rire (yeux en X / XD) ✓ vérifié par l'utilisateur | Les yeux forment un grand X un peu aplati, comme un rire « XD », pas un sourire. Nuance « laugh » (😂🤣). L'émotion joyeux utilise h0020 快乐. |
 | `h0027` | 爱心 | Cœur | Cœur à l'écran. Nuance « love » (🥰😍😘❤). |
 | `h0017` | 皱眉 | Froncement de sourcils | Sourcils froncés, une fois (pas la boucle h0058). |
 | `h0007` | 大小眼 | Yeux dépareillés | Un œil plus grand que l'autre. |
@@ -123,7 +124,7 @@ Les trois boucles d'attente du fabricant sont faites pour tourner à l'infini : 
 | `h0015` | 期待 | Attente | A hâte, attend quelque chose. |
 | `h0018` | 狂怒 | Rage | Colère plus forte que h0001. Non utilisée par l'app. |
 | `h0019` | 左右看 | Regard gauche-droite | Regarde de gauche à droite. |
-| `h0020` | 快乐 | Joie | Content, plus doux que le grand rire h0006. |
+| `h0020` | 快乐 | Joie | Visage de joie, plus doux que le rire en X de h0006. Émotion joyeux (HAPPY, [happy], 😊🙂) et humeur « joyeux » au repos. |
 | `h0021` | 无奈 | Résignation | Soupir, rien à faire. |
 | `h0022` | 无奈1 | Résignation 1 | Variante de h0021 无奈. |
 | `h0023` | 无奈2 | Résignation 2 | Variante de h0021 无奈. |
@@ -170,7 +171,7 @@ Les trois boucles d'attente du fabricant sont faites pour tourner à l'infini : 
 | `h0071` | 喷图 | Projection d'image ⚠️ traduction incertaine | Peut désigner un jet d'image, un sticker ou un « dump » visuel. |
 | `h0072` | 弹球 | Bille / flipper | Joue à la bille. |
 | `h0073` | 踢球 | Joue au foot | Animation ballon. |
-| `h0074` | 俄罗斯 | « Russie » ⚠️ traduction incertaine | Très probablement le jeu Tetris (俄罗斯方块), le nom est abrégé. |
+| `h0074` | 俄罗斯 | Tetris (occupé à jouer) ✓ vérifié par l'utilisateur | Le robot est occupé / en train de jouer à Tetris (俄罗斯方块). Suggestion pour un futur état « tâche longue / occupé » ; aujourd'hui l'attente STT/LLM reste h0181. |
 | `h0075` | 打字 | Tape au clavier | Animation dactylographie. |
 | `h0077` | 举铁 | Musculation | Soulève des poids. |
 | `h0078` | 更好自己 | Meilleure version de soi | Animation « améliorer » / coaching. |
@@ -305,7 +306,7 @@ Les trois boucles d'attente du fabricant sont faites pour tourner à l'infini : 
 | `h0207` | 奸笑2 | Rire narquois 2 | Variante de h0206. |
 | `h0208` | 右拽拽 | Attitude prétentieuse à droite | Air « je suis trop fort », côté droit. 拽 = fanfaron. |
 | `h0209` | 左拽拽 | Attitude prétentieuse à gauche | Air « je suis trop fort », côté gauche. |
-| `h0210` | 大笑 | Grand rire | Rire franc. Émotion joyeux (h0006) et nuance « laugh » des emoji 😂🤣. |
+| `h0210` | 大笑 | Grand rire | Même nom officiel que h0006. L'apparence en X / XD n'a été confirmée que pour h0006. Non utilisé par l'app. |
 | `h0211` | 伤心2 | Tristesse 2 | Autre visage triste. L'app garde h0119 哭泣. |
 | `h0212` | 弹吉他 | Joue de la guitare | Animation guitare. |
 | `h0213` | 不错 | Pas mal | Air satisfait, « pas mal ». |
@@ -399,11 +400,18 @@ Les trois boucles d'attente du fabricant sont faites pour tourner à l'infini : 
 | `h0301` | h0301 | Réservé (sans nom) | Identifiant vide dans la liste officielle, jusqu'à h0302. |
 | `h0302` | h0302 | Réservé (sans nom) | Identifiant vide dans la liste officielle, jusqu'à h0302. |
 
+
+## Vérifié par l'utilisateur
+
+| Tag | Nom chinois | Note |
+|-----|-------------|------|
+| `h0006` | 大笑 | Les yeux forment un grand X un peu aplati (rire « XD »), pas un sourire. Gardé pour 😂🤣, plus pour le joyeux simple. |
+| `h0074` | 俄罗斯 | Tetris : indique que le robot est occupé à jouer. Pas branché dans l'app (pas d'état « occupé à jouer » aujourd'hui ; l'attente STT/LLM reste `h0181`). |
+
 ## Traductions incertaines
 
 | Tag | Nom chinois | Traduction | Usage |
 |-----|-------------|------------|-------|
 | `h0005` | 芭比Q | « Barbie Q » (grillés) ⚠️ traduction incertaine | Argot : BBQ, « c'est mort / on est cuits ». |
 | `h0071` | 喷图 | Projection d'image ⚠️ traduction incertaine | Peut désigner un jet d'image, un sticker ou un « dump » visuel. |
-| `h0074` | 俄罗斯 | « Russie » ⚠️ traduction incertaine | Très probablement le jeu Tetris (俄罗斯方块), le nom est abrégé. |
 | `h0128` | Rock | Rock (pierre) ⚠️ traduction incertaine | Pierre du pierre-feuille-ciseaux, ou geste rock. |

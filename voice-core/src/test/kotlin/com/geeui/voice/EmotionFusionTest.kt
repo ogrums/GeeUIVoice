@@ -44,6 +44,6 @@ class EmotionFusionTest {
             pause = {},
         )
         session.onUserText("je suis content")
-        assertEquals("h0006", face)
+        assertEquals("h0020", face)
     }
 }

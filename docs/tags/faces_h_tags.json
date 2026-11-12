@@ -20,8 +20,9 @@
   {
     "cmd_tag": "h0006",
     "cmd_tag_name": "大笑",
-    "name_fr": "Grand rire",
-    "usage": "Rire franc. Émotion joyeux (h0006) et nuance « laugh » des emoji 😂🤣."
+    "name_fr": "Grand rire (yeux en X / XD)",
+    "usage": "Les yeux du robot forment un grand X un peu aplati, comme un rire « XD » les yeux plissés, pas un sourire. Vérifié par l'utilisateur. Nuance « laugh » des emoji 😂🤣😆😁. L'émotion joyeux simple ([happy], 😊) utilise plutôt h0020 快乐.",
+    "verified_by_user": true
   },
   {
     "cmd_tag": "h0027",
@@ -166,7 +167,7 @@
     "cmd_tag": "h0020",
     "cmd_tag_name": "快乐",
     "name_fr": "Joie",
-    "usage": "Content, plus doux que le grand rire h0006."
+    "usage": "Visage de joie, plus doux que le rire en X de h0006. Émotion joyeux (HAPPY, [happy], 😊🙂) et humeur « joyeux » au repos. Présent dans GeeUIFace et désormais dans l'APK."
   },
   {
     "cmd_tag": "h0021",
@@ -448,9 +449,9 @@
   {
     "cmd_tag": "h0074",
     "cmd_tag_name": "俄罗斯",
-    "name_fr": "« Russie »",
-    "usage": "Très probablement le jeu Tetris (俄罗斯方块), le nom est abrégé.",
-    "uncertain": true
+    "name_fr": "Tetris (occupé à jouer)",
+    "usage": "Indique que le robot est occupé / en train de jouer à Tetris (俄罗斯方块). Vérifié par l'utilisateur. Suggestion pour un futur état « tâche longue / occupé à jouer » ; l'app n'a pas cet état aujourd'hui (l'attente STT/LLM utilise déjà h0181 语音思考).",
+    "verified_by_user": true
   },
   {
     "cmd_tag": "h0075",
@@ -1261,7 +1262,7 @@
     "cmd_tag": "h0210",
     "cmd_tag_name": "大笑",
     "name_fr": "Grand rire",
-    "usage": "Rire franc. Émotion joyeux (h0006) et nuance « laugh » des emoji 😂🤣."
+    "usage": "Même nom officiel que h0006 (大笑). L'apparence en X / XD n'a été confirmée que pour h0006 ; h0210 n'est pas utilisé par l'app."
   },
   {
     "cmd_tag": "h0211",

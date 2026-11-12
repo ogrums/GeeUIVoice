@@ -49,7 +49,7 @@ RAV_EMO = {
     "05": "angry", "06": "fear", "07": "disgust", "08": "surprise",
 }
 FACE = {
-    "happy": "h0006", "sad": "h0119", "angry": "h0001",
+    "happy": "h0020", "sad": "h0119", "angry": "h0001",
     "fear": "h0133", "surprise": "h0046", "neutral": "h0059",
     "disgust": "h0033", "disgusted": "h0033", "calm": "h0059",
 }

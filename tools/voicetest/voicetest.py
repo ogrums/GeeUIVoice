@@ -33,7 +33,7 @@ RECEIVER = "com.geeui.voice/.TestWavReceiver"
 
 # Visages SdkMap (main), si la fusion dépasse le seuil 0,45.
 FACE = {
-    "happy": "h0006",
+    "happy": "h0020",
     "sad": "h0119",
     "angry": "h0001",
     "fear": "h0133",
