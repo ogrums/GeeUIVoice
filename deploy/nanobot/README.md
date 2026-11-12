@@ -167,6 +167,59 @@ Le sidecar ([GeeUIVoiceSidecar](https://github.com/ogrums/GeeUIVoiceSidecar), se
 
 et `NANOBOT_WORKSPACE=/nanobot-workspace` dans son `.env`. Adapter le chemin à l'emplacement réel du dossier `data/` de ce déploiement. En Docker rootless, le sidecar doit pouvoir lire ces fichiers (droits de lecture pour l'utilisateur du conteneur, uid 1000).
 
+
+## Souvenirs utiles
+
+Fichiers fournis dans `workspace/` :
+
+| Fichier | Rôle |
+|---|---|
+| `USER.md` | Une section `## Prénom` par personne (dates, goûts, habitudes) |
+| `memory/MEMORY.md` | « Faits de la maison » et « À suivre » (`- AAAA-MM-JJ | Prénom | sujet | quoi faire`, lu par le sidecar pour l'initiative) |
+| `prompts/dream.md` | Prompt de Dream : celui de nanobot (sans la partie skills) plus les « Règles de RUX » (ranger par personne, rien des invités, format « À suivre », ne pas réécrire ce qui a été oublié, pas de skill) |
+| `skills/oublie/SKILL.md` | « Oublie ça », « oublie que… », « oublie tout sur moi » (avec confirmation ; `[oubli:voix]` fait effacer l'empreinte vocale par le sidecar) |
+
+Installation, **sans écraser** une mémoire déjà remplie :
+
+```bash
+cd ~/nanobot   # dossier de ce déploiement
+cp -n workspace/USER.md data/workspace/USER.md
+mkdir -p data/workspace/memory data/workspace/prompts data/workspace/skills/oublie
+cp -n workspace/memory/MEMORY.md data/workspace/memory/MEMORY.md
+cp workspace/prompts/dream.md data/workspace/prompts/dream.md
+cp workspace/skills/oublie/SKILL.md data/workspace/skills/oublie/SKILL.md
+docker compose restart
+```
+
+Si `USER.md` ou `MEMORY.md` existent déjà, les remettre à la main dans la structure ci-dessus (titres `## Prénom`, `## Faits de la maison`, `## À suivre`).
+
+Le prompt de Dream remplacé est le texte de nanobot au commit lu (voir `docs/PERSONNALISATION.md`). Après une mise à jour de nanobot, comparer avec `/dream-prompt init` dans un workspace vide.
+
+Vérifier un Dream à la main (avec Qwen3) :
+
+```bash
+KEY=…   # NANOBOT_API_KEY
+for m in "/model lourd" "(Paul parle) J'ai un entretien d'embauche mardi chez Dupont." "/compact" "/dream"; do
+  curl -s http://127.0.0.1:8900/v1/chat/completions -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+    -d "{\"session_id\": \"rux-paul\", \"messages\": [{\"role\": \"user\", \"content\": \"$m\"}]}"; echo
+done
+cat data/workspace/memory/MEMORY.md   # attendu : - <mercredi> | Paul | entretien d'embauche chez Dupont | …
+```
+
+`/dream-log` montre le dernier changement, `/dream-restore` revient en arrière.
+
+### Effacement complet
+
+« Oublie » retire la ligne des fichiers de mémoire, mais le texte reste ailleurs : la conversation dans la base des sessions (`sessions.sqlite3`, rangée **hors** du workspace, sous `data/`), les résumés dans `memory/history.jsonl` et l'historique git du workspace (chaque Dream fait un commit). Attention, `/new` ne suffit pas : il archive la session dans `history.jsonl`. Pour un vrai effacement de Paul, sur nimbus (procédure à valider une première fois sur une copie) :
+
+```bash
+cd ~/nanobot && docker compose stop
+DB=$(find data -name sessions.sqlite3 | head -1)
+python3 -c "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute('PRAGMA foreign_keys=ON'); c.execute(\"delete from sessions where key='api:rux-paul'\"); c.commit()" "$DB"
+grep -v 'Paul' data/workspace/memory/history.jsonl > /tmp/h && mv /tmp/h data/workspace/memory/history.jsonl   # grossier : relire avant
+rm -rf data/workspace/.git                                  # perd /dream-log et /dream-restore
+docker compose start
+```
 ## Humeur de RUX (sidecar + app)
 
 Avec `ROBOT_MOOD_ENABLED=1` dans le `.env` du sidecar (section « Humeur de RUX » de son README), RUX a une humeur lente : contentement (compliments, conversations, ou « t'es nul ») et énergie (basse la nuit), ennui quand on ne lui parle plus pendant des heures en journée.
