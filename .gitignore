@@ -23,3 +23,13 @@ tools/voicetest/phrases-cafe.json
 tools/voicetest/phrases-ravdess.json
 tools/voicetest/phrases-chain-fr.json
 tools/voicetest/phrases-emotion-real.json
+
+# Banc STT : audio, modèles, rapports, venv (rien de tout ça dans git)
+tools/sttbench/out/
+tools/sttbench/wavs/
+tools/sttbench/models/
+tools/sttbench/manifest.json
+tools/sttbench/.venv/
+tools/sttbench/__pycache__/
+tools/sttbench/tests/__pycache__/
+tools/sttbench/.hf-cache/
