@@ -7,7 +7,7 @@ package com.geeui.voiceemo
  *
  * | key      | code  | official name / why                                       |
  * |----------|-------|-----------------------------------------------------------|
- * | happy    | h0006 | 大笑 (big laugh)                                          |
+ * | happy    | h0020 | 快乐 (joy). h0006 大笑 is an XD (eyes as a flat X), laugh |
  * | sad      | h0119 | 哭泣 (crying). h0211 is 伤心2, unused                     |
  * | angry    | h0001 | 愤怒 (anger). h0018 is 狂怒, stronger, unused             |
  * | fear     | h0133 | 害怕 (fear). Not the music screen h0134                   |
@@ -17,7 +17,7 @@ package com.geeui.voiceemo
  * | neutral  | h0059 | 常规环 (idle loop). Sister loops: h0060 笑容环, h0058    |
  * | love     | h0027 | 爱心 (heart)                                               |
  * | heart    | h0116 | 比心 (finger heart)                                        |
- * | laugh    | h0006 | 大笑, same clip as happy. Was h0002 傲慢 (arrogant)       |
+ * | laugh    | h0006 | 大笑, eyes as a flat X (XD). User-verified. Was h0002    |
  * | cry      | h0010 | 哭泣1 (crying, variant)                                    |
  * | thinking | h0181 | 语音思考 (voice thinking)                                  |
  * | sleepy   | h0039 | 睡觉 (sleeping)                                            |
@@ -27,7 +27,7 @@ package com.geeui.voiceemo
  */
 object FaceCodes {
     val EMOTION: Map<Emotion, String> = mapOf(
-        Emotion.HAPPY to "h0006",
+        Emotion.HAPPY to "h0020",
         Emotion.SAD to "h0119",
         Emotion.ANGRY to "h0001",
         Emotion.FEAR to "h0133",

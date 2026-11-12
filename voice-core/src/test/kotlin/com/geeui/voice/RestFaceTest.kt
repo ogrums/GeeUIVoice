@@ -22,7 +22,7 @@ class RestFaceTest {
     fun moodLabelsMapToFaces() {
         assertEquals(IDLE_FACE, RestFace.forMood("calme"))
         assertEquals("h0060", RestFace.forMood("content"))
-        assertEquals("h0006", RestFace.forMood("joyeux"))
+        assertEquals("h0020", RestFace.forMood("joyeux"))
         assertEquals("h0042", RestFace.forMood("ennuye"))
         assertEquals("h0058", RestFace.forMood("boudeur"))
         assertEquals("h0010", RestFace.forMood("triste"))

@@ -118,7 +118,7 @@ One pose is a face, an ear move, a light, an optional gesture, and an optional c
 
 | Emotion | Face | Ears | Light | Action | Sound |
 |---|---|---|---|---|---|
-| happy | `h0006` 大笑 | cmd 3, 2 steps, 250 ms, 60° | `YELLOW` | 77 yeah | `a0032` |
+| happy | `h0020` 快乐 | cmd 3, 2 steps, 250 ms, 60° | `YELLOW` | 77 yeah | `a0032` |
 | sad | `h0119` 哭泣 | cmd 1, 1 step, 500 ms, 40° | `BLUE` | 20 rest | `a0086` |
 | angry | `h0001` 愤怒 | cmd 2, 2 steps, 200 ms, 70° | `RED` | 15 stomp | `a0020` |
 | fear | `h0133` 害怕 | cmd 1, 1 step, 400 ms, 30° | `CYAN` | 44 dodge | `a0037` |
@@ -126,7 +126,7 @@ One pose is a face, an ear move, a light, an optional gesture, and an optional c
 | disgust | `h0033` 抗拒 | cmd 2, 1 step, 300 ms, 50° | `PURPLE` | 24 small shake | `a0033` |
 | neutral | `h0059` 常规环 | cmd 1, angle 0 | off | none | none |
 
-Mood half-life is 45 s. Audio emotion at or above 0.70 (configurable) takes priority over the LLM reply tag. The tag is only used when audio is neutral or below that threshold. A skill turn, such as "avance", must not also play this pose.
+`h0006` 大笑 (eyes as a flat X, an XD laugh, user-verified) stays the « laugh » nuance (😂), not the plain happy pose. Mood half-life is 45 s. Audio emotion at or above 0.70 (configurable) takes priority over the LLM reply tag. The tag is only used when audio is neutral or below that threshold. A skill turn, such as "avance", must not also play this pose.
 
 Other face ids that look like emotions but are not used:
 
@@ -152,7 +152,7 @@ Our own screen shows a face for each dialogue state. These ids come from the sto
 | mic capture (`hear`) | `h0180` | `getWakeupGesture`, `avatar.listening` | eyes, a `?` pops up |
 | STT and LLM (`think`, `talk` before audio) | `h0181` | `getUnderstandGesture`, `avatar.understanding` | eyes, a light bulb fades |
 | TTS playing, neutral reply | `h0292` | `getSpeakingGesture` | eyes and a moving mouth |
-| TTS playing, emotion reply | the pose face | | `h0006`, `h0119`, and the others from the table above |
+| TTS playing, emotion reply | the pose face | | `h0020`, `h0119`, and the others from the table above |
 | after the clip | the pose face, then `h0059` | | `standAtAttention` after a short 800 ms tail |
 
 `dialogueFace` picks the face. It only changes the local `TextureView`. It sends nothing on the bus, so `applyPose` and `standAtAttention` still own `controlFace`.

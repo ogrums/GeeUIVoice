@@ -50,7 +50,7 @@ class EmojiExpressionTest {
     @Test
     fun trailingEmojiBecomesTheHappyFaceAndIsNotSpoken() {
         val (face, said) = run(Pieces("Bonjour", " Olivier !", " \uD83D", "\uDE0A"))
-        assertEquals("h0006", face)
+        assertEquals("h0020", face)
         assertEquals("fr:Bonjour Olivier !", said)
     }
 
@@ -66,7 +66,7 @@ class EmojiExpressionTest {
         // Regression: a leading [happy] used to skip the emoji cue, and the tag
         // alone stayed under the old fusion threshold, so the face stayed h0059.
         val (face, said) = run(Pieces("[happy] ", "\uD83D\uDE04"))
-        assertEquals("h0006", face)
+        assertEquals("h0020", face)
         assertEquals("fr:", said) // only the emoji, stripped
     }
 

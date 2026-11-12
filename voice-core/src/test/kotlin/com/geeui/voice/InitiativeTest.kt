@@ -76,7 +76,7 @@ class InitiativeTest {
         val said = session.say("[happy] Bonjour Paul ! [rappel:2026-11-10T19:30|linge]")
         assertEquals("Bonjour Paul !", said)
         assertEquals(listOf("Bonjour Paul !"), tts.spoken)
-        assertTrue(bus.events.contains("face h0006"), bus.events.toString())
+        assertTrue(bus.events.contains("face h0020"), bus.events.toString())
     }
 
     @Test

@@ -67,8 +67,8 @@ class FaceHoldTest {
         val said = session.onUserText("bonjour")
         assertEquals("", said)
         assertTrue(tts.spoken.isEmpty())
-        assertTrue(bus.events.contains("face h0006"), bus.events.toString())
-        assertEquals("h0006", faceDuringSpeech(bus.faces))
+        assertTrue(bus.events.contains("face h0020"), bus.events.toString())
+        assertEquals("h0020", faceDuringSpeech(bus.faces))
     }
 
     @Test

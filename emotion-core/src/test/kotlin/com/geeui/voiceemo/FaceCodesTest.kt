@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 class FaceCodesTest {
     @Test
     fun emotionFacesMatchOfficialNames() {
-        assertEquals("h0006", FaceCodes.of(Emotion.HAPPY))   // 大笑
+        assertEquals("h0020", FaceCodes.of(Emotion.HAPPY))   // 快乐, not the XD laugh h0006
         assertEquals("h0119", FaceCodes.of(Emotion.SAD))     // 哭泣
         assertEquals("h0001", FaceCodes.of(Emotion.ANGRY))   // 愤怒
         assertEquals("h0133", FaceCodes.of(Emotion.FEAR))    // 害怕
