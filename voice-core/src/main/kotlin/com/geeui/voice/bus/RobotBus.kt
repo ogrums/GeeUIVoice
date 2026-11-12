@@ -42,9 +42,9 @@ fun RobotBus.applyPose(pose: SdkPose) {
 object PoseTiming {
     const val REST_AFTER_MS = 800L
 }
-/** Motion 0 is AT+MOVEW,0 (立正). The idle face is h0059. Angle 0 is rewritten to 90, so the ears come back to 15. */
+/** Motion 0 is AT+MOVEW,0 (立正). The rest face is RestFace.current (h0059, or the robot mood). Angle 0 is rewritten to 90, so the ears come back to 15. */
 fun RobotBus.standAtAttention() {
-    showFace("h0059")
+    showFace(RestFace.current)
     antennaLight(false, 0)
     ears(3, 1, 400, 15)
     controlMotion(0, 1, 1)
@@ -71,10 +71,10 @@ const val SPEAK_FACE = "h0292"
  * [mode] is VoiceHud.mode (hear, think, talk, idle). [playing] is true while the TTS clip plays.
  * [pose] is the face of the last pose (VoiceHud.face). An emotion face wins over the speaking
  * face, so the EmotionFusion reaction stays visible while the robot talks. Neutral or no pose
- * gets the mouth. After the clip, the pose face holds until standAtAttention puts h0059 back.
+ * gets the mouth. After the clip, the pose face holds until standAtAttention puts the rest face back.
  */
 fun dialogueFace(mode: String, playing: Boolean, pose: String): String {
-    val emotion = pose.isNotBlank() && pose != IDLE_FACE
+    val emotion = pose.isNotBlank() && !RestFace.isRest(pose)
     return when {
         playing -> if (emotion) pose else SPEAK_FACE
         mode == "hear" -> LISTEN_FACE

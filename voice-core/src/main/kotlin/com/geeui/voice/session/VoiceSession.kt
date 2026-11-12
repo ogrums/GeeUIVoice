@@ -156,6 +156,40 @@ class VoiceSession(
         return whole
     }
 
+    /**
+     * Initiative from the sidecar (reminder, follow-up): say [text] as is, with its leading
+     * emotion tag driving face and voice, without calling the LLM or the skills.
+     */
+    fun say(text: String): String {
+        state = Dialogue.Speaking
+        val tags = com.geeui.voiceemo.EmotionTagParser()
+        val head = tags.consume(text)
+        val whole = spoken(head.text + tags.finish().text)
+        val emotion = head.emotion
+        var moved = false
+        if (mood != null && emotion != com.geeui.voiceemo.Emotion.NEUTRAL) {
+            plan?.emotion = emotion.name.lowercase()
+            plan?.prosody = com.geeui.voiceemo.EmotionProsody.of(emotion, INITIATIVE_SCORE)
+            val pose = com.geeui.voiceemo.SdkMap.pose(emotion)
+            tts.whenAudible {
+                moved = true
+                bus.applyPose(pose)
+            }
+        }
+        if (whole.isNotEmpty()) tts.speak(whole, language)
+        if (moved) {
+            pause(PoseTiming.REST_AFTER_MS)
+            bus.standAtAttention()
+        }
+        plan?.prosody = com.geeui.voiceemo.Prosody.NEUTRAL
+        state = Dialogue.Idle
+        return whole
+    }
+
+    /** Kokoro reads '*' aloud. Keep letters, spaces and normal punctuation. */
+    private fun spoken(raw: String): String {
+        // Sidecar tags such as [rappel:2026-11-10T19:30|linge] are read by the sidecar, never spoken.
+        var s = raw.replace(Regex("\\[[a-zA-Z_]+:[^\\]\\n]{0,120}]"), "")
     /** Kokoro reads '*' and emoji aloud. Keep letters, spaces and normal punctuation. */
     private fun spoken(raw: String): String {
         var s = com.geeui.voiceemo.EmojiEmotion.strip(raw)
@@ -167,6 +201,7 @@ class VoiceSession(
     }
 
     private companion object {
+        const val INITIATIVE_SCORE = 0.7
         const val EMOJI_SCORE = 0.7
     }
 }

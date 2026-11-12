@@ -54,6 +54,8 @@ class VoiceLoop(
     cosyModel: String = CosyTts.MODEL,
     phonon: String = "",
     phononVoice: String = com.geeui.voice.engine.PhononTts.VOICE,
+    /** Ask the sidecar every 15 s, when idle, if the robot should speak first. */
+    private val initiative: Boolean = true,
 ) {
     private val appContext = audio
     private val client = LemonadeClient(
@@ -101,6 +103,34 @@ class VoiceLoop(
     )
     private val live = LiveTurn(vad, stt, tts, session)
     private val turns = Executors.newSingleThreadExecutor()
+    private val ticker = Executors.newSingleThreadScheduledExecutor()
+    private val poller = com.geeui.voice.session.InitiativePoller(
+        fetch = { httpGet(sidecar.trimEnd('/') + "/v1/robot/pending") },
+        ack = { id, status ->
+            httpPostJson(sidecar.trimEnd('/') + "/v1/robot/ack", "{\"id\":\"$id\",\"status\":\"$status\"}")
+        },
+        idle = {
+            running.get() && VoiceHud.mic && VoiceHud.mode == "idle" && !VoiceHud.playing &&
+                session.state == com.geeui.voice.session.Dialogue.Idle
+        },
+        say = { text ->
+            VoiceHud.heard = ""
+            VoiceHud.answer = text
+            VoiceHud.line = text
+            session.say(text)
+        },
+        onMood = { label -> restFace(label) },
+    )
+    /** Robot mood from the sidecar: change the rest face, and show it now if the robot is resting. */
+    private fun restFace(label: String) {
+        val rest = com.geeui.voice.bus.RestFace
+        val face = rest.forMood(label)
+        if (face == rest.current) return
+        val resting = VoiceHud.face.isBlank() || rest.isRest(VoiceHud.face)
+        rest.current = face
+        if (resting) bus.showFace(face)
+    }
+
     private val running = AtomicBoolean(false)
     private val wavTestBusy = AtomicBoolean(false)
     private val wavTest = WavTestTurn(stt, session, timingChat, tts)
@@ -131,6 +161,10 @@ class VoiceLoop(
             !wavTestBusy.get() && !VoiceHud.playing && System.currentTimeMillis() >= VoiceHud.hearAfter
         }
         live.worker = { job -> turns.execute(job) }
+        if (initiative && sidecar.isNotBlank()) {
+            // Same single worker as the turns: an initiative never overlaps a conversation.
+            ticker.scheduleWithFixedDelay({ turns.execute { poller.poll() } }, 15, 15, java.util.concurrent.TimeUnit.SECONDS)
+        }
         thread = Thread({
             val used = try {
                 client.resolveStt()
@@ -200,6 +234,7 @@ class VoiceLoop(
 
     fun stop() {
         running.set(false)
+        ticker.shutdownNow()
         tts.stop()
         VoiceHud.mode = "idle"
         thread?.join(500)
@@ -359,6 +394,31 @@ class VoiceLoop(
 
     companion object {
         private const val TEST_TAG = "GeeUIVoiceTest"
+    }
+}
+
+/** GET returning the body, or null on any error. Short timeouts: this runs while idle. */
+internal fun httpGet(url: String): String? = try {
+    val conn = URL(url).openConnection() as HttpURLConnection
+    conn.connectTimeout = 2_000
+    conn.readTimeout = 5_000
+    if (conn.responseCode in 200..299) conn.inputStream.use { String(it.readBytes(), Charsets.UTF_8) } else null
+} catch (_: Exception) {
+    null
+}
+
+internal fun httpPostJson(url: String, body: String) {
+    try {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 2_000
+        conn.readTimeout = 5_000
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+        conn.responseCode
+        conn.disconnect()
+    } catch (_: Exception) {
     }
 }
 

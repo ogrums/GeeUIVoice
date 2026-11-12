@@ -38,6 +38,8 @@ class VoiceService : Service() {
     private var phonon = ""
     private var phononVoice = com.geeui.voice.engine.PhononTts.VOICE
     private val vad = mutableMapOf<String, String?>()
+    /** Extra "initiative" = "0" coupe la lecture de /v1/robot/pending. */
+    private var initiative = true
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -83,10 +85,11 @@ class VoiceService : Service() {
                 phononVoice = it.trim().ifEmpty { com.geeui.voice.engine.PhononTts.VOICE }
             }
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
+            intent.getStringExtra("initiative")?.let { initiative = it.trim() !in setOf("0", "false", "non") }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
-                sidecar, cosyModel, phonon, phononVoice,
+                sidecar, cosyModel, phonon, phononVoice, initiative,
             )
             loop?.start()
             VoiceHud.running = true
