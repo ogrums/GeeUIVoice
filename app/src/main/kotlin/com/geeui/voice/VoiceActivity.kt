@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.os.Handler
@@ -63,6 +64,8 @@ class VoiceActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setTurnScreenOn(true)
+        if (Build.VERSION.SDK_INT >= 27) setShowWhenLocked(true)
         debug = debugLaunch(intent.getStringExtra("mode"), intent.getStringExtra("debug"))
         bus = AidlBus(this)
         // The robot ROM has no autofill service: AutofillManager throws a NullPointerException
@@ -508,6 +511,8 @@ class VoiceActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        setTurnScreenOn(true)
+        if (Build.VERSION.SDK_INT >= 27) setShowWhenLocked(true)
     }
 
     private fun send(action: String) {

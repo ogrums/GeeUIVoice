@@ -17,6 +17,7 @@ object VoiceSettings {
         "cosy" to HostConfig.COSY,
         "phonon" to "",
         "phonon_voice" to com.geeui.voice.engine.PhononTts.VOICE,
+        "listen_mode" to "auto",
     )
 
     private val labels = mapOf(
@@ -28,6 +29,7 @@ object VoiceSettings {
         "cosy" to "Modèle Cosy",
         "phonon" to "Phonon (vide = Kokoro)",
         "phonon_voice" to "Voix Phonon",
+        "listen_mode" to "Écoute (auto, wake, continuous)",
     )
 
     private val extras = mapOf(
@@ -39,6 +41,7 @@ object VoiceSettings {
         "cosy" to "cosy_model",
         "phonon" to "phonon",
         "phonon_voice" to "phonon_voice",
+        "listen_mode" to "listen_mode",
     )
 
     fun label(key: String): String = labels.getValue(key)

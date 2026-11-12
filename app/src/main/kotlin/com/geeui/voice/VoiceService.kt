@@ -40,6 +40,8 @@ class VoiceService : Service() {
     private val vad = mutableMapOf<String, String?>()
     /** Extra "initiative" = "0" coupe la lecture de /v1/robot/pending. */
     private var initiative = true
+    /** "auto" (default), "wake", or "continuous". */
+    private var listenMode = "auto"
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -86,10 +88,11 @@ class VoiceService : Service() {
             }
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
             intent.getStringExtra("initiative")?.let { initiative = it.trim() !in setOf("0", "false", "non") }
+            intent.getStringExtra("listen_mode")?.let { listenMode = it }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
-                sidecar, cosyModel, phonon, phononVoice, initiative,
+                sidecar, cosyModel, phonon, phononVoice, initiative, listenMode,
             )
             loop?.start()
             VoiceHud.running = true
