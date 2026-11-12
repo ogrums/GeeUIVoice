@@ -14,3 +14,12 @@ tools/voicetest/out/
 tools/voicetest/wavs/_cache/
 
 tools/voicetest/__pycache__/
+
+# Audio des corpus émotionnels (CC BY-NC-SA, ne pas committer)
+tools/voicetest/wavs/cafe-*.wav
+tools/voicetest/wavs/ravdess-*.wav
+tools/voicetest/_datasets/
+tools/voicetest/phrases-cafe.json
+tools/voicetest/phrases-ravdess.json
+tools/voicetest/phrases-chain-fr.json
+tools/voicetest/phrases-emotion-real.json

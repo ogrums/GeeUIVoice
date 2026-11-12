@@ -132,3 +132,25 @@ Chaque campagne écrit `tools/voicetest/out/campaign-AAAAMMJJ-HHMMSS/report.md` 
 ## Android 11 (robot actuel)
 
 `adb push` directement dans `/sdcard/Android/data/com.geeui.voice/…` échoue (`remote fchown : Operation not permitted`), et les fichiers écrits par l'app sont en mode 600 : `adb pull` et `adb shell cat` sont refusés. Le script pousse donc via `/data/local/tmp`, et l'app rend les résultats du hook lisibles (copie aussi dans `/data/local/tmp/geeui/`). En mode chaîne, on ignore `result.json` (il n'est écrit que par le hook WAV) et on lit `last-turn.json`.
+
+## Voix émotionnelles réelles (CaFE, RAVDESS)
+
+La post-prosodie Phonon (vitesse / volume / hauteur) ne trompe pas emotion2vec.
+Pour tester avec de vraies voix, utilisez deux corpus en **CC BY-NC-SA 4.0**
+(usage non commercial, citation obligatoire). **N'ajoutez pas l'audio au dépôt.**
+
+1. [CaFE](https://doi.org/10.5281/zenodo.1478765) (français canadien, à privilégier) — téléchargez `CaFE_48k.zip` (~187 Mo), version 1.1.
+2. [RAVDESS](https://doi.org/10.5281/zenodo.1188976) (anglais, parole seule) — `Audio_Speech_Actors_01-24.zip` (~208 Mo).
+
+```text
+python prepare_emotion_datasets.py --cafe-zip CaFE_48k.zip --ravdess-zip Audio_Speech_Actors_01-24.zip
+python voicetest.py --mode wav --suite emotion --phrases phrases-cafe.json --wav-dir wavs
+python voicetest.py --mode wav --suite emotion --phrases phrases-ravdess.json --wav-dir wavs
+python voicetest.py --mode chaine --suite emotion --phrases phrases-chain-fr.json --wav-dir wavs
+```
+
+Le script convertit un sous-ensemble (4 acteurs × émotions, intensité forte, une phrase)
+en WAV 16 kHz mono, et écrit un JSON de phrases **sans** champ `emotion` (sinon
+voicetest retoucherait la prosodie). L'acteur CaFE 07 (15 ans) est exclu.
+
+Citations : Gournay, Lahaie, Lefebvre, *A Canadian French Emotional Speech Dataset*, ACM MMSys 2018 ; Livingstone & Russo, *RAVDESS*, PLoS ONE 2018.
