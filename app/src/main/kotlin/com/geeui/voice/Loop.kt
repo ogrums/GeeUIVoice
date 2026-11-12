@@ -56,6 +56,7 @@ class VoiceLoop(
     phononVoice: String = com.geeui.voice.engine.PhononTts.VOICE,
     /** Ask the sidecar every 15 s, when idle, if the robot should speak first. */
     private val initiative: Boolean = true,
+    listenMode: String = "auto",
 ) {
     private val appContext = audio
     private val client = LemonadeClient(
@@ -110,7 +111,8 @@ class VoiceLoop(
             httpPostJson(sidecar.trimEnd('/') + "/v1/robot/ack", "{\"id\":\"$id\",\"status\":\"$status\"}")
         },
         idle = {
-            running.get() && VoiceHud.mic && VoiceHud.mode == "idle" && !VoiceHud.playing &&
+            // Initiative can speak at rest even when the mic is yielded to Lex.
+            running.get() && VoiceHud.mode == "idle" && !VoiceHud.playing &&
                 session.state == com.geeui.voice.session.Dialogue.Idle
         },
         say = { text ->
@@ -135,6 +137,17 @@ class VoiceLoop(
     private val wavTestBusy = AtomicBoolean(false)
     private val wavTest = WavTestTurn(stt, session, timingChat, tts)
     private var thread: Thread? = null
+    private val policy = com.geeui.voice.session.ListenPolicy(
+        com.geeui.voice.session.ListenPolicy.parseMode(listenMode),
+    )
+    private val wantMic = AtomicBoolean(false)
+    private val micGate = Object()
+    private val screenOn = ScreenOn(appContext)
+    @Volatile private var lexPaused = false
+    @Volatile private var lastWakeAt = 0L
+    private val speechCb = SpeechCallbackBinder { command, data ->
+        turns.execute { onLexSpeech(command, data) }
+    }
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
@@ -156,7 +169,10 @@ class VoiceLoop(
             writeLastTurn()
         }
         live.onListen = { VoiceHud.mode = "hear" }
-        live.onIdle = { VoiceHud.mode = "idle" }
+        live.onIdle = {
+            VoiceHud.mode = "idle"
+            policy.onTurnEnded()
+        }
         live.allowBargeIn = {
             !wavTestBusy.get() && !VoiceHud.playing && System.currentTimeMillis() >= VoiceHud.hearAfter
         }
@@ -165,6 +181,18 @@ class VoiceLoop(
             // Same single worker as the turns: an initiative never overlaps a conversation.
             ticker.scheduleWithFixedDelay({ turns.execute { poller.poll() } }, 15, 15, java.util.concurrent.TimeUnit.SECONDS)
         }
+        ticker.scheduleWithFixedDelay({
+            turns.execute {
+                val busy = wavTestBusy.get() || VoiceHud.playing ||
+                    session.state != com.geeui.voice.session.Dialogue.Idle
+                if (policy.onTick(busy = busy)) {
+                    VoiceHud.line = "repos (Hi RUX)"
+                    Log.i(TEST_TAG, "mic yielded after idle")
+                }
+                applyMic()
+            }
+        }, 500, 500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        hookLexWake()
         thread = Thread({
             val used = try {
                 client.resolveStt()
@@ -193,51 +221,155 @@ class VoiceLoop(
             if (min <= 0) {
                 VoiceHud.line = "micro refusé (taux 16 kHz)"
                 VoiceHud.mic = false
-                running.set(false)
-                return@Thread
-            }
-            val rec = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                rate,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                min.coerceAtLeast(frame * 4),
-            )
-            if (rec.state != AudioRecord.STATE_INITIALIZED) {
-                VoiceHud.line = "micro non initialisé (permission ou déjà pris)"
-                VoiceHud.mic = false
-                rec.release()
-                running.set(false)
                 return@Thread
             }
             val buf = ShortArray(frame)
-            try {
-                rec.startRecording()
-                VoiceHud.mic = true
-                while (running.get()) {
-                    val n = rec.read(buf, 0, frame)
-                    if (n == frame) {
-                        VoiceHud.level = levelOf(buf)
-                        live.onFrame(buf.copyOf())
+            while (running.get()) {
+                if (!wantMic.get()) {
+                    VoiceHud.mic = false
+                    VoiceHud.level = 0f
+                    resumeLexIfPaused()
+                    synchronized(micGate) {
+                        while (running.get() && !wantMic.get()) {
+                            try {
+                                micGate.wait(200)
+                            } catch (_: InterruptedException) {
+                                break
+                            }
+                        }
                     }
+                    continue
                 }
-            } finally {
+                val rec = AudioRecord(
+                    MediaRecorder.AudioSource.MIC,
+                    rate,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    min.coerceAtLeast(frame * 4),
+                )
+                if (rec.state != AudioRecord.STATE_INITIALIZED) {
+                    VoiceHud.line = "micro non initialisé (permission ou déjà pris)"
+                    VoiceHud.mic = false
+                    rec.release()
+                    // Retry after a short wait: Lex may still be releasing the device.
+                    synchronized(micGate) {
+                        try {
+                            micGate.wait(400)
+                        } catch (_: InterruptedException) {
+                        }
+                    }
+                    continue
+                }
                 try {
-                    rec.stop()
-                } catch (_: IllegalStateException) {
+                    rec.startRecording()
+                    VoiceHud.mic = true
+                    while (running.get() && wantMic.get()) {
+                        val n = rec.read(buf, 0, frame)
+                        if (n == frame) {
+                            VoiceHud.level = levelOf(buf)
+                            live.onFrame(buf.copyOf())
+                        }
+                    }
+                } finally {
+                    try {
+                        rec.stop()
+                    } catch (_: IllegalStateException) {
+                    }
+                    rec.release()
+                    VoiceHud.mic = false
+                    VoiceHud.level = 0f
+                    if (!wantMic.get()) resumeLexIfPaused()
                 }
-                rec.release()
-                VoiceHud.mic = false
             }
         }, "geeui-voice").also { it.start() }
+        applyMic()
     }
 
     fun stop() {
         running.set(false)
+        wantMic.set(false)
+        synchronized(micGate) { micGate.notifyAll() }
         ticker.shutdownNow()
         tts.stop()
         VoiceHud.mode = "idle"
         thread?.join(500)
+        (bus as? AidlBus)?.unregisterSpeechCallback()
+        resumeLexIfPaused()
+        screenOn.release()
+    }
+
+    private fun hookLexWake() {
+        val aidl = bus as? AidlBus ?: run {
+            policy.onCallbackAvailable(false)
+            return
+        }
+        aidl.onConnected = {
+            turns.execute { finishHook(aidl) }
+        }
+        if (aidl.connected()) {
+            turns.execute { finishHook(aidl) }
+        } else {
+            ticker.schedule({
+                turns.execute {
+                    if (!policy.resolved) {
+                        Log.i(TEST_TAG, "registerSpeechCallback timed out, fallback continuous")
+                        policy.onCallbackAvailable(false)
+                        applyMic()
+                    }
+                }
+            }, 3, java.util.concurrent.TimeUnit.SECONDS)
+        }
+    }
+
+    private fun finishHook(aidl: AidlBus) {
+        if (policy.resolved && policy.callbackAvailable) return
+        val ok = aidl.registerSpeechCallback(speechCb)
+        Log.i(TEST_TAG, "registerSpeechCallback=$ok")
+        policy.onCallbackAvailable(ok)
+        if (ok && policy.useWake) {
+            VoiceHud.line = "repos (Hi RUX)"
+        }
+        applyMic()
+    }
+
+    private fun onLexSpeech(command: String, data: String) {
+        Log.i(TEST_TAG, "LtpSpeech $command $data")
+        val wake = command.equals("wakeup_status", ignoreCase = true) ||
+            command.equals("wakeup_doa", ignoreCase = true)
+        if (!wake) return
+        val now = System.currentTimeMillis()
+        if (now - lastWakeAt < 800L) return
+        lastWakeAt = now
+        if (!policy.onWake()) return
+        VoiceHud.line = "Hi RUX"
+        VoiceHud.mode = "hear"
+        screenOn.turnOn()
+        (bus as? AidlBus)?.exitDarkScreen()
+        applyMic()
+    }
+
+    private fun applyMic() {
+        val hold = policy.shouldHoldMic()
+        if (hold == wantMic.get()) return
+        if (hold) {
+            (bus as? AidlBus)?.pauseLexAudio()
+            lexPaused = true
+            try {
+                Thread.sleep(200)
+            } catch (_: InterruptedException) {
+            }
+            wantMic.set(true)
+            synchronized(micGate) { micGate.notifyAll() }
+        } else {
+            wantMic.set(false)
+            synchronized(micGate) { micGate.notifyAll() }
+        }
+    }
+
+    private fun resumeLexIfPaused() {
+        if (!lexPaused) return
+        (bus as? AidlBus)?.resumeLexAudio()
+        lexPaused = false
     }
 
     private fun pingSidecar(base: String) {
