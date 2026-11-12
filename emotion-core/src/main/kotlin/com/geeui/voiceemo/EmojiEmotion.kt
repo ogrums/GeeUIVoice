@@ -37,6 +37,7 @@ object EmojiEmotion {
         put(Emotion.SURPRISE, "😮", "😲", "🤩", "😯", "😳", "🙀", "‼", "❗")
         put(Emotion.ANGRY, "😠", "😡", "🤬", "😤", "👿")
         put(Emotion.FEAR, "😨", "😱", "😰", "😧", "😦")
+        put(Emotion.DISGUST, "🤢", "🤮", "😖")
         put(Emotion.NEUTRAL, "🤔", "😐", "😶", "🙃", "😅", "🧐", "😴", "🥱", "🥵")
     }
 

@@ -109,6 +109,7 @@ class VoiceLoop(
     fun start() {
         if (!running.compareAndSet(false, true)) return
         live.onUserText = {
+            VoiceHud.clearFaceEvents()
             val who = stt.lastSpeakerName
             VoiceHud.heard = if (who.isBlank()) it else "$who : $it"
             VoiceHud.answer = ""
@@ -263,13 +264,20 @@ class VoiceLoop(
         }
         wavTestBusy.set(true)
         return try {
-            val result = wavTest.run(bytes, path, face = { VoiceHud.face }, audio = {
-                val a = stt.lastAudioAffect
-                com.geeui.voice.session.WavTestAudio(
-                    emotion = a.emotion.name.lowercase(),
-                    confidence = a.confidence.toDouble(),
-                )
-            })
+            VoiceHud.clearFaceEvents()
+            val result = wavTest.run(bytes, path,
+                face = { VoiceHud.faceDuringSpeech().ifBlank { VoiceHud.face } },
+                faces = { VoiceHud.faceEvents.toList() },
+                audio = {
+                    com.geeui.voice.session.WavTestAudio(
+                        emotion = stt.lastAudioEmotion.ifBlank { stt.lastAudioAffect.emotion.name.lowercase() },
+                        confidence = stt.lastAudioConfidence.takeIf { it > 0.0 }
+                            ?: stt.lastAudioAffect.confidence.toDouble(),
+                        raw = stt.lastAudioEmotionRaw,
+                        rawConfidence = stt.lastAudioRawConfidence,
+                    )
+                },
+            )
             val clip = copyLastTts(outDir)
             result.copy(ttsFile = clip)
         } finally {
@@ -316,15 +324,20 @@ class VoiceLoop(
         try {
             dir.mkdirs()
             val last = File(dir, "last-turn.json")
+            val facesJson = VoiceHud.faceEvents.joinToString(",", "[", "]") { it.toJson() }
             last.writeText(
                 "{" +
                     "\"heard\":${jsonStr(VoiceHud.heard)}," +
                     "\"answer\":${jsonStr(VoiceHud.answer)}," +
                     "\"face\":${jsonStr(VoiceHud.face)}," +
+                    "\"face_during_speech\":${jsonStr(VoiceHud.faceDuringSpeech())}," +
+                    "\"faces\":$facesJson," +
                     "\"line\":${jsonStr(VoiceHud.line)}," +
                     "\"mode\":${jsonStr(VoiceHud.mode)}," +
-                    "\"audio_emotion\":${jsonStr(stt.lastAudioAffect.emotion.name.lowercase())}," +
-                    "\"audio_confidence\":${stt.lastAudioAffect.confidence}" +
+                    "\"audio_emotion\":${jsonStr(stt.lastAudioEmotion.ifBlank { stt.lastAudioAffect.emotion.name.lowercase() })}," +
+                    "\"audio_confidence\":${stt.lastAudioConfidence.takeIf { it > 0.0 } ?: stt.lastAudioAffect.confidence.toDouble()}," +
+                    "\"audio_emotion_raw\":${jsonStr(stt.lastAudioEmotionRaw)}," +
+                    "\"audio_emotion_raw_confidence\":${stt.lastAudioRawConfidence}" +
                     "}\n",
             )
             publishForAdb(last)

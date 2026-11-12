@@ -102,10 +102,9 @@ class CosyRouteTest {
         assertEquals(0, cosy.calls)
         assertEquals(1, kokoro.calls)
         assertTrue(bus.events.none { it.startsWith("motion 77") })
-        assertEquals(
-            listOf("face h0059", "light off", "ears 3 1 400 15", "motion 0 1 1"),
-            bus.events.takeLast(4),
-        )
+        // Neutral reply: no emotion pose, so no rest / standAtAttention either.
+        assertTrue(bus.events.none { it == "face h0006" })
+        assertTrue(bus.faces.none { it.face != "h0059" && it.face.isNotBlank() })
     }
 
     @Test

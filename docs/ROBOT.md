@@ -123,9 +123,10 @@ One pose is a face, an ear move, a light, an optional gesture, and an optional c
 | angry | `h0001` 愤怒 | cmd 2, 2 steps, 200 ms, 70° | `RED` | 15 stomp | `a0020` |
 | fear | `h0133` 害怕 | cmd 1, 1 step, 400 ms, 30° | `CYAN` | 44 dodge | `a0037` |
 | surprise | `h0046` 惊讶 | cmd 3, 1 step, 150 ms, 90° | `WHITE` | 76 nod | `a0095` |
+| disgust | `h0033` 抗拒 | cmd 2, 1 step, 300 ms, 50° | `PURPLE` | 24 small shake | none |
 | neutral | `h0059` 常规环 | cmd 1, angle 0 | off | none | none |
 
-Mood half-life is 45 s. A tie between the audio vote and the text vote (gap under 0.15) stays neutral. A skill turn, such as "avance", must not also play this pose.
+Mood half-life is 45 s. Audio emotion at or above 0.70 (configurable) takes priority over the LLM reply tag. The tag is only used when audio is neutral or below that threshold. A skill turn, such as "avance", must not also play this pose.
 
 Other face ids that look like emotions but are not used:
 
@@ -152,7 +153,7 @@ Our own screen shows a face for each dialogue state. These ids come from the sto
 | STT and LLM (`think`, `talk` before audio) | `h0181` | `getUnderstandGesture`, `avatar.understanding` | eyes, a light bulb fades |
 | TTS playing, neutral reply | `h0292` | `getSpeakingGesture` | eyes and a moving mouth |
 | TTS playing, emotion reply | the pose face | | `h0006`, `h0119`, and the others from the table above |
-| after the clip | the pose face, then `h0059` | | `standAtAttention` after 3 s |
+| after the clip | the pose face, then `h0059` | | `standAtAttention` after a short 800 ms tail |
 
 `dialogueFace` picks the face. It only changes the local `TextureView`. It sends nothing on the bus, so `applyPose` and `standAtAttention` still own `controlFace`.
 

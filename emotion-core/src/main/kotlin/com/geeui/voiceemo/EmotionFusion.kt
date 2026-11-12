@@ -1,37 +1,53 @@
 package com.geeui.voiceemo
 
 /**
- * Single source of truth for reaction fusion on the robot.
- * Audio emotion (from the gateway transcription response) weighs 0.6, the LLM
- * reply tag from [EmotionTagParser] weighs 0.4 (confidence 1.0 when a tag was
- * present, 0 otherwise). Best score below 0.45 yields neutral; non-neutral
- * reactions are suppressed for [cooldownMs] after the last one.
+ * Picks the emotion that drives the face and the voice for one reply.
+ *
+ * Audio above [audioThreshold] (default 0.70) wins outright: the LLM tag is ignored.
+ * The tag is only used when audio is neutral or below the threshold. A non-neutral
+ * result is held for [cooldownMs] so two close turns do not flip the face twice.
  */
 class EmotionFusion(
-    private val cooldownMs: Long = 4_000L,
-    private val clock: () -> Long = System::currentTimeMillis,
+    private val clock: () -> Long = { System.currentTimeMillis() },
+    val audioThreshold: Double = AUDIO_THRESHOLD,
+    private val cooldownMs: Long = COOLDOWN_MS,
 ) {
-    data class Result(val emotion: Emotion, val score: Double)
+    private var lastReactionAt = 0L
 
-    private var lastReactionAt: Long? = null
-
-    @Synchronized
-    fun fuse(audioEmotion: Emotion, audioConfidence: Double, textEmotion: Emotion, textTagPresent: Boolean): Result {
-        val scores = HashMap<Emotion, Double>()
-        scores.merge(audioEmotion, AUDIO_WEIGHT * audioConfidence.coerceIn(0.0, 1.0), Double::plus)
-        scores.merge(textEmotion, TEXT_WEIGHT * (if (textTagPresent) 1.0 else 0.0), Double::plus)
-        val best = scores.maxByOrNull { it.value }!!
-        if (best.value < THRESHOLD || best.key == Emotion.NEUTRAL) return Result(Emotion.NEUTRAL, best.value)
+    fun fuse(
+        audioEmotion: Emotion,
+        audioConfidence: Double,
+        textEmotion: Emotion,
+        textTagPresent: Boolean,
+    ): Result {
+        val audioConf = audioConfidence.coerceIn(0.0, 1.0)
+        val result = when {
+            audioEmotion != Emotion.NEUTRAL && audioConf >= audioThreshold ->
+                Result(audioEmotion, audioConf)
+            textTagPresent && textEmotion != Emotion.NEUTRAL ->
+                Result(textEmotion, TEXT_SCORE)
+            else ->
+                Result(Emotion.NEUTRAL, audioConf)
+        }
+        if (result.emotion == Emotion.NEUTRAL) return result
         val now = clock()
-        val last = lastReactionAt
-        if (last != null && now - last < cooldownMs) return Result(Emotion.NEUTRAL, best.value)
+        if (lastReactionAt != 0L && now - lastReactionAt < cooldownMs) {
+            return Result(Emotion.NEUTRAL, result.score)
+        }
         lastReactionAt = now
-        return Result(best.key, best.value)
+        return result
     }
 
+    data class Result(val emotion: Emotion, val score: Double)
+
     companion object {
-        const val AUDIO_WEIGHT = 0.6
-        const val TEXT_WEIGHT = 0.4
-        const val THRESHOLD = 0.45
+        /** Audio confidence at which the microphone vote overrides the LLM tag. */
+        const val AUDIO_THRESHOLD = 0.70
+        /** Score given to a text tag when it is used (audio missing or below threshold). */
+        const val TEXT_SCORE = 0.70
+        const val COOLDOWN_MS = 4_000L
+
+        /** Kept as an alias of [AUDIO_THRESHOLD] for callers that still name it THRESHOLD. */
+        const val THRESHOLD = AUDIO_THRESHOLD
     }
 }

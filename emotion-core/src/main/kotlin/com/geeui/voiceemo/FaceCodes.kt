@@ -4,13 +4,17 @@ package com.geeui.voiceemo
  * Face videos h0xxx.mp4 already on the robot (GeeUIFace app/src/main/assets/video).
  * Codes are picked from how GeeUIFace's GestureCenter uses them; edit here to taste.
  *
- * | key      | code  | where GeeUIFace uses it                                   |
+ * | key      | code  | where GeeUIFace uses it / why we picked it                |
  * |----------|-------|-----------------------------------------------------------|
  * | happy    | h0006 | wakeupSpeak, foundOwner, win                              |
  * | sad      | h0119 | existing app choice (HandsGestureCenter, unlabeled)       |
  * | angry    | h0001 | getWakeupFennuGesture (愤怒 = anger)                      |
  * | fear     | h0133 | existing app choice (gun hand gesture)                    |
  * | surprise | h0046 | existing app choice (youPinGestures, unlabeled)           |
+ * | disgust  | h0033 | 抗拒 (refuse / reject). Closest unused clip to disgust:   |
+ * |          |       | a rejection, not the rage of h0001 愤怒, and not the     |
+ * |          |       | mild frowned idle ring h0058 皱眉环 (same family as the  |
+ * |          |       | idle face h0059). See GeeUIVoiceEmo/docs/FACES.md.      |
  * | neutral  | h0059 | idle / standby                                            |
  * | love     | h0027 | MCUCommandConsts.COMMAND_VALUE_LOVE                       |
  * | heart    | h0116 | hands gesture 比心 (finger heart)                          |
@@ -29,6 +33,7 @@ object FaceCodes {
         Emotion.ANGRY to "h0001",
         Emotion.FEAR to "h0133",
         Emotion.SURPRISE to "h0046",
+        Emotion.DISGUST to "h0033",
         Emotion.NEUTRAL to "h0059",
     )
 

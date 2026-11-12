@@ -1,5 +1,6 @@
 package com.geeui.voice.session
 
+import com.geeui.voice.bus.IDLE_FACE
 import com.geeui.voice.bus.RobotBus
 import com.geeui.voice.bus.PoseTiming
 import com.geeui.voice.bus.applyPose
@@ -11,6 +12,7 @@ import com.geeui.voice.engine.TtsPlan
 import com.geeui.voice.skill.SkillLexicon
 import com.geeui.voice.skill.SkillRouter
 import com.geeui.voiceemo.Affect
+import com.geeui.voiceemo.Emotion
 import com.geeui.voiceemo.EmotionPipeline
 import com.geeui.voiceemo.EmotionTurn
 import com.geeui.voiceemo.Mood
@@ -52,11 +54,11 @@ class VoiceSession(
         val answer = StringBuilder()
         val tags = com.geeui.voiceemo.EmotionTagParser()
         var tagged = false
-        var replyEmotion = com.geeui.voiceemo.Emotion.NEUTRAL
+        var replyEmotion = Emotion.NEUTRAL
         var nuanceFace: String? = null
         fun delta(piece: String) {
             val parsed = tags.consume(piece)
-            if (parsed.emotion != com.geeui.voiceemo.Emotion.NEUTRAL) {
+            if (parsed.emotion != Emotion.NEUTRAL) {
                 tagged = true
                 replyEmotion = parsed.emotion
             }
@@ -70,66 +72,82 @@ class VoiceSession(
             delta(chat.reply(text))
             answer.append(tags.finish().text)
         }
-        // An emoji (nanobot: "… 😊") is an explicit face cue when the reply has no [tag].
-        // A nuance tag ([love], [laugh]…) is as explicit as an emoji and is shown the same way.
-        val tagCue = nuanceFace != null
-        val cue = if (tagged || tagCue) null
-        else com.geeui.voiceemo.EmojiEmotion.cue(answer.toString())
-        if (cue?.face != null) nuanceFace = cue.face
-        val emoji = (if (tagCue) replyEmotion else cue?.emotion)
-            ?.takeIf { it != com.geeui.voiceemo.Emotion.NEUTRAL }
-        if (emoji != null) {
+        // Always look at a trailing emoji, even when a [happy] tag is already present.
+        // Previously a leading tag skipped the cue, and a tag alone stayed under the
+        // fusion threshold, so a reply like "[happy] 😄" left the face at h0059.
+        val cue = com.geeui.voiceemo.EmojiEmotion.cue(answer.toString())
+        if (cue?.face != null && nuanceFace == null) nuanceFace = cue.face
+        if (!tagged && cue != null) {
             tagged = true
-            replyEmotion = emoji
+            if (cue.emotion != Emotion.NEUTRAL) replyEmotion = cue.emotion
         }
         val whole = spoken(answer.toString())
         var moved = false
         if (mood != null) {
-            val fused = fusion?.fuse(audioAffect().emotion, audioAffect().confidence.toDouble(),
-                replyEmotion, tagged)
-            // A text tag alone (0.4) stays under the fusion threshold; an emoji is shown anyway.
-            val reaction = if (emoji != null && fused != null && fused.emotion == com.geeui.voiceemo.Emotion.NEUTRAL) {
-                com.geeui.voiceemo.EmotionFusion.Result(emoji, EMOJI_SCORE)
-            } else {
-                fused
+            val fused = fusion?.fuse(
+                audioAffect().emotion,
+                audioAffect().confidence.toDouble(),
+                replyEmotion,
+                tagged,
+            )
+            // Emoji (or a tag when fusion is missing) still shows a face if audio did not win.
+            val reaction = when {
+                fused != null && fused.emotion != Emotion.NEUTRAL -> fused
+                cue != null && cue.emotion != Emotion.NEUTRAL ->
+                    com.geeui.voiceemo.EmotionFusion.Result(cue.emotion, EMOJI_SCORE)
+                tagged && replyEmotion != Emotion.NEUTRAL && fused == null ->
+                    com.geeui.voiceemo.EmotionFusion.Result(replyEmotion, EMOJI_SCORE)
+                else -> fused
             }
             val base = EmotionPipeline.turn(
                 say = whole,
-                audio = if (reaction == null) audioAffect() else com.geeui.voiceemo.Affect(
+                audio = if (reaction == null) audioAffect() else Affect(
                     reaction.emotion,
                     reaction.score.toFloat().coerceIn(0f, 1f),
                 ),
                 // Fusion is the single arbiter; avoid a second Arbiter.merge pass.
                 text = when {
                     reaction != null -> Affect.UNKNOWN
-                    emoji != null -> Affect(emoji, EMOJI_SCORE.toFloat())
+                    cue != null && cue.emotion != Emotion.NEUTRAL ->
+                        Affect(cue.emotion, EMOJI_SCORE.toFloat())
                     else -> TextAffect.of(text)
                 },
                 mood = mood,
                 now = now(),
                 sidecarOkAt = sidecarOkAt(),
             )
-            // 🥰 / 😂 / 🤔 or [love] / [laugh] / [thinking]: a finer face, when the shown
-            // emotion is still the one the cue implies (fusion may override it).
-            val nuance = nuanceFace
-            val nuanceEmotion = com.geeui.voiceemo.FaceCodes.NUANCE.values.firstOrNull { it.second == nuance }?.first
-            val turn = if (nuance != null && base.pose.faceId == com.geeui.voiceemo.FaceCodes.of(nuanceEmotion ?: base.mood.emotion)) {
-                base.copy(pose = base.pose.copy(faceId = nuance))
-            } else {
-                base
+            // The fused (or emoji) emotion drives the face, not a diluted mood leftover.
+            val poseEmotion = when {
+                reaction != null && reaction.emotion != Emotion.NEUTRAL -> reaction.emotion
+                else -> if (base.mood.confidence >= 0.25f) base.mood.emotion else Emotion.NEUTRAL
             }
+            var pose = com.geeui.voiceemo.SdkMap.pose(poseEmotion)
+            val nuance = nuanceFace
+            val nuanceEmotion = com.geeui.voiceemo.FaceCodes.NUANCE.values
+                .firstOrNull { it.second == nuance }?.first
+            // A finer face (🥰 😂 🤔 or [love]…) when audio did not pick a different emotion.
+            if (nuance != null && (poseEmotion == Emotion.NEUTRAL || poseEmotion == nuanceEmotion || nuanceEmotion == null)) {
+                pose = pose.copy(faceId = nuance)
+            }
+            val turn = base.copy(pose = pose)
             plan?.engine = turn.engine
-            plan?.emotion = turn.mood.emotion.name.lowercase()
-            // Same fused emotion that drives the face also bends the voice.
+            plan?.emotion = poseEmotion.name.lowercase()
             plan?.prosody = if (reaction == null) com.geeui.voiceemo.Prosody.NEUTRAL
             else com.geeui.voiceemo.EmotionProsody.of(reaction.emotion, reaction.score)
             onEmotion?.invoke(turn)
-            tts.whenAudible {
+            // Apply the pose now, not only when TTS becomes audible: a reply that is
+            // only an emoji has nothing to speak, so whenAudible would never fire.
+            if (pose.faceId != IDLE_FACE) {
+                bus.applyPose(pose)
                 moved = true
-                bus.applyPose(turn.pose)
+            }
+            tts.whenAudible {
+                if (pose.faceId != IDLE_FACE) bus.applyPose(pose)
             }
         }
         if (whole.isNotEmpty()) tts.speak(whole, language)
+        // Hold the emotion face for the whole clip (speak is blocking) plus a short
+        // tail, then rest. Do not start the rest timer at the beginning of speech.
         if (moved) {
             pause(PoseTiming.REST_AFTER_MS)
             bus.standAtAttention()

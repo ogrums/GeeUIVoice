@@ -644,7 +644,14 @@ def judge(phrase, heard, reply, result, last_turn, mode, latency=None, reply_tra
     expect_face = phrase.get("expect_face_code") or ""
     if phrase.get("expect_face") and not expect_face:
         expect_face = "*"
-    face = (result.get("tags") or {}).get("face") or (last_turn or {}).get("face") or ""
+    face = (
+        result.get("face_during_speech")
+        or (result.get("tags") or {}).get("face")
+        or (last_turn or {}).get("face_during_speech")
+        or (last_turn or {}).get("face")
+        or ""
+    )
+    face_events = result.get("faces") or (last_turn or {}).get("faces") or []
     if expect_face == "*":
         add("visage", bool(face) and face != "h0059", "face=%s" % (face or "aucun"))
     elif expect_face:
@@ -653,7 +660,7 @@ def judge(phrase, heard, reply, result, last_turn, mode, latency=None, reply_tra
             ok = face in ("", "h0059")
         else:
             ok = face == expect_face
-        add("visage:%s" % expect_face, ok, "face=%s (fusion si confiance audio ≥ 0,45)" % (face or "aucun"))
+        add("visage:%s" % expect_face, ok, "face=%s pendant la parole (audio ≥ 0,70 prioritaire ; événements=%s)" % (face or "aucun", face_events or "—"))
 
     tag_emo = (result.get("tags") or {}).get("emotion") or ""
     if expect_emo and tag_emo:
@@ -766,7 +773,9 @@ def run_chaine_mode(phrase, wav, args, shot_dir):
             "emotion": last_turn.get("audio_emotion") or "",
             "confidence": last_turn.get("audio_confidence") or 0,
         },
-        "tags": {"face": last_turn.get("face") or ""},
+        "tags": {"face": last_turn.get("face_during_speech") or last_turn.get("face") or ""},
+        "face_during_speech": last_turn.get("face_during_speech") or "",
+        "faces": last_turn.get("faces") or [],
     }
     heard = result["transcript"]
     reply = result["reply"]
@@ -831,11 +840,16 @@ def write_report(campaign, dest_json, dest_md):
         audio = (row.get("result") or {}).get("audio") or {}
         tags = (row.get("result") or {}).get("tags") or {}
         if audio or tags:
-            a("- emotion2vec : %s (confiance %s) ; balise réponse : %s ; visage : %s ; actions : %s" % (
+            faces = (row.get("result") or {}).get("faces") or (row.get("last_turn") or {}).get("faces") or []
+            during = (row.get("result") or {}).get("face_during_speech") or (row.get("last_turn") or {}).get("face_during_speech") or tags.get("face") or "—"
+            raw = audio.get("raw") or (row.get("last_turn") or {}).get("audio_emotion_raw") or ""
+            a("- emotion2vec : %s (confiance %s%s) ; balise réponse : %s ; visage pendant la parole : %s ; événements : %s ; actions : %s" % (
                 audio.get("emotion") or "?",
                 audio.get("confidence") if audio else "?",
+                (", raw %s %.2f" % (raw, float((audio.get("raw_confidence") or (row.get("last_turn") or {}).get("audio_emotion_raw_confidence") or 0)))) if raw else "",
                 tags.get("emotion") or "—",
-                tags.get("face") or "—",
+                during,
+                faces or "—",
                 ", ".join(tags.get("actions") or []) or "—",
             ))
         timings = (row.get("result") or {}).get("timings_ms") or {}
@@ -930,11 +944,18 @@ def main(argv=None):
                     "emotion": last_turn.get("audio_emotion") or "",
                     "confidence": last_turn.get("audio_confidence") or 0,
                 })
+                result.setdefault("face_during_speech", last_turn.get("face_during_speech") or "")
+                result.setdefault("faces", last_turn.get("faces") or [])
                 result.setdefault("tags", {
-                    "face": last_turn.get("face") or "",
+                    "face": last_turn.get("face_during_speech") or last_turn.get("face") or "",
                     "emotion": "",
                     "actions": [],
                 })
+                if last_turn.get("audio_emotion_raw"):
+                    result.setdefault("audio", {})
+                    if isinstance(result.get("audio"), dict):
+                        result["audio"].setdefault("raw", last_turn.get("audio_emotion_raw"))
+                        result["audio"].setdefault("raw_confidence", last_turn.get("audio_emotion_raw_confidence") or 0)
             row["result"] = result
             row["last_turn"] = last_turn
             row["heard"] = heard

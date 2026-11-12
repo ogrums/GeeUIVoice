@@ -51,10 +51,10 @@ RAV_EMO = {
 FACE = {
     "happy": "h0006", "sad": "h0119", "angry": "h0001",
     "fear": "h0133", "surprise": "h0046", "neutral": "h0059",
-    "disgust": "h0059", "calm": "h0059",
+    "disgust": "h0033", "disgusted": "h0033", "calm": "h0059",
 }
-# Sidecar parse_label ne connaît pas disgust ; calm → neutral côté app.
-APP_EXPECT = {"calm": "neutral", "disgust": "disgust"}
+# Sidecar keeps the ONNX label `disgusted` (face h0033 抗拒). calm → neutral.
+APP_EXPECT = {"calm": "neutral", "disgust": "disgusted"}
 SENTENCES_FR = {
     "1": ("Un cheval fou dans mon jardin", ["cheval", "jardin"]),
 }

@@ -41,6 +41,8 @@ data class WavTestTags(
 data class WavTestAudio(
     val emotion: String = "",
     val confidence: Double = 0.0,
+    val raw: String = "",
+    val rawConfidence: Double = 0.0,
 )
 
 data class WavTestTimings(
@@ -61,6 +63,8 @@ data class WavTestResult(
     val timings: WavTestTimings = WavTestTimings(),
     val ttsFile: String = "",
     val error: String? = null,
+    val faces: List<FaceEvent> = emptyList(),
+    val faceDuringSpeech: String = "",
 ) {
     fun toJson(): String = buildString {
         append("{\n")
@@ -76,7 +80,9 @@ data class WavTestResult(
         append("  },\n")
         append("  \"audio\": {\n")
         append("    \"emotion\": ").append(q(audio.emotion)).append(",\n")
-        append("    \"confidence\": ").append(audio.confidence).append("\n")
+        append("    \"confidence\": ").append(audio.confidence).append(",\n")
+        append("    \"raw\": ").append(q(audio.raw)).append(",\n")
+        append("    \"raw_confidence\": ").append(audio.rawConfidence).append("\n")
         append("  },\n")
         append("  \"timings_ms\": {\n")
         append("    \"stt\": ").append(timings.stt).append(",\n")
@@ -84,6 +90,8 @@ data class WavTestResult(
         append("    \"tts_first_audio\": ").append(timings.ttsFirstAudio).append(",\n")
         append("    \"total\": ").append(timings.total).append("\n")
         append("  },\n")
+        append("  \"faces\": [").append(faces.joinToString(", ") { it.toJson() }).append("],\n")
+        field("face_during_speech", faceDuringSpeech)
         field("tts_file", ttsFile)
         append("  \"error\": ").append(if (error == null) "null" else q(error)).append("\n")
         append("}\n")
@@ -117,7 +125,7 @@ internal fun q(value: String): String = buildString {
     append('"')
 }
 
-private val EMOTIONS = setOf("happy", "sad", "angry", "fear", "surprise", "neutral")
+private val EMOTIONS = setOf("happy", "sad", "angry", "fear", "surprise", "disgust", "neutral")
 private val TAG = Regex("\\[([^\\]]{1,80})]")
 
 /** Emotion tag at the start, other [tags] as actions (rappel, oubli, marche…). */
@@ -151,6 +159,7 @@ class WavTestTurn(
         path: String = "",
         face: () -> String = { "" },
         audio: () -> WavTestAudio = { WavTestAudio() },
+        faces: () -> List<FaceEvent> = { emptyList() },
     ): WavTestResult {
         chat.reset()
         tts.reset()
@@ -190,13 +199,15 @@ class WavTestTurn(
                 timings = WavTestTimings(stt = sttMs, total = now() - t0),
             )
         }
+        val shown = try { faces() } catch (_: Exception) { emptyList() }
+        val during = faceDuringSpeech(shown).ifBlank { face() }
         return WavTestResult(
             ok = true,
             path = path,
             transcript = transcript,
             reply = reply,
             rawReply = chat.raw,
-            tags = extractTags(chat.raw, face()),
+            tags = extractTags(chat.raw, during),
             audio = heardAudio,
             timings = WavTestTimings(
                 stt = sttMs,
@@ -204,6 +215,8 @@ class WavTestTurn(
                 ttsFirstAudio = tts.firstAudioMs() ?: 0,
                 total = now() - t0,
             ),
+            faces = shown,
+            faceDuringSpeech = during,
         )
     }
 }

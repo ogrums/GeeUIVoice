@@ -93,8 +93,12 @@ class WavTestTurnTest {
         assertTrue(json.contains("\"first_token\":"))
         assertTrue(json.contains("\"tts_first_audio\":"))
         assertTrue(json.contains("\"audio\":"), json)
+        assertTrue(json.contains("\"faces\":"), json)
+        assertTrue(json.contains("\"face_during_speech\":"), json)
         assertEquals("happy", result.audio.emotion)
         assertEquals(0.82, result.audio.confidence)
+        assertTrue(json.contains("\"faces\":"), json)
+        assertTrue(json.contains("face_during_speech"), json)
         assertFalse(result.reply.contains("[happy]"), "spoken reply must not include the emotion tag")
         assertTrue(result.rawReply.contains("[happy]"), result.rawReply)
     }
