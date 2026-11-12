@@ -58,8 +58,8 @@ class WavTestTurnTest {
 
     @Test
     fun extractEmotionAndActionTags() {
-        val tags = extractTags("[happy] Bonjour ! [rappel:boire] 😊", face = "h0006")
-        assertEquals("h0006", tags.face)
+        val tags = extractTags("[happy] Bonjour ! [rappel:boire] 😊", face = "h0020")
+        assertEquals("h0020", tags.face)
         assertEquals("happy", tags.emotion)
         assertEquals(listOf("rappel:boire"), tags.actions)
     }
@@ -77,13 +77,13 @@ class WavTestTurnTest {
             now = tick(1000L),
         )
         val wav = pcm16ToWav(ShortArray(320) { 1000 }, 16_000)
-        val result = turn.run(wav, path = "/sdcard/geeui/bonjour.wav", face = { "h0006" }, audio = { com.geeui.voice.session.WavTestAudio("happy", 0.82) })
+        val result = turn.run(wav, path = "/sdcard/geeui/bonjour.wav", face = { "h0020" }, audio = { com.geeui.voice.session.WavTestAudio("happy", 0.82) })
         assertTrue(result.ok)
         assertEquals("bonjour", result.transcript)
         assertTrue(result.reply.contains("Bonjour"), result.reply)
         assertFalse(result.reply.contains("[happy]"), result.reply)
         assertEquals("happy", result.tags.emotion)
-        assertEquals("h0006", result.tags.face)
+        assertEquals("h0020", result.tags.face)
         assertEquals(listOf("rappel:boire"), result.tags.actions)
         assertTrue(result.timings.total >= 0)
         val json = result.toJson()
