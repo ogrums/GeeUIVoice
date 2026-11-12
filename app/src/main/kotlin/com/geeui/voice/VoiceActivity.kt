@@ -26,7 +26,6 @@ import android.widget.TextView
 import java.io.File
 import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
-import com.geeui.voice.bus.IDLE_FACE
 import com.geeui.voice.bus.PoseTiming
 import com.geeui.voice.bus.bundledFace
 import com.geeui.voice.bus.dialogueFace
@@ -55,7 +54,7 @@ class VoiceActivity : Activity() {
     private val refresh = object : Runnable {
         override fun run() {
             if (debug) paintDebug()
-            val pose = VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
+            val pose = VoiceHud.face.ifBlank { if (debug) "" else com.geeui.voice.bus.RestFace.current }
             val face = if (debug && pose.isBlank()) "" else dialogueFace(VoiceHud.mode, VoiceHud.playing, pose)
             if (face.isNotBlank() && face != shownFace) playFace(face)
             handler.postDelayed(this, 120)
@@ -104,7 +103,7 @@ class VoiceActivity : Activity() {
         if (debug) {
             VoiceHud.line = "micro coupé"
         } else {
-            if (VoiceHud.face.isBlank()) VoiceHud.face = IDLE_FACE
+            if (VoiceHud.face.isBlank()) VoiceHud.face = com.geeui.voice.bus.RestFace.current
             askMic()
         }
     }

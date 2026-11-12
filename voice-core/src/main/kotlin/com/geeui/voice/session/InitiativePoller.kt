@@ -16,6 +16,7 @@ class InitiativePoller(
     private val ack: (id: String, status: String) -> Unit,
     private val idle: () -> Boolean,
     private val say: (String) -> Unit,
+    private val onMood: (String) -> Unit = {},
 ) {
     /** Returns the item spoken, or null. Never throws: a network error just means nothing to say. */
     fun poll(): Initiative? {
@@ -25,6 +26,12 @@ class InitiativePoller(
         } catch (_: Exception) {
             null
         } ?: return null
+        parseMood(raw)?.let { label ->
+            try {
+                onMood(label)
+            } catch (_: Exception) {
+            }
+        }
         val item = parse(raw).firstOrNull() ?: return null
         if (!idle()) {
             safeAck(item.id, "skipped")
@@ -53,6 +60,8 @@ class InitiativePoller(
             while (true) {
                 val open = raw.indexOf('{', i)
                 if (open < 0) break
+                // Stop at the end of the items array: "mood" and other fields come after it.
+                if (raw.substring(i, open).contains(']')) break
                 val close = objectEnd(raw, open)
                 if (close < 0) break
                 val obj = raw.substring(open, close + 1)
@@ -64,6 +73,17 @@ class InitiativePoller(
                 i = close + 1
             }
             return out
+        }
+
+        /** The robot mood label ({"mood":{"label":"boudeur",…}}), or null when the sidecar sends none. */
+        fun parseMood(raw: String): String? {
+            val at = raw.indexOf("\"mood\"")
+            if (at < 0) return null
+            val open = raw.indexOf('{', at)
+            if (open < 0) return null
+            val close = objectEnd(raw, open)
+            if (close < 0) return null
+            return field(raw.substring(open, close + 1), "label")?.takeIf { it.isNotBlank() }
         }
 
         private fun field(obj: String, key: String): String? {
