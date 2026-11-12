@@ -220,3 +220,21 @@ grep -v 'Paul' data/workspace/memory/history.jsonl > /tmp/h && mv /tmp/h data/wo
 rm -rf data/workspace/.git                                  # perd /dream-log et /dream-restore
 docker compose start
 ```
+## Humeur de RUX (sidecar + app)
+
+Avec `ROBOT_MOOD_ENABLED=1` dans le `.env` du sidecar (section « Humeur de RUX » de son README), RUX a une humeur lente : contentement (compliments, conversations, ou « t'es nul ») et énergie (basse la nuit), ennui quand on ne lui parle plus pendant des heures en journée.
+
+- nanobot reçoit « (humeur de RUX : un peu boudeur) » en début de message quand l'humeur n'est pas ordinaire. Voir `workspace/SOUL.md`.
+- L'app lit `mood.label` dans `/v1/robot/pending` (interrogé toutes les 15 s au repos, avec l'initiative activée) et change le visage au repos :
+
+| Humeur | Visage | Vidéo |
+|---|---|---|
+| calme | h0059 | yeux neutres (par défaut) |
+| content | h0063 | petit sourire |
+| joyeux | h0006 | grand sourire |
+| ennuye | h0042 | regarde à gauche et à droite |
+| boudeur | h0119 | moue |
+| triste | h0010 | larmes |
+| fatigue | h0039 | yeux qui se ferment |
+
+La voix et les gestes ne changent pas encore avec l'humeur : à décider après l'avoir vue sur le robot.
