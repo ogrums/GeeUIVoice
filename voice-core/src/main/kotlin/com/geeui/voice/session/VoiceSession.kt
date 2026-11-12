@@ -186,13 +186,11 @@ class VoiceSession(
         return whole
     }
 
-    /** Kokoro reads '*' aloud. Keep letters, spaces and normal punctuation. */
+    /** Kokoro reads '*' and emoji aloud. Keep letters, spaces and normal punctuation. */
     private fun spoken(raw: String): String {
         // Sidecar tags such as [rappel:2026-11-10T19:30|linge] are read by the sidecar, never spoken.
         var s = raw.replace(Regex("\\[[a-zA-Z_]+:[^\\]\\n]{0,120}]"), "")
-    /** Kokoro reads '*' and emoji aloud. Keep letters, spaces and normal punctuation. */
-    private fun spoken(raw: String): String {
-        var s = com.geeui.voiceemo.EmojiEmotion.strip(raw)
+        s = com.geeui.voiceemo.EmojiEmotion.strip(s)
         s = s.replace(Regex("\\[([^\\]]+)]\\([^)]*\\)")) { it.groupValues[1] }
         s = s.replace(Regex("(?m)^#{1,6}\\s*"), "")
         s = s.replace(Regex("[*_`~]+"), "")
