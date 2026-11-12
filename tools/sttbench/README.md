@@ -118,7 +118,7 @@ Vosk grand (`vosk-model-fr-0.22`, 1,4 Go, Apache-2.0) est optionnel. Éviter `vo
 
 ## Résultats déjà obtenus (box, 12 nov. 2026)
 
-Voir [BOX-RESULTS.md](BOX-RESULTS.md). En résumé, sur 78 clips CaFE (4 acteurs adultes, 6 phrases + variations ffmpeg), **Parakeet TDT 0.6B v3 int8** (sherpa-onnx, CC-BY-4.0) fait 19,3 % de WER, contre 39,4 % pour faster-whisper small, 46,8 % pour Vosk small FR, 57,6 % / 95 % pour Whisper base / tiny. Lemonade et Kyutai n'ont pas été mesurés (nimbus injoignable). Les temps de la box **ne sont pas** ceux de nimbus.
+Voir [NIMBUS-RESULTS.md](NIMBUS-RESULTS.md) (nimbus, 12 nov. 2026) et [BOX-RESULTS.md](BOX-RESULTS.md) (box CPU, temps non comparables). En résumé box, sur 78 clips CaFE (4 acteurs adultes, 6 phrases + variations ffmpeg), **Parakeet TDT 0.6B v3 int8** (sherpa-onnx, CC-BY-4.0) fait 19,3 % de WER, contre 39,4 % pour faster-whisper small, 46,8 % pour Vosk small FR, 57,6 % / 95 % pour Whisper base / tiny. Lemonade et Kyutai n'ont pas été mesurés (nimbus injoignable). Les temps de la box **ne sont pas** ceux de nimbus.
 
 faster-whisper est appelé avec `condition_on_previous_text=False` (tours isolés du robot) et un chargement PCM via `wave`+numpy, pour éviter un conflit PyAV 19 (`metadata_errors`).
 
