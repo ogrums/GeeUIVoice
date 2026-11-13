@@ -128,4 +128,94 @@ class ListenPolicyTest {
         now += 1
         assertTrue(p.onTick())
     }
+
+    @Test
+    fun onlyListeningStatusOrDoaIsAWake() {
+        val p = policy()
+        p.onCallbackAvailable(true)
+        val silence = p.considerWake("wakeup_status", "avatar.silence")
+        assertFalse(silence.accepted)
+        assertEquals("avatar.silence", silence.reason)
+        assertFalse(p.shouldHoldMic())
+
+        val other = p.considerWake("something_else", "avatar.listening")
+        assertFalse(other.accepted)
+        assertEquals("not-wake", other.reason)
+
+        val listening = p.considerWake("wakeup_status", "avatar.listening")
+        assertTrue(listening.accepted)
+        assertEquals("accepted", listening.reason)
+        assertTrue(p.shouldHoldMic())
+    }
+
+    @Test
+    fun wakeupDoaIsAcceptedWithoutListeningData() {
+        val p = policy()
+        p.onCallbackAvailable(true)
+        val v = p.considerWake("wakeup_doa", "left")
+        assertTrue(v.accepted)
+        assertTrue(p.shouldHoldMic())
+    }
+
+    @Test
+    fun wakeupStatusIsIgnoredForTwoSecondsAfterLexResume() {
+        val p = policy()
+        p.onCallbackAvailable(true)
+        p.onLexResumed()
+        now += 1_999
+        val early = p.considerWake("wakeup_status", "avatar.listening")
+        assertFalse(early.accepted)
+        assertEquals("post-resume", early.reason)
+        assertFalse(p.shouldHoldMic())
+        now += 1
+        val late = p.considerWake("WAKEUP_STATUS", "avatar.listening")
+        assertTrue(late.accepted)
+        assertTrue(p.shouldHoldMic())
+    }
+
+    @Test
+    fun wakeupDoaIsStillAcceptedDuringTheResumeWindow() {
+        val p = policy()
+        p.onCallbackAvailable(true)
+        p.onLexResumed()
+        now += 300
+        val v = p.considerWake("wakeup_doa", "")
+        assertTrue(v.accepted)
+        assertTrue(p.shouldHoldMic())
+    }
+
+    @Test
+    fun considerWakeReportsWhenWakeModeIsOff() {
+        val p = policy(ListenMode.CONTINUOUS)
+        p.onCallbackAvailable(true)
+        val v = p.considerWake("wakeup_status", "avatar.listening")
+        assertFalse(v.accepted)
+        assertEquals("wake-mode-off", v.reason)
+    }
+
+    @Test
+    fun postWakeFramesAreDroppedForTheTrimWindow() {
+        val p = policy()
+        p.onCallbackAvailable(true)
+        assertFalse(p.shouldDropFrame())
+        p.considerWake("wakeup_status", "avatar.listening")
+        // Trim starts only when the recorder is actually running.
+        assertFalse(p.shouldDropFrame())
+        p.beginPostWakeTrim()
+        assertTrue(p.shouldDropFrame())
+        now += ListenPolicy.POST_WAKE_TRIM_MS - 1
+        assertTrue(p.shouldDropFrame())
+        now += 1
+        assertFalse(p.shouldDropFrame())
+    }
+
+    @Test
+    fun beginPostWakeTrimIsANoOpWithoutAWake() {
+        val p = policy()
+        p.onCallbackAvailable(true)
+        p.beginPostWakeTrim()
+        assertFalse(p.shouldDropFrame())
+        now += 10
+        assertFalse(p.shouldDropFrame())
+    }
 }
