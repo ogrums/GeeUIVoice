@@ -126,7 +126,7 @@ On peut lire et corriger ces fichiers à la main sur nimbus. « Oublie ça » à
 - **`SOUL.md`** : la personnalité de RUX, sa façon de parler (phrases courtes, pas de markdown) et la balise d'émotion au début, mot pour mot comme `FRENCH_EMOTION_SYSTEM_PROMPT` dans l'app. Il remplace le prompt écrit dans l'app.
 - **`AGENTS.md`** : les balises d'action autorisées. Elles sont séparées de la soul, parce que Dream peut retoucher `SOUL.md`.
 - **Skills** : `skills/<nom>/SKILL.md`, avec un `name` et une `description` en en-tête. nanobot ne met que les descriptions dans le prompt. Le skill intégré `skill-creator` permet d'en créer à la voix : « apprends à faire le réveil du matin ». Le robot relit le skill en une phrase et demande confirmation avant de l'enregistrer.
-- **Admin** : pour commencer, on modifie les fichiers à la main. La WebUI de nanobot (port 8765) demande de lancer aussi son `gateway`, à voir plus tard.
+- **Admin** : on peut encore modifier les fichiers à la main dans `deploy/nanobot/data/workspace/`. La WebUI de nanobot (port 8765) est servie par le second service Compose, `nanobot-rux-gateway` (`nanobot gateway`). Elle s'ouvre sur `http://nimbus:8765` avec le mot de passe `NANOBOT_WEB_TOKEN` du `.env`. L'API du robot reste sur `127.0.0.1:8900`. Détail du déploiement, de l'auth et du partage de workspace : `deploy/nanobot/README.md`.
 
 ## 7. Actions du robot
 
@@ -149,7 +149,7 @@ Règles appliquées par l'app, pas par le modèle :
 
 ## 8. Sécurité
 
-- nanobot tourne en Docker, en utilisateur non root, sans capacités Linux. Son API n'écoute que sur la boucle locale de nimbus, avec une clé.
+- nanobot tourne en Docker, en utilisateur non root, sans capacités Linux. Son API n'écoute que sur la boucle locale de nimbus, avec une clé. La WebUI écoute sur le port 8765 du réseau local, derrière le mot de passe `NANOBOT_WEB_TOKEN` ; le `/health` du gateway (port 18790, non authentifié) reste en boucle locale.
 - Pas de shell (`tools.exec.enable: false`), pas de web, fichiers limités au workspace. Les skills qui ont besoin du shell (github, tmux, clawhub…) sont désactivés.
 - Serveurs MCP ajoutés un par un, avec `enabledTools` pour ne garder que les outils voulus.
 - Pas de skills téléchargés (ClawHub désactivé).

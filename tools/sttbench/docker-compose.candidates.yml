@@ -1,0 +1,64 @@
+# Conteneurs TEMPORAIRES pour le banc STT, à lancer seulement sur un port libre.
+# Ne JAMAIS publier 8080, 8880, 8900, 13305, 13306, 49112 (services déjà là).
+# Ne pas arrêter pockettts-server, kyutai, ni le nanobot de bob.
+#
+# Exemple, depuis ce dossier, sur nimbus en tant que grokbot :
+#   docker compose -f docker-compose.candidates.yml --profile vosk up -d --build
+#   python sttbench.py run --manifest manifest.json --engine vosk-http --out out/nimbus.json
+#   docker compose -f docker-compose.candidates.yml --profile vosk down
+#   # puis supprimer les modèles téléchargés si on veut laisser le disque propre
+#
+# Les images se construisent à partir de Dockerfile.candidate (Python slim + moteur).
+# Par défaut network_mode: host, comme le sidecar, pour joindre les WAV locaux.
+
+services:
+  stt-vosk-fr:
+    profiles: ["vosk"]
+    build:
+      context: .
+      dockerfile: Dockerfile.candidate
+      args:
+        EXTRA_PIP: "vosk"
+    command: >
+      python serve.py --port 13310 --engine-json
+      '{"id":"vosk-small-fr","kind":"vosk","model_path":"/models/vosk-model-small-fr-0.22","license":"Apache-2.0"}'
+    volumes:
+      - ./models:/models:ro
+    network_mode: host
+    restart: "no"
+
+  stt-faster-whisper-small:
+    profiles: ["fw-small"]
+    build:
+      context: .
+      dockerfile: Dockerfile.candidate
+      args:
+        EXTRA_PIP: "faster-whisper"
+    command: >
+      python serve.py --port 13311 --engine-json
+      '{"id":"fw-small","kind":"faster-whisper","model":"small","language":"fr","compute_type":"int8","device":"cpu","license":"MIT"}'
+    volumes:
+      - ./models:/models
+      - hf-cache:/root/.cache/huggingface
+    network_mode: host
+    restart: "no"
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+
+  stt-parakeet:
+    profiles: ["parakeet"]
+    build:
+      context: .
+      dockerfile: Dockerfile.candidate
+      args:
+        EXTRA_PIP: "sherpa-onnx numpy"
+    command: >
+      python serve.py --port 13312 --engine-json
+      '{"id":"parakeet-tdt-0.6b-v3","kind":"sherpa-onnx","sherpa":"nemo","encoder":"/models/parakeet/encoder.int8.onnx","decoder":"/models/parakeet/decoder.int8.onnx","joiner":"/models/parakeet/joiner.int8.onnx","tokens":"/models/parakeet/tokens.txt","license":"CC-BY-4.0"}'
+    volumes:
+      - ./models:/models:ro
+    network_mode: host
+    restart: "no"
+
+volumes:
+  hf-cache:

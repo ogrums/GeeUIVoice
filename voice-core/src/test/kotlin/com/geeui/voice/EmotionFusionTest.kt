@@ -23,6 +23,7 @@ class EmotionFusionTest {
             mood = mood,
             onEmotion = { turns += it },
             now = { 0L },
+            pause = {},
         )
         session.onUserText("avance")
         assertTrue(turns.isEmpty())
@@ -40,8 +41,9 @@ class EmotionFusionTest {
             mood = mood,
             onEmotion = { face = it.pose.faceId },
             now = { 1_000L },
+            pause = {},
         )
         session.onUserText("je suis content")
-        assertEquals("h0006", face)
+        assertEquals("h0020", face)
     }
 }

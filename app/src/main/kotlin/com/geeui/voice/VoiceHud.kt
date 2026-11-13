@@ -16,4 +16,18 @@ object VoiceHud {
     @Volatile var running: Boolean = false
     /** Face id to play, h0006 and the others. Empty until a pose starts. */
     @Volatile var face: String = ""
+
+    /** Every showFace of the current turn, with timestamps. Cleared at the start of a turn. */
+    val faceEvents = java.util.concurrent.CopyOnWriteArrayList<com.geeui.voice.session.FaceEvent>()
+
+    fun recordFace(id: String, atMs: Long = System.currentTimeMillis()) {
+        face = id
+        faceEvents += com.geeui.voice.session.FaceEvent(id, atMs)
+    }
+
+    fun clearFaceEvents() {
+        faceEvents.clear()
+    }
+
+    fun faceDuringSpeech(): String = com.geeui.voice.session.faceDuringSpeech(faceEvents)
 }

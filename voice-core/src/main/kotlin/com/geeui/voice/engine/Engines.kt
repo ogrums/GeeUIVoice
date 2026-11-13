@@ -29,6 +29,9 @@ interface ClipTts : TextToSpeech {
 
 interface Chat {
     fun reply(userText: String): String
+
+    /** One JPEG for the next turn only (vision on demand). Ignored by text-only chats. */
+    fun attachImage(jpeg: ByteArray) {}
 }
 
 /** Optional. [VoiceSession] speaks each clause as it arrives. */
@@ -57,3 +60,7 @@ class FixedChat : Chat {
     override fun reply(userText: String): String =
         "Je n'ai pas encore de modèle. Tu as dit : $userText"
 }
+
+/** Largest JPEG size not wider than [maxWidth] (else the smallest one): enough to read a page, small enough to send fast. */
+fun pickJpegSize(sizes: List<Pair<Int, Int>>, maxWidth: Int): Pair<Int, Int>? =
+    sizes.filter { it.first <= maxWidth }.maxByOrNull { it.first * it.second } ?: sizes.minByOrNull { it.first * it.second }

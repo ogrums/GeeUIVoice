@@ -51,4 +51,38 @@ class LiveTurnTest {
         live.onFrame(ShortArray(320) { 4000 })
         assertTrue(stopped)
     }
+
+    @Test
+    fun emptyTranscriptIsNotATurn() {
+        val tts = EchoTts()
+        var replies = 0
+        val chat = object : com.geeui.voice.engine.Chat {
+            override fun reply(userText: String): String {
+                replies += 1
+                return "réponse"
+            }
+        }
+        val session = VoiceSession(RecordingBus(), tts, chat)
+        val heard = mutableListOf<String>()
+        var idle = 0
+        val live = LiveTurn(
+            EnergyVad(),
+            object : SpeechToText {
+                override fun transcribe(pcm16le: ByteArray, sampleRate: Int) = "   "
+            },
+            tts,
+            session,
+            onUserText = { heard += it },
+            onIdle = { idle += 1 },
+        )
+        val loud = ShortArray(320) { 4000 }
+        val quiet = ShortArray(320)
+        repeat(5) { live.onFrame(quiet) }
+        repeat(15) { live.onFrame(loud) }
+        repeat(30) { live.onFrame(quiet) }
+        assertEquals(0, replies)
+        assertEquals(emptyList(), heard)
+        assertEquals(1, idle)
+        assertTrue(tts.spoken.isEmpty())
+    }
 }
