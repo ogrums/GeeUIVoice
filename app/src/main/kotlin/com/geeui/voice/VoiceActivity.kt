@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.os.Handler
@@ -26,7 +27,6 @@ import android.widget.TextView
 import java.io.File
 import android.text.TextUtils
 import com.geeui.voice.engine.CosyTts
-import com.geeui.voice.bus.IDLE_FACE
 import com.geeui.voice.bus.PoseTiming
 import com.geeui.voice.bus.bundledFace
 import com.geeui.voice.bus.dialogueFace
@@ -55,7 +55,7 @@ class VoiceActivity : Activity() {
     private val refresh = object : Runnable {
         override fun run() {
             if (debug) paintDebug()
-            val pose = VoiceHud.face.ifBlank { if (debug) "" else IDLE_FACE }
+            val pose = VoiceHud.face.ifBlank { if (debug) "" else com.geeui.voice.bus.RestFace.current }
             val face = if (debug && pose.isBlank()) "" else dialogueFace(VoiceHud.mode, VoiceHud.playing, pose)
             if (face.isNotBlank() && face != shownFace) playFace(face)
             handler.postDelayed(this, 120)
@@ -64,6 +64,8 @@ class VoiceActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setTurnScreenOn(true)
+        if (Build.VERSION.SDK_INT >= 27) setShowWhenLocked(true)
         debug = debugLaunch(intent.getStringExtra("mode"), intent.getStringExtra("debug"))
         bus = AidlBus(this)
         // The robot ROM has no autofill service: AutofillManager throws a NullPointerException
@@ -104,7 +106,7 @@ class VoiceActivity : Activity() {
         if (debug) {
             VoiceHud.line = "micro coupé"
         } else {
-            if (VoiceHud.face.isBlank()) VoiceHud.face = IDLE_FACE
+            if (VoiceHud.face.isBlank()) VoiceHud.face = com.geeui.voice.bus.RestFace.current
             askMic()
         }
     }
@@ -488,12 +490,19 @@ class VoiceActivity : Activity() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             send(VoiceService.ACTION_START)
         } else {
-            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA), 1)
+        }
+        // The camera is optional: without it, "qu'est-ce que tu vois ?" just says it cannot see.
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.CAMERA), 2)
         }
     }
 
     override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, grants: IntArray) {
         super.onRequestPermissionsResult(code, perms, grants)
+        if (code == 2) return // camera: optional, refused = no vision
         if (code == 1 && grants.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
             send(VoiceService.ACTION_START)
         } else {
@@ -509,6 +518,8 @@ class VoiceActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        setTurnScreenOn(true)
+        if (Build.VERSION.SDK_INT >= 27) setShowWhenLocked(true)
     }
 
     private fun send(action: String) {

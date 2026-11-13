@@ -1,0 +1,14 @@
+{
+  "tools": {
+    "ssrfWhitelist": ["192.168.1.50/32"],
+    "mcpServers": {
+      "maison": {
+        "type": "streamableHttp",
+        "url": "${HA_MCP_URL}",
+        "headers": { "Authorization": "Bearer ${HA_TOKEN}" },
+        "toolTimeout": 15,
+        "enabledTools": ["GetLiveContext", "GetDateTime"]
+      }
+    }
+  }
+}

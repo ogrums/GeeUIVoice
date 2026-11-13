@@ -26,6 +26,7 @@ import com.geeui.voice.audio.VadConfig
  */
 class VoiceService : Service() {
     private var loop: VoiceLoop? = null
+    private val outDir: java.io.File? get() = getExternalFilesDir("voicetest")
     private var host = "http://nimbus:13305/api/v1"
     private var model = com.geeui.voiceemo.HostConfig.STT
     private var chat = "gemma4e-flash-e2b-FLM"
@@ -37,13 +38,43 @@ class VoiceService : Service() {
     private var phonon = ""
     private var phononVoice = com.geeui.voice.engine.PhononTts.VOICE
     private val vad = mutableMapOf<String, String?>()
+    /** Extra "vision" = "0" : jamais de photo, même sur « qu'est-ce que tu vois ? ». */
+    private var vision = true
+    /** Extra "initiative" = "0" coupe la lecture de /v1/robot/pending. */
+    private var initiative = true
+    /** "auto" (default), "wake", or "continuous". */
+    private var listenMode = "auto"
+    /** "hirux", "dobby", or "both" (default). */
+    private var wakeWord = "both"
+    private var listenFace = "h0180"
+    private var thinkFace = "h0181"
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(1, note())
         if (intent?.action == ACTION_STOP) {
             stopMic()
+            return START_STICKY
+        }
+        if (intent?.action == ACTION_TEST_WAV) {
+            val path = intent.getStringExtra("path")?.trim().orEmpty()
+            val dir = outDir ?: cacheDir
+            dir.mkdirs()
+            val running = loop
+            if (running == null) {
+                java.io.File(dir, "result.json").writeText(
+                    com.geeui.voice.session.WavTestResult.fail(path, "boucle inactive : démarrez d'abord GeeUIVoice (START)").toJson(),
+                )
+                java.io.File(dir, "status.txt").writeText("error\n")
+            } else {
+                running.enqueueWavTest(path, dir)
+            }
             return START_STICKY
         }
         if (intent?.action == ACTION_START) {
@@ -61,11 +92,18 @@ class VoiceService : Service() {
             intent.getStringExtra("phonon_voice")?.let {
                 phononVoice = it.trim().ifEmpty { com.geeui.voice.engine.PhononTts.VOICE }
             }
+            intent.getStringExtra("vision")?.let { vision = it.trim() !in setOf("0", "false", "non") }
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
+            intent.getStringExtra("initiative")?.let { initiative = it.trim() !in setOf("0", "false", "non") }
+            intent.getStringExtra("listen_mode")?.let { listenMode = it }
+            intent.getStringExtra("wake_word")?.let { wakeWord = it }
+            intent.getStringExtra("listen_face")?.let { listenFace = it }
+            intent.getStringExtra("think_face")?.let { thinkFace = it }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
-                sidecar, cosyModel, phonon, phononVoice,
+                sidecar, cosyModel, phonon, phononVoice, initiative, listenMode, wakeWord,
+                listenFace, thinkFace, vision,
             )
             loop?.start()
             VoiceHud.running = true
@@ -84,6 +122,7 @@ class VoiceService : Service() {
     }
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         loop?.stop()
         loop = null
         VoiceHud.running = false
@@ -107,6 +146,11 @@ class VoiceService : Service() {
     companion object {
         const val ACTION_START = "com.geeui.voice.START"
         const val ACTION_STOP = "com.geeui.voice.STOP"
+        const val ACTION_TEST_WAV = com.geeui.voice.session.WavTestAccess.ACTION
         private val VAD_KEYS = listOf("vad_threshold", "vad_start_ms", "vad_hangover_ms", "vad_min_ms", "vad_max_ms", "vad_preroll_ms")
+
+        @Volatile private var instance: VoiceService? = null
+
+        fun loopOrNull(): VoiceLoop? = instance?.loop
     }
 }

@@ -16,7 +16,7 @@ data class Prosody(val speed: Float = 1f, val pitch: Float = 1f, val gain: Float
  * Per-emotion voice accent, driven by the fused emotion of [EmotionFusion].
  *
  * The table holds the full-strength values. The real deviation from neutral is
- * scaled by how sure the fusion is: score at the threshold (0.45) gives nothing,
+ * scaled by how sure the fusion is: score at [FLOOR] (0.45) gives nothing,
  * score 1.0 gives the full table value, linear in between. So a doubtful emotion
  * barely changes the voice. Keep values within about ±15 %, beyond that the voice
  * sounds robotic.
@@ -33,11 +33,19 @@ object EmotionProsody {
         Emotion.ANGRY to Prosody(speed = 1.06f, pitch = 0.98f, gain = 1.15f),
         Emotion.FEAR to Prosody(speed = 1.10f, pitch = 1.08f, gain = 0.95f),
         Emotion.SURPRISE to Prosody(speed = 1.05f, pitch = 1.10f, gain = 1.05f),
+        // Slightly slower, a little quieter: a recoil, not the bite of angry.
+        Emotion.DISGUST to Prosody(speed = 0.95f, pitch = 0.96f, gain = 0.90f),
     )
 
-    /** 0 at the fusion threshold, 1 at score 1.0. */
+    /**
+     * Floor below which the voice stays flat. Kept at 0.45 so an audio vote that
+     * just clears the fusion threshold (0.70) still bends the voice.
+     */
+    const val FLOOR = 0.45
+
+    /** 0 at [FLOOR], 1 at score 1.0. */
     fun strength(score: Double): Float {
-        val t = EmotionFusion.THRESHOLD
+        val t = FLOOR
         return ((score - t) / (1.0 - t)).coerceIn(0.0, 1.0).toFloat()
     }
 

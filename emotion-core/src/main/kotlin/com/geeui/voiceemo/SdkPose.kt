@@ -20,11 +20,13 @@ data class SdkPose(
 
 object SdkMap {
     fun pose(emotion: Emotion): SdkPose = when (emotion) {
-        Emotion.HAPPY -> SdkPose("h0006", 3, 2, 250, 60, "YELLOW", 77, "a0032")
-        Emotion.SAD -> SdkPose("h0119", 1, 1, 500, 40, "BLUE", 20, "a0086")
-        Emotion.ANGRY -> SdkPose("h0001", 2, 2, 200, 70, "RED", 15, "a0020")
-        Emotion.FEAR -> SdkPose("h0133", 1, 1, 400, 30, "CYAN", 44, "a0037")
-        Emotion.SURPRISE -> SdkPose("h0046", 3, 1, 150, 90, "WHITE", 76, "a0095")
-        Emotion.NEUTRAL -> SdkPose("h0059", 1, 1, 400, 0, null, null, null)
+        Emotion.HAPPY -> SdkPose(FaceCodes.of(Emotion.HAPPY), 3, 2, 250, 60, "YELLOW", 77, "a0032")
+        Emotion.SAD -> SdkPose(FaceCodes.of(Emotion.SAD), 1, 1, 500, 40, "BLUE", 20, "a0086")
+        Emotion.ANGRY -> SdkPose(FaceCodes.of(Emotion.ANGRY), 2, 2, 200, 70, "RED", 15, "a0020")
+        Emotion.FEAR -> SdkPose(FaceCodes.of(Emotion.FEAR), 1, 1, 400, 30, "CYAN", 44, "a0037")
+        Emotion.SURPRISE -> SdkPose(FaceCodes.of(Emotion.SURPRISE), 3, 1, 150, 90, "WHITE", 76, "a0095")
+        // Recoil: ears pull in, purple (not angry red), a small shudder. a0033 反感 = aversion / disgust.
+        Emotion.DISGUST -> SdkPose(FaceCodes.of(Emotion.DISGUST), 2, 1, 300, 50, "PURPLE", 24, "a0033")
+        Emotion.NEUTRAL -> SdkPose(FaceCodes.of(Emotion.NEUTRAL), 1, 1, 400, 0, null, null, null)
     }
 }

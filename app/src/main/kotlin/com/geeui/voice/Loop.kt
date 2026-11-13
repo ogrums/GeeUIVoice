@@ -19,9 +19,17 @@ import com.geeui.voice.engine.LemonadeTts
 import com.geeui.voice.engine.PlannedTts
 import com.geeui.voice.engine.TextToSpeech
 import com.geeui.voice.engine.TtsPlan
+import com.geeui.voice.bus.DialogueFaces
+import com.geeui.voice.session.DobbyPhrase
 import com.geeui.voice.session.LiveTurn
+import com.geeui.voice.session.parseWakeSource
 import com.geeui.voice.session.VoiceSession
+import com.geeui.voice.session.WavTestResult
+import com.geeui.voice.session.WavTestTurn
+import com.geeui.voice.engine.TimingChat
+import com.geeui.voice.engine.TimingTts
 import com.geeui.voiceemo.Mood
+import android.util.Log
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -49,7 +57,16 @@ class VoiceLoop(
     cosyModel: String = CosyTts.MODEL,
     phonon: String = "",
     phononVoice: String = com.geeui.voice.engine.PhononTts.VOICE,
+    /** Ask the sidecar every 15 s, when idle, if the robot should speak first. */
+    private val initiative: Boolean = true,
+    listenMode: String = "auto",
+    wakeWord: String = "both",
+    listenFace: String = com.geeui.voice.bus.LISTEN_FACE,
+    thinkFace: String = com.geeui.voice.bus.THINK_FACE,
+    vision: Boolean = true,
 ) {
+    private val camera = if (vision) RobotCamera(audio) else null
+    private val appContext = audio
     private val client = LemonadeClient(
         baseUrl,
         sttModel = sttModel,
@@ -71,21 +88,31 @@ class VoiceLoop(
             kokoro,
         )
     private val clips = PlannedTts(plan, base, cosy)
-    private val tts = PlayingTts(clips, cacheDir, audio) { plan.prosody }
+    private val player = PlayingTts(clips, cacheDir, audio) { plan.prosody }
+    private val tts = TimingTts(player)
     private val gateway = LemonadeClient(sidecar.trimEnd('/') + "/v1", sttModel = sttModel, systemPrompt = "")
     private val lemonStt = LemonadeStt(client)
     private val stt = EmotionStt(gateway, lemonStt) { ok ->
         if (!ok) sidecarOk.set(0)
     }
+    private val timingChat = TimingChat(LemonadeChat(client))
     private val session = VoiceSession(
         bus,
         tts,
-        LemonadeChat(client),
+        timingChat,
         mood = Mood(),
         plan = plan,
         audioAffect = { stt.lastAudioAffect },
         fusion = com.geeui.voiceemo.EmotionFusion(),
         allowedActions = { stt.lastAllowedActions },
+        camera = camera?.let { cam ->
+            {
+                VoiceHud.line = "je regarde…"
+                val jpeg = cam.snapshot()
+                VoiceHud.diag = if (jpeg == null) "caméra : ${cam.lastError}" else "photo ${jpeg.size / 1024} Ko"
+                jpeg
+            }
+        },
         sidecarOkAt = {
             val now = System.currentTimeMillis()
             if (sidecar.isNotBlank() && now - sidecarOk.get() > 5_000L) pingSidecar(sidecar)
@@ -94,29 +121,108 @@ class VoiceLoop(
     )
     private val live = LiveTurn(vad, stt, tts, session)
     private val turns = Executors.newSingleThreadExecutor()
+    private val ticker = Executors.newSingleThreadScheduledExecutor()
+    private val poller = com.geeui.voice.session.InitiativePoller(
+        fetch = { httpGet(sidecar.trimEnd('/') + "/v1/robot/pending") },
+        ack = { id, status ->
+            httpPostJson(sidecar.trimEnd('/') + "/v1/robot/ack", "{\"id\":\"$id\",\"status\":\"$status\"}")
+        },
+        idle = {
+            // Initiative can speak at rest even when the mic is yielded to Lex.
+            running.get() && VoiceHud.mode == "idle" && !VoiceHud.playing &&
+                session.state == com.geeui.voice.session.Dialogue.Idle
+        },
+        say = { text ->
+            VoiceHud.heard = ""
+            VoiceHud.answer = text
+            VoiceHud.line = text
+            session.say(text)
+        },
+        onMood = { label -> restFace(label) },
+    )
+    /** Robot mood from the sidecar: change the rest face, and show it now if the robot is resting. */
+    private fun restFace(label: String) {
+        val rest = com.geeui.voice.bus.RestFace
+        val face = rest.forMood(label)
+        if (face == rest.current) return
+        val resting = VoiceHud.face.isBlank() || rest.isRest(VoiceHud.face)
+        rest.current = face
+        val inDialogue = VoiceHud.mode in setOf("hear", "think", "talk") || VoiceHud.playing
+        if (resting && !inDialogue) bus.showFace(face)
+    }
+
     private val running = AtomicBoolean(false)
+    private val wavTestBusy = AtomicBoolean(false)
+    private val wavTest = WavTestTurn(stt, session, timingChat, tts)
     private var thread: Thread? = null
+    private val policy = com.geeui.voice.session.ListenPolicy(
+        com.geeui.voice.session.ListenPolicy.parseMode(listenMode),
+    ).also { it.setWakeSource(parseWakeSource(wakeWord)) }
+    private val listenFaceId = DialogueFaces.parseId(listenFace, com.geeui.voice.bus.LISTEN_FACE)
+    private val thinkFaceId = DialogueFaces.parseId(thinkFace, com.geeui.voice.bus.THINK_FACE)
+    private val wantMic = AtomicBoolean(false)
+    private val micGate = Object()
+    private val wantDobby = AtomicBoolean(false)
+    private val dobbyGate = Object()
+    @Volatile private var dobby: VoskDobbyWake? = null
+    private var dobbyThread: Thread? = null
+    private val screenOn = ScreenOn(appContext)
+    @Volatile private var lexPaused = false
+    private val speechCb = SpeechCallbackBinder { command, data ->
+        turns.execute { onLexSpeech(command, data) }
+    }
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
+        DialogueFaces.listen = listenFaceId
+        DialogueFaces.think = thinkFaceId
         live.onUserText = {
+            VoiceHud.clearFaceEvents()
             val who = stt.lastSpeakerName
             VoiceHud.heard = if (who.isBlank()) it else "$who : $it"
             VoiceHud.answer = ""
             VoiceHud.line = it
-            VoiceHud.mode = "think"
+            setHudMode("think")
+            Log.i(TEST_TAG, "heard=$it")
+            writeLastTurn()
         }
         live.onAnswer = {
             VoiceHud.answer = it
             VoiceHud.line = it
-            VoiceHud.mode = "talk"
+            setHudMode("talk")
+            Log.i(TEST_TAG, "answer=$it")
+            writeLastTurn()
         }
-        live.onListen = { VoiceHud.mode = "hear" }
-        live.onIdle = { VoiceHud.mode = "idle" }
+        live.onListen = { setHudMode("hear") }
+        live.onThink = { setHudMode("think") }
+        live.onIdle = {
+            setHudMode("idle")
+            policy.onTurnEnded()
+        }
         live.allowBargeIn = {
-            !VoiceHud.playing && System.currentTimeMillis() >= VoiceHud.hearAfter
+            !wavTestBusy.get() && !VoiceHud.playing &&
+                System.currentTimeMillis() >= VoiceHud.hearAfter &&
+                VoiceHud.mode != "think" && VoiceHud.mode != "talk"
         }
         live.worker = { job -> turns.execute(job) }
+        if (initiative && sidecar.isNotBlank()) {
+            // Same single worker as the turns: an initiative never overlaps a conversation.
+            ticker.scheduleWithFixedDelay({ turns.execute { poller.poll() } }, 15, 15, java.util.concurrent.TimeUnit.SECONDS)
+        }
+        ticker.scheduleWithFixedDelay({
+            turns.execute {
+                val busy = wavTestBusy.get() || VoiceHud.playing ||
+                    session.state != com.geeui.voice.session.Dialogue.Idle
+                if (policy.onTick(busy = busy)) {
+                    setHudMode("idle")
+                    VoiceHud.line = restLabel()
+                    Log.i(TEST_TAG, "mic yielded after idle")
+                }
+                applyMic()
+            }
+        }, 500, 500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        hookLexWake()
+        prepareDobby()
         thread = Thread({
             val used = try {
                 client.resolveStt()
@@ -145,50 +251,348 @@ class VoiceLoop(
             if (min <= 0) {
                 VoiceHud.line = "micro refusé (taux 16 kHz)"
                 VoiceHud.mic = false
-                running.set(false)
-                return@Thread
-            }
-            val rec = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                rate,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                min.coerceAtLeast(frame * 4),
-            )
-            if (rec.state != AudioRecord.STATE_INITIALIZED) {
-                VoiceHud.line = "micro non initialisé (permission ou déjà pris)"
-                VoiceHud.mic = false
-                rec.release()
-                running.set(false)
                 return@Thread
             }
             val buf = ShortArray(frame)
-            try {
-                rec.startRecording()
-                VoiceHud.mic = true
-                while (running.get()) {
-                    val n = rec.read(buf, 0, frame)
-                    if (n == frame) {
-                        VoiceHud.level = levelOf(buf)
-                        live.onFrame(buf.copyOf())
+            while (running.get()) {
+                if (!wantMic.get()) {
+                    VoiceHud.mic = false
+                    VoiceHud.level = 0f
+                    resumeLexIfPaused()
+                    synchronized(micGate) {
+                        while (running.get() && !wantMic.get()) {
+                            try {
+                                micGate.wait(200)
+                            } catch (_: InterruptedException) {
+                                break
+                            }
+                        }
                     }
+                    continue
                 }
-            } finally {
+                // MIC / VOICE_RECOGNITION / UNPROCESSED are silenced on
+                // Android 11 while Lex keeps its privileged 32 kHz
+                // VOICE_RECOGNITION session (uid 1000). That session is not
+                // closed by stop_audio_service on this firmware.
+                // VOICE_COMMUNICATION stays unsilenced and carries signal.
+                val rec = AudioRecord(
+                    MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                    rate,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    min.coerceAtLeast(frame * 4),
+                )
+                if (rec.state != AudioRecord.STATE_INITIALIZED) {
+                    VoiceHud.line = "micro non initialisé (permission ou déjà pris)"
+                    VoiceHud.mic = false
+                    rec.release()
+                    // Retry after a short wait: Lex may still be releasing the device.
+                    synchronized(micGate) {
+                        try {
+                            micGate.wait(400)
+                        } catch (_: InterruptedException) {
+                        }
+                    }
+                    continue
+                }
                 try {
-                    rec.stop()
-                } catch (_: IllegalStateException) {
+                    rec.startRecording()
+                    VoiceHud.mic = true
+                    policy.beginPostWakeTrim()
+                    try {
+                        val am = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        MicProbe.logClientState("rec start session=${rec.audioSessionId}", am, rec.audioSessionId)
+                    } catch (e: Exception) {
+                        Log.w(TEST_TAG, "rec silenced check failed", e)
+                    }
+                    while (running.get() && wantMic.get()) {
+                        val n = rec.read(buf, 0, frame)
+                        if (n == frame) {
+                            VoiceHud.level = levelOf(buf)
+                            if (!policy.shouldDropFrame()) live.onFrame(buf.copyOf())
+                        }
+                    }
+                } finally {
+                    try {
+                        rec.stop()
+                    } catch (_: IllegalStateException) {
+                    }
+                    rec.release()
+                    VoiceHud.mic = false
+                    VoiceHud.level = 0f
+                    if (!wantMic.get()) resumeLexIfPaused()
                 }
-                rec.release()
-                VoiceHud.mic = false
             }
         }, "geeui-voice").also { it.start() }
+        applyMic()
     }
 
     fun stop() {
         running.set(false)
+        wantMic.set(false)
+        synchronized(micGate) { micGate.notifyAll() }
+        wantDobby.set(false)
+        synchronized(dobbyGate) { dobbyGate.notifyAll() }
+        ticker.shutdownNow()
         tts.stop()
         VoiceHud.mode = "idle"
         thread?.join(500)
+        dobbyThread?.join(800)
+        dobbyThread = null
+        dobby?.close()
+        dobby = null
+        (bus as? AidlBus)?.unregisterSpeechCallback()
+        resumeLexIfPaused()
+        screenOn.release()
+    }
+
+    private fun hookLexWake() {
+        val aidl = bus as? AidlBus ?: run {
+            policy.onCallbackAvailable(false)
+            return
+        }
+        aidl.onConnected = {
+            turns.execute { finishHook(aidl) }
+        }
+        if (aidl.connected()) {
+            turns.execute { finishHook(aidl) }
+        } else {
+            ticker.schedule({
+                turns.execute {
+                    if (!policy.resolved) {
+                        policy.onCallbackAvailable(false)
+                        val fallback = if (policy.useWake) "Hey Dobby still on" else "fallback continuous"
+                        Log.i(TEST_TAG, "registerSpeechCallback timed out, $fallback")
+                        if (policy.useWake) VoiceHud.line = restLabel()
+                        applyMic()
+                    }
+                }
+            }, 3, java.util.concurrent.TimeUnit.SECONDS)
+        }
+    }
+
+    private fun finishHook(aidl: AidlBus) {
+        if (policy.resolved && policy.callbackAvailable) return
+        val ok = aidl.registerSpeechCallback(speechCb)
+        Log.i(TEST_TAG, "registerSpeechCallback=$ok")
+        policy.onCallbackAvailable(ok)
+        if (ok && policy.useWake) {
+            VoiceHud.line = restLabel()
+        } else if (!ok && policy.useWake) {
+            VoiceHud.line = restLabel()
+            Log.i(TEST_TAG, "Lex hook failed, Hey Dobby still on")
+        }
+        applyMic()
+    }
+
+    private fun onLexSpeech(command: String, data: String) {
+        Log.i(TEST_TAG, "LtpSpeech $command $data")
+        val related = command.equals("wakeup_status", ignoreCase = true) ||
+            command.equals("wakeup_doa", ignoreCase = true)
+        if (!related) return
+        val verdict = policy.considerWake(command, data)
+        if (verdict.accepted) {
+            Log.i(TEST_TAG, "wake accepted")
+        } else {
+            Log.i(TEST_TAG, "wake ignored(${verdict.reason})")
+            return
+        }
+        VoiceHud.line = "Hi RUX"
+        setHudMode("hear")
+        screenOn.turnOn()
+        (bus as? AidlBus)?.exitDarkScreen()
+        applyMic()
+    }
+
+    private fun applyMic() {
+        val hold = policy.shouldHoldMic()
+        if (hold == wantMic.get()) {
+            refreshDobby()
+            return
+        }
+        if (hold) {
+            // Stop the rest-time Dobby recorder before opening the conversation mic.
+            wantDobby.set(false)
+            synchronized(dobbyGate) { dobbyGate.notifyAll() }
+            (bus as? AidlBus)?.pauseLexAudio()
+            lexPaused = true
+            try {
+                Thread.sleep(400)
+            } catch (_: InterruptedException) {
+            }
+            wantMic.set(true)
+            synchronized(micGate) { micGate.notifyAll() }
+        } else {
+            wantMic.set(false)
+            synchronized(micGate) { micGate.notifyAll() }
+        }
+        refreshDobby()
+    }
+
+    private fun setHudMode(mode: String) {
+        VoiceHud.mode = mode
+        val face = when (mode) {
+            "hear" -> listenFaceId
+            "think" -> thinkFaceId
+            "idle" -> com.geeui.voice.bus.RestFace.current
+            else -> null
+        }
+        if (face != null) {
+            bus.showFace(face)
+            Log.i(TEST_TAG, "face $mode $face")
+        }
+    }
+
+    private fun restLabel(): String {
+        val bits = buildList {
+            if (policy.hiruxEnabled) add("Hi RUX")
+            if (policy.dobbyEnabled) add("Hey Dobby")
+        }
+        return if (bits.isEmpty()) "repos" else "repos (${bits.joinToString(" / ")})"
+    }
+
+    private fun refreshDobby() {
+        val listen = running.get() && policy.dobbyEnabled && !wantMic.get() && dobby != null
+        wantDobby.set(listen)
+        synchronized(dobbyGate) { dobbyGate.notifyAll() }
+    }
+
+    private fun prepareDobby() {
+        if (!policy.dobbyEnabled) return
+        Thread({
+            val dir = try {
+                VoskModelStore.ensure(appContext)
+            } catch (e: Exception) {
+                Log.w(TEST_TAG, "vosk model ensure failed", e)
+                null
+            }
+            if (dir == null) {
+                Log.w(
+                    TEST_TAG,
+                    "vosk model missing; Hey Dobby off. " +
+                        "adb push the folder to /data/local/tmp/geeui/${VoskModelStore.MODEL_NAME}",
+                )
+                VoiceHud.line = "Hey Dobby : modèle manquant"
+                return@Thread
+            }
+            try {
+                dobby = VoskDobbyWake(dir)
+                refreshDobby()
+            } catch (e: Exception) {
+                Log.w(TEST_TAG, "vosk init failed", e)
+                VoiceHud.line = "Hey Dobby : modèle illisible"
+            }
+        }, "geeui-dobby-init").start()
+        dobbyThread = Thread({
+            val rate = 16_000
+            val frame = 1_600 // 100 ms, keeps CPU low
+            val min = AudioRecord.getMinBufferSize(
+                rate,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+            )
+            val bytes = ByteArray(frame * 2)
+            val shorts = ShortArray(frame)
+            while (running.get()) {
+                if (!wantDobby.get()) {
+                    try {
+                        dobby?.flush()
+                    } catch (_: Exception) {
+                    }
+                    synchronized(dobbyGate) {
+                        while (running.get() && !wantDobby.get()) {
+                            try {
+                                dobbyGate.wait(200)
+                            } catch (_: InterruptedException) {
+                                break
+                            }
+                        }
+                    }
+                    continue
+                }
+                if (min <= 0) {
+                    synchronized(dobbyGate) {
+                        try { dobbyGate.wait(1_000) } catch (_: InterruptedException) {}
+                    }
+                    continue
+                }
+                val rec = AudioRecord(
+                    MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                    rate,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    min.coerceAtLeast(frame * 4),
+                )
+                if (rec.state != AudioRecord.STATE_INITIALIZED) {
+                    rec.release()
+                    synchronized(dobbyGate) {
+                        try { dobbyGate.wait(800) } catch (_: InterruptedException) {}
+                    }
+                    continue
+                }
+                try {
+                    rec.startRecording()
+                    Log.i(TEST_TAG, "dobby listen start session=${rec.audioSessionId}")
+                    val engine = dobby ?: break
+                    while (running.get() && wantDobby.get()) {
+                        val n = rec.read(shorts, 0, frame)
+                        if (n <= 0) continue
+                        var energy = 0L
+                        for (i in 0 until n) {
+                            val s = shorts[i].toInt()
+                            energy += s * s
+                        }
+                        // Skip near-silence so Vosk is not woken on every frame.
+                        if (energy < n * 80L * 80L) continue
+                        for (i in 0 until n) {
+                            val s = shorts[i].toInt()
+                            bytes[i * 2] = s.toByte()
+                            bytes[i * 2 + 1] = (s shr 8).toByte()
+                        }
+                        val verdict = try {
+                            engine.accept(bytes, n * 2)
+                        } catch (e: Exception) {
+                            Log.w(TEST_TAG, "vosk accept failed", e)
+                            null
+                        } ?: continue
+                        wantDobby.set(false)
+                        turns.execute { onDobbyWake(verdict) }
+                        break
+                    }
+                } finally {
+                    try {
+                        rec.stop()
+                    } catch (_: IllegalStateException) {
+                    }
+                    rec.release()
+                    try {
+                        dobby?.flush()
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+        }, "geeui-dobby").also { it.start() }
+    }
+
+    private fun onDobbyWake(verdict: DobbyPhrase.Verdict) {
+        val decision = policy.acceptLocalWake()
+        if (!decision.accepted) {
+            Log.i(TEST_TAG, "wake ignored(${decision.reason}) dobby=${verdict.phrase}")
+            return
+        }
+        Log.i(TEST_TAG, "wake accepted(dobby: ${verdict.phrase})")
+        VoiceHud.line = "Hey Dobby"
+        setHudMode("hear")
+        screenOn.turnOn()
+        (bus as? AidlBus)?.exitDarkScreen()
+        applyMic()
+    }
+
+    private fun resumeLexIfPaused() {
+        if (!lexPaused) return
+        policy.onLexResumed()
+        (bus as? AidlBus)?.resumeLexAudio()
+        lexPaused = false
     }
 
     private fun pingSidecar(base: String) {
@@ -202,6 +606,189 @@ class VoiceLoop(
             0
         }
         if (code in 200..299) sidecarOk.set(System.currentTimeMillis())
+    }
+
+    /**
+     * Feeds a WAV file instead of the microphone (STT → chat → TTS). The mic is
+     * ignored while this runs. Writes result.json, status.txt and a copy of the
+     * last TTS clip into [outDir]. Safe to call from a broadcast; work runs on the
+     * turn thread.
+     */
+    fun enqueueMicProbe(outDir: File) {
+        outDir.mkdirs()
+        File(outDir, "status.txt").writeText("running\n")
+        turns.execute {
+            try {
+                MicProbe.run(appContext, bus as? AidlBus, outDir)
+            } catch (e: Exception) {
+                Log.e(TEST_TAG, "TEST_MIC failed", e)
+                val status = File(outDir, "status.txt")
+                status.writeText("error\n")
+                MicProbe.publish(status)
+            }
+        }
+    }
+
+    fun enqueueWavTest(path: String, outDir: File) {
+        outDir.mkdirs()
+        val running = File(outDir, "status.txt")
+        running.writeText("running\n")
+        publishForAdb(running)
+        turns.execute {
+            val result = try {
+                runWavTest(path, outDir)
+            } catch (e: Exception) {
+                WavTestResult.fail(path, e.message ?: e.javaClass.simpleName)
+            }
+            try {
+                val resultFile = File(outDir, "result.json")
+                resultFile.writeText(result.toJson())
+                publishForAdb(resultFile)
+                val statusFile = File(outDir, "status.txt")
+                statusFile.writeText(if (result.ok) "done\n" else "error\n")
+                publishForAdb(statusFile)
+                outDir.listFiles()?.forEach { f ->
+                    if (f.isFile && f.name.startsWith("tts.")) publishForAdb(f)
+                }
+            } catch (e: Exception) {
+                Log.e(TEST_TAG, "write result", e)
+            }
+        }
+    }
+
+    fun runWavTest(path: String, outDir: File): WavTestResult {
+        if (!com.geeui.voice.session.WavTestAccess.allowedPath(path)) {
+            return WavTestResult.fail(path, "chemin refusé")
+        }
+        val file = File(path)
+        if (!file.isFile) return WavTestResult.fail(path, "fichier introuvable")
+        val bytes = try {
+            file.readBytes()
+        } catch (e: Exception) {
+            return WavTestResult.fail(path, "lecture: ${e.message ?: e.javaClass.simpleName}")
+        }
+        wavTestBusy.set(true)
+        return try {
+            VoiceHud.clearFaceEvents()
+            val result = wavTest.run(bytes, path,
+                face = { VoiceHud.faceDuringSpeech().ifBlank { VoiceHud.face } },
+                faces = { VoiceHud.faceEvents.toList() },
+                audio = {
+                    com.geeui.voice.session.WavTestAudio(
+                        emotion = stt.lastAudioEmotion.ifBlank { stt.lastAudioAffect.emotion.name.lowercase() },
+                        confidence = stt.lastAudioConfidence.takeIf { it > 0.0 }
+                            ?: stt.lastAudioAffect.confidence.toDouble(),
+                        raw = stt.lastAudioEmotionRaw,
+                        rawConfidence = stt.lastAudioRawConfidence,
+                    )
+                },
+            )
+            val clip = copyLastTts(outDir)
+            result.copy(ttsFile = clip)
+        } finally {
+            wavTestBusy.set(false)
+        }
+    }
+
+
+    /** Android 11 : files in Android/data written by the app are mode 600, so
+     *  `adb pull` / `adb shell cat` fail. Make them world-readable and also
+     *  copy them to /data/local/tmp/geeui/ (writable by the app after the
+     *  voicetest script has mkdir'd it) so the PC campaign can collect them. */
+    private fun publishForAdb(file: File) {
+        try {
+            file.setReadable(true, false)
+            file.setWritable(true, false)
+        } catch (_: Exception) {
+        }
+        try {
+            val mirror = File("/data/local/tmp/geeui")
+            if (mirror.isDirectory || mirror.mkdirs()) {
+                val dest = File(mirror, file.name)
+                file.copyTo(dest, overwrite = true)
+                dest.setReadable(true, false)
+                dest.setWritable(true, false)
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun copyLastTts(outDir: File): String {
+        val src = listOf("tts.mp3", "tts.wav", "tts.ogg", "tts.flac")
+            .map { File(cacheDir, it) }
+            .filter { it.isFile }
+            .maxByOrNull { it.lastModified() } ?: return ""
+        outDir.mkdirs()
+        val dest = File(outDir, src.name)
+        src.copyTo(dest, overwrite = true)
+        return dest.absolutePath
+    }
+
+    private fun writeLastTurn() {
+        val dir = appContext.getExternalFilesDir("voicetest") ?: return
+        try {
+            dir.mkdirs()
+            val last = File(dir, "last-turn.json")
+            val facesJson = VoiceHud.faceEvents.joinToString(",", "[", "]") { it.toJson() }
+            last.writeText(
+                "{" +
+                    "\"heard\":${jsonStr(VoiceHud.heard)}," +
+                    "\"answer\":${jsonStr(VoiceHud.answer)}," +
+                    "\"face\":${jsonStr(VoiceHud.face)}," +
+                    "\"face_during_speech\":${jsonStr(VoiceHud.faceDuringSpeech())}," +
+                    "\"faces\":$facesJson," +
+                    "\"line\":${jsonStr(VoiceHud.line)}," +
+                    "\"mode\":${jsonStr(VoiceHud.mode)}," +
+                    "\"audio_emotion\":${jsonStr(stt.lastAudioEmotion.ifBlank { stt.lastAudioAffect.emotion.name.lowercase() })}," +
+                    "\"audio_confidence\":${stt.lastAudioConfidence.takeIf { it > 0.0 } ?: stt.lastAudioAffect.confidence.toDouble()}," +
+                    "\"audio_emotion_raw\":${jsonStr(stt.lastAudioEmotionRaw)}," +
+                    "\"audio_emotion_raw_confidence\":${stt.lastAudioRawConfidence}" +
+                    "}\n",
+            )
+            publishForAdb(last)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun jsonStr(value: String): String = buildString {
+        append('"')
+        for (c in value) when (c) {
+            '\\' -> append("\\\\")
+            '"' -> append("\\\"")
+            '\n' -> append("\\n")
+            '\r' -> append("\\r")
+            else -> append(c)
+        }
+        append('"')
+    }
+
+    companion object {
+        private const val TEST_TAG = "GeeUIVoiceTest"
+    }
+}
+
+/** GET returning the body, or null on any error. Short timeouts: this runs while idle. */
+internal fun httpGet(url: String): String? = try {
+    val conn = URL(url).openConnection() as HttpURLConnection
+    conn.connectTimeout = 2_000
+    conn.readTimeout = 5_000
+    if (conn.responseCode in 200..299) conn.inputStream.use { String(it.readBytes(), Charsets.UTF_8) } else null
+} catch (_: Exception) {
+    null
+}
+
+internal fun httpPostJson(url: String, body: String) {
+    try {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 2_000
+        conn.readTimeout = 5_000
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+        conn.responseCode
+        conn.disconnect()
+    } catch (_: Exception) {
     }
 }
 

@@ -15,6 +15,9 @@ import com.geeui.voice.bus.faceCommand
 class AidlBus(context: Context) : RobotBus, ServiceConnection {
     private var remote: IBinder? = null
     private var motorOn = false
+    /** Invoked on the binder thread when Letianpai is bound (and again if rebound). */
+    var onConnected: (() -> Unit)? = null
+    private var speechCallback: IBinder? = null
 
     init {
         val intent = Intent("android.intent.action.LETIANPAI")
@@ -25,6 +28,8 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
         remote = service
         Log.i(TAG, "letianpai bound")
+        speechCallback?.let { registerSpeechCallback(it) }
+        onConnected?.invoke()
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
@@ -82,8 +87,93 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
     }
 
     override fun showFace(faceId: String) {
-        VoiceHud.face = faceId
+        VoiceHud.recordFace(faceId)
         call("setExpression", "controlFace", faceCommand(faceId))
+    }
+
+    fun appCmd(command: String, data: String) {
+        call("setAppCmd", command, data)
+    }
+
+    fun robotStatusCmd(command: String, data: String) {
+        call("setRobotStatusCmd", command, data)
+    }
+
+    /** Drop the Letianpai dark-sleep layer if the firmware accepts the command. */
+    fun exitDarkScreen() {
+        robotStatusCmd("controlDisplayMode", "exitDarkScreen")
+    }
+
+    /**
+     * Best-effort pause of the stock wake-word path, then resume it at rest
+     * so "Hi RUX" still works.
+     *
+     * The official firmware command (GeeUITaskService, open-source Lex
+     * `LTPAudioService`) is [setRobotStatusCmd] with command and data both
+     * `stop_audio_service` / `start_audio_service`. On DUI / 思必驰 builds
+     * that reaches `RhjAudioManager.disableWakeup()`. On this robot the
+     * "Hi RUX" engine is iFlytek VTN; `WakeManager.stopVtnWake()` is only
+     * called from `BotService.onDestroy()`, so the 32 kHz uid-1000
+     * `VOICE_RECOGNITION` session stays open. We still send the official
+     * command (harmless, correct on DUI). Conversation capture uses
+     * `VOICE_COMMUNICATION`, which Android 11 does not silence while that
+     * session is up. Do not force-stop Lex.
+     */
+    fun pauseLexAudio() {
+        robotStatusCmd("stop_audio_service", "stop_audio_service")
+    }
+
+    fun resumeLexAudio() {
+        robotStatusCmd("start_audio_service", "start_audio_service")
+    }
+
+    /**
+     * Register a manual [SpeechCallbackBinder] (transaction 28). Returns false
+     * if Letianpai is not bound or the transact is rejected.
+     */
+    fun registerSpeechCallback(callback: IBinder): Boolean {
+        speechCallback = callback
+        val binder = remote ?: return false
+        val out = Parcel.obtain()
+        val reply = Parcel.obtain()
+        return try {
+            out.writeInterfaceToken(LtpApi.TOKEN)
+            out.writeStrongBinder(callback)
+            val ok = binder.transact(LtpApi.code("registerSpeechCallback"), out, reply, 0)
+            if (!ok) {
+                Log.e(TAG, "registerSpeechCallback rejected")
+                return false
+            }
+            reply.readException()
+            Log.i(TAG, "registerSpeechCallback ok")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "registerSpeechCallback failed", e)
+            false
+        } finally {
+            out.recycle()
+            reply.recycle()
+        }
+    }
+
+    fun unregisterSpeechCallback() {
+        val callback = speechCallback ?: return
+        speechCallback = null
+        val binder = remote ?: return
+        val out = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            out.writeInterfaceToken(LtpApi.TOKEN)
+            out.writeStrongBinder(callback)
+            val ok = binder.transact(LtpApi.code("unregisterSpeechCallback"), out, reply, 0)
+            if (ok) reply.readException()
+            Log.i(TAG, "unregisterSpeechCallback")
+        } catch (e: Exception) {
+            Log.e(TAG, "unregisterSpeechCallback failed", e)
+        } finally {
+            out.recycle()
+            reply.recycle()
+        }
     }
 
     private fun call(method: String, command: String, data: String) {

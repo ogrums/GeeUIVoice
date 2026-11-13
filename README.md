@@ -7,6 +7,7 @@ Kotlin service for the RUX robot. `com.geeui.lex` stays installed and keeps the 
 - [docs/AGENT.md](docs/AGENT.md) : nanobot comme cerveau du robot (mémoire, skills, soul, MCP)
 - [docs/PERSONNALISATION.md](docs/PERSONNALISATION.md) : reconnaître qui parle, prendre l'initiative, souvenirs utiles
 - [docs/ROADMAP.md](docs/ROADMAP.md) : la suite (humeur, vision, skills appris, maison, mode enfant/invité)
+- [tools/voicetest/README.md](tools/voicetest/README.md) : campagne de tests vocaux (hook WAV + chaîne haut-parleur/micro)
 
 ## Decisions
 
@@ -61,6 +62,15 @@ The mic thread never waits on HTTP. STT, chat and playback run on a second threa
 adb shell am startservice -n com.geeui.voice/.VoiceService \
   -e host http://<pc>:13305/api/v1
 ```
+
+### Vision à la demande
+
+« Qu'est-ce que tu vois ? », « lis ça », « regarde ça », « c'est quoi ça ? » (liste dans `VisionIntent`) : l'app prend **une** photo avec la caméra du robot (Camera2, le SDK Letianpai n'expose pas la caméra) et l'ajoute au tour au format OpenAI (`image_url` en data URL). Le sidecar la fait décrire par un modèle vision (`VISION_MODEL`, section « Vision à la demande » de GeeUIVoiceSidecar) et nanobot reçoit « (RUX voit : …) ». Pas de flux continu, rien n'est gardé sur le robot.
+
+- `host` doit être le sidecar (`http://<pc>:13306/v1`) : c'est lui qui transforme l'image en texte.
+- Permission caméra : demandée à l'ouverture de l'app ; service lancé seul par adb : `adb shell pm grant com.geeui.voice android.permission.CAMERA`.
+- `-e vision 0` : jamais de photo.
+- Caméra occupée (reconnaissance faciale du fabricant) ou refusée : nanobot reçoit « (RUX a voulu regarder mais n'a pas pu : caméra indisponible) » ; la cause est dans la ligne de diagnostic (`caméra : …`).
 
 Lex and this service cannot share the mic. Stop Lex's recorder before starting the loop, or the `AudioRecord` fails.
 

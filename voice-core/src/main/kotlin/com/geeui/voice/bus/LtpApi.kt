@@ -7,6 +7,7 @@ package com.geeui.voice.bus
  */
 object LtpApi {
     const val TOKEN = "com.renhejia.robot.letianpaiservice.ILetianpaiService"
+    const val SPEECH_CALLBACK_TOKEN = "com.letianpai.robot.letianpaiservice.LtpSpeechCallback"
 
     val methods = listOf(
         "getRobotStatus",

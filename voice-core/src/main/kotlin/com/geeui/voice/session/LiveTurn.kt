@@ -20,6 +20,8 @@ class LiveTurn(
     var onUserText: (String) -> Unit = {},
     var onAnswer: (String) -> Unit = {},
     var onListen: () -> Unit = {},
+    /** End of the user utterance: STT then the LLM. */
+    var onThink: () -> Unit = {},
     var onIdle: () -> Unit = {},
     /** False while the speaker is on, or during the echo tail after it stops. */
     var allowBargeIn: () -> Boolean = { true },
@@ -45,6 +47,7 @@ class LiveTurn(
             }
             is VadEvent.SpeechEnd -> {
                 listening = false
+                onThink()
                 val pcm = event.pcm
                 worker {
                     val text = stt.transcribe(pcm16ToWav(pcm, sampleRate), sampleRate).trim()

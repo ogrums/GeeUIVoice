@@ -21,6 +21,12 @@ class LemonadeClient(
     @Volatile private var resolvedStt: String? = null
     @Volatile private var resolvedChat: String? = null
     @Volatile private var resolvedTts: String? = null
+    /** JPEG sent with the next chat turn only, then dropped (never kept). */
+    @Volatile private var nextImage: ByteArray? = null
+
+    fun attachImage(jpeg: ByteArray) {
+        nextImage = jpeg
+    }
 
     /** Model id actually sent to /audio/transcriptions. Falls back to Whisper-Small. */
     fun resolveStt(): String {
@@ -95,6 +101,11 @@ class LemonadeClient(
         private set
     var lastAudioConfidence: Double = 0.0
         private set
+    /** ONNX class before parse_label (e.g. disgusted, other). Same as lastAudioEmotion when they match. */
+    var lastAudioEmotionRaw: String = "neutral"
+        private set
+    var lastAudioRawConfidence: Double = 0.0
+        private set
 
     /** Sidecar « qui parle » : Paul, Invité, ou vide si la fonction est éteinte. */
     var lastSpeakerName: String = ""
@@ -109,6 +120,8 @@ class LemonadeClient(
     fun transcribe(wav: ByteArray): String {
         lastAudioEmotion = "neutral"
         lastAudioConfidence = 0.0
+        lastAudioEmotionRaw = "neutral"
+        lastAudioRawConfidence = 0.0
         lastSpeakerName = ""
         lastSpeakerRole = ""
         lastAllowedActions = null
@@ -120,6 +133,8 @@ class LemonadeClient(
         val head = (
             "--$boundary\r\n" +
                 "Content-Disposition: form-data; name=\"model\"\r\n\r\n${resolveStt()}\r\n" +
+                "--$boundary\r\n" +
+                "Content-Disposition: form-data; name=\"language\"\r\n\r\nfr\r\n" +
                 "--$boundary\r\n" +
                 "Content-Disposition: form-data; name=\"file\"; filename=\"turn.wav\"\r\n" +
                 "Content-Type: audio/wav\r\n\r\n"
@@ -135,6 +150,8 @@ class LemonadeClient(
         if (at < 0) return raw
         lastAudioEmotion = stringField(raw, "emotion") ?: "neutral"
         lastAudioConfidence = numberField(raw, "emotion_confidence") ?: 0.0
+        lastAudioEmotionRaw = stringField(raw, "emotion_raw") ?: lastAudioEmotion
+        lastAudioRawConfidence = numberField(raw, "emotion_raw_confidence") ?: lastAudioConfidence
         lastSpeakerName = stringField(raw, "speaker_name") ?: ""
         lastSpeakerRole = stringField(raw, "speaker_role") ?: ""
         lastAllowedActions = stringList(raw, "allowed_actions")
@@ -281,7 +298,17 @@ class LemonadeClient(
         val sys = systemPrompt.trim()
         val system = if (sys.isEmpty()) "" else """{"role":"system","content":${json(sys)}},"""
         val flag = if (stream) ""","stream":true""" else ""
-        return """{"model":"${resolveChat()}"$flag,"messages":[$system{"role":"user","content":${json(userText)}}]}"""
+        val image = nextImage
+        nextImage = null
+        val content = if (image == null) json(userText) else userContent(userText, image)
+        return """{"model":"${resolveChat()}"$flag,"messages":[$system{"role":"user","content":$content}]}"""
+    }
+
+    /** OpenAI multimodal content: the question, then the photo as a data URL. */
+    internal fun userContent(text: String, jpeg: ByteArray): String {
+        val b64 = java.util.Base64.getEncoder().encodeToString(jpeg)
+        return """[{"type":"text","text":${json(text)}},""" +
+            """{"type":"image_url","image_url":{"url":"data:image/jpeg;base64,$b64"}}]"""
     }
 
     /** Only a quoted message. `null`, finish_reason and token counts are not speech. */
@@ -304,6 +331,8 @@ class LemonadeClient(
 
 class LemonadeChat(private val client: LemonadeClient) : Chat, StreamingChat {
     override fun reply(userText: String): String = client.chat(userText)
+
+    override fun attachImage(jpeg: ByteArray) = client.attachImage(jpeg)
 
     override fun stream(userText: String, onDelta: (String) -> Unit) {
         client.chatStream(userText, onDelta)
@@ -349,6 +378,10 @@ class EmotionStt(
     val lastSpeakerRole: String get() = sidecar.lastSpeakerRole
     /** null quand le sidecar ne restreint rien (reconnaissance éteinte ou sidecar en panne). */
     val lastAllowedActions: Set<String>? get() = sidecar.lastAllowedActions
+    val lastAudioEmotion: String get() = sidecar.lastAudioEmotion
+    val lastAudioConfidence: Double get() = sidecar.lastAudioConfidence
+    val lastAudioEmotionRaw: String get() = sidecar.lastAudioEmotionRaw
+    val lastAudioRawConfidence: Double get() = sidecar.lastAudioRawConfidence
 
     override fun transcribe(pcm16le: ByteArray, sampleRate: Int): String {
         val raw = sidecar.transcribe(pcm16le)
