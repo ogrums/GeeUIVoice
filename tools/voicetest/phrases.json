@@ -1,0 +1,162 @@
+[
+  {
+    "id": "meteo-paris",
+    "suite": "dialogue",
+    "text": "C'est quoi la météo à Paris aujourd'hui ?",
+    "expect_heard": ["météo", "paris"],
+    "expect_reply": ["degré", "paris", "°"],
+    "notes": "Recherche web / skill météo (PR #16)."
+  },
+  {
+    "id": "emoji-expression",
+    "suite": "dialogue",
+    "text": "Réponds avec un emoji qui rit, s'il te plaît.",
+    "expect_heard": ["emoji", "rit"],
+    "expect_reply": [],
+    "expect_face": true,
+    "notes": "Expression du visage (PR #15). L'emoji ne doit pas être lu à voix haute."
+  },
+  {
+    "id": "question-simple",
+    "suite": "dialogue",
+    "text": "Comment tu t'appelles ?",
+    "expect_heard": ["comment", "appelles"],
+    "expect_reply": ["rux"],
+    "notes": "Question simple, faible latence attendue."
+  },
+  {
+    "id": "preroll-voiture",
+    "suite": "dialogue",
+    "text": "Voiture",
+    "expect_heard": ["voiture"],
+    "expect_reply": [],
+    "loud_start": true,
+    "notes": "Phrase commençant fort, pour le pré-roll VAD (début de phrase coupé, PR #14). En mode wav le VAD est contourné : à juger surtout en chaîne complète."
+  },
+
+  {
+    "id": "emotion-happy",
+    "suite": "emotion",
+    "text": "Bonjour, comment ça va aujourd'hui ?",
+    "emotion": "happy",
+    "expect_heard": ["bonjour", "comment"],
+    "expect_audio_emotion": "happy",
+    "expect_face_code": "h0020",
+    "notes": "Même phrase, débit plus vif et voix un peu plus aiguë. emotion2vec doit voir happy ; visage attendu h0020 快乐 si la fusion dépasse 0,45 (h0006 est le rire en X, réservé à 😂)."
+  },
+  {
+    "id": "emotion-sad",
+    "suite": "emotion",
+    "text": "Bonjour, comment ça va aujourd'hui ?",
+    "emotion": "sad",
+    "expect_heard": ["bonjour", "comment"],
+    "expect_audio_emotion": "sad",
+    "expect_face_code": "h0119",
+    "notes": "Même phrase, plus lente, plus grave, plus faible. emotion2vec : sad ; visage h0119."
+  },
+  {
+    "id": "emotion-angry",
+    "suite": "emotion",
+    "text": "Bonjour, comment ça va aujourd'hui ?",
+    "emotion": "angry",
+    "expect_heard": ["bonjour", "comment"],
+    "expect_audio_emotion": "angry",
+    "expect_face_code": "h0001",
+    "notes": "Même phrase, plus rapide et plus forte. emotion2vec : angry ; visage h0001."
+  },
+  {
+    "id": "emotion-neutral",
+    "suite": "emotion",
+    "text": "Bonjour, comment ça va aujourd'hui ?",
+    "emotion": "neutral",
+    "expect_heard": ["bonjour", "comment"],
+    "expect_audio_emotion": "neutral",
+    "expect_face_code": "h0059",
+    "notes": "Même phrase, voix plate. emotion2vec : neutral (ou confiance faible) ; visage de repos h0059."
+  },
+
+  {
+    "id": "var-speed-0.8",
+    "suite": "voice",
+    "text": "Comment tu t'appelles ?",
+    "speed": 0.8,
+    "expect_heard": ["comment", "appelles"],
+    "expect_reply": ["rux"],
+    "notes": "STT à 0,8× (plus lent). La transcription doit rester complète."
+  },
+  {
+    "id": "var-speed-1.0",
+    "suite": "voice",
+    "text": "Comment tu t'appelles ?",
+    "speed": 1.0,
+    "expect_heard": ["comment", "appelles"],
+    "expect_reply": ["rux"],
+    "notes": "Référence à vitesse normale."
+  },
+  {
+    "id": "var-speed-1.3",
+    "suite": "voice",
+    "text": "Comment tu t'appelles ?",
+    "speed": 1.3,
+    "expect_heard": ["comment", "appelles"],
+    "expect_reply": ["rux"],
+    "notes": "STT à 1,3× (plus rapide)."
+  },
+  {
+    "id": "var-amp-quiet",
+    "suite": "voice",
+    "text": "Comment tu t'appelles ?",
+    "gain": 0.25,
+    "expect_heard": ["comment", "appelles"],
+    "expect_reply": ["rux"],
+    "notes": "Amplitude faible. En wav le VAD est contourné ; en chaîne complète, vérifie que le VAD déclenche encore."
+  },
+  {
+    "id": "var-amp-normal",
+    "suite": "voice",
+    "text": "Comment tu t'appelles ?",
+    "gain": 1.0,
+    "expect_heard": ["comment", "appelles"],
+    "expect_reply": ["rux"],
+    "notes": "Amplitude normale."
+  },
+  {
+    "id": "var-amp-loud",
+    "suite": "voice",
+    "text": "Comment tu t'appelles ?",
+    "gain": 2.2,
+    "loud_start": true,
+    "expect_heard": ["comment", "appelles"],
+    "expect_reply": ["rux"],
+    "notes": "Amplitude forte, attaque nette : STT et pré-roll (pas de premier mot coupé)."
+  },
+  {
+    "id": "var-pitch-low",
+    "suite": "voice",
+    "text": "Comment tu t'appelles ?",
+    "pitch_semitones": -4,
+    "expect_heard": ["comment", "appelles"],
+    "expect_reply": ["rux"],
+    "notes": "Voix plus grave (−4 demi-tons). STT et stabilité de l'émotion audio."
+  },
+  {
+    "id": "var-pitch-high",
+    "suite": "voice",
+    "text": "Comment tu t'appelles ?",
+    "pitch_semitones": 4,
+    "expect_heard": ["comment", "appelles"],
+    "expect_reply": ["rux"],
+    "notes": "Voix plus aiguë (+4 demi-tons)."
+  },
+  {
+    "id": "var-distance",
+    "suite": "voice",
+    "text": "Comment tu t'appelles ?",
+    "gain": 0.15,
+    "play_volume": 0.35,
+    "chain_only": true,
+    "expect_heard": ["comment", "appelles"],
+    "expect_reply": ["rux"],
+    "notes": "Chaîne complète seulement : volume PC bas, à jouer un peu plus loin du robot, pour le VAD à distance."
+  }
+]

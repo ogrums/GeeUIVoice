@@ -32,4 +32,12 @@ class SdkPoseTest {
         assertNull(pose.action)
         assertNull(pose.sound)
     }
+
+    @Test
+    fun disgust_plays_a0033_aversion() {
+        val pose = SdkMap.pose(Emotion.DISGUST)
+        assertEquals("h0033", pose.faceId)
+        assertEquals("a0033", pose.sound)
+        assertEquals("PURPLE", pose.light)
+    }
 }

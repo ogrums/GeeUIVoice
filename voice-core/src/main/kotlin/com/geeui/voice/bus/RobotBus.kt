@@ -38,13 +38,13 @@ fun RobotBus.applyPose(pose: SdkPose) {
     if (action != null) controlMotion(action, 1, 3)
 }
 
-/** How long the pose stays after the clip ends, before 立正. */
+/** How long the pose stays after the clip ends, before 立正. A short tail, not a 3 s hold. */
 object PoseTiming {
-    const val REST_AFTER_MS = 3_000L
+    const val REST_AFTER_MS = 800L
 }
-/** Motion 0 is AT+MOVEW,0 (立正). The idle face is h0059. Angle 0 is rewritten to 90, so the ears come back to 15. */
+/** Motion 0 is AT+MOVEW,0 (立正). The rest face is RestFace.current (h0059, or the robot mood). Angle 0 is rewritten to 90, so the ears come back to 15. */
 fun RobotBus.standAtAttention() {
-    showFace("h0059")
+    showFace(RestFace.current)
     antennaLight(false, 0)
     ears(3, 1, 400, 15)
     controlMotion(0, 1, 1)
@@ -67,18 +67,44 @@ const val THINK_FACE = "h0181"
 const val SPEAK_FACE = "h0292"
 
 /**
- * Face shown on our own screen for a dialogue state. Local only: nothing is sent on the bus.
+ * Configurable dialogue face ids (settings `listen_face` / `think_face`).
+ * Defaults match the stock assistant: [LISTEN_FACE], [THINK_FACE], [SPEAK_FACE].
+ */
+object DialogueFaces {
+    @Volatile var listen: String = LISTEN_FACE
+    @Volatile var think: String = THINK_FACE
+    @Volatile var speak: String = SPEAK_FACE
+
+    fun reset() {
+        listen = LISTEN_FACE
+        think = THINK_FACE
+        speak = SPEAK_FACE
+    }
+
+    /** Accepts `h0180`, `H0180` or `0180`. Unknown values keep [fallback]. */
+    fun parseId(raw: String?, fallback: String): String {
+        val trimmed = raw?.trim()?.lowercase().orEmpty()
+        if (trimmed.isEmpty()) return fallback
+        val id = if (trimmed.startsWith("h")) trimmed else "h$trimmed"
+        return if (id.matches(Regex("h\\d{4}"))) id else fallback
+    }
+}
+
+/**
+ * Face shown on our own screen for a dialogue state.
+ * The same ids are also sent on the bus (`controlFace`) when the loop enters
+ * hear / think, so the robot face matches even if the activity is not on top.
  * [mode] is VoiceHud.mode (hear, think, talk, idle). [playing] is true while the TTS clip plays.
  * [pose] is the face of the last pose (VoiceHud.face). An emotion face wins over the speaking
  * face, so the EmotionFusion reaction stays visible while the robot talks. Neutral or no pose
- * gets the mouth. After the clip, the pose face holds until standAtAttention puts h0059 back.
+ * gets the mouth. After the clip, the pose face holds until standAtAttention puts the rest face back.
  */
 fun dialogueFace(mode: String, playing: Boolean, pose: String): String {
-    val emotion = pose.isNotBlank() && pose != IDLE_FACE
+    val emotion = pose.isNotBlank() && !RestFace.isRest(pose)
     return when {
-        playing -> if (emotion) pose else SPEAK_FACE
-        mode == "hear" -> LISTEN_FACE
-        mode == "think" || mode == "talk" -> THINK_FACE
+        playing -> if (emotion) pose else DialogueFaces.speak
+        mode == "hear" -> DialogueFaces.listen
+        mode == "think" || mode == "talk" -> DialogueFaces.think
         else -> pose
     }
 }
@@ -90,8 +116,9 @@ fun debugLaunch(mode: String?, debug: String? = null): Boolean {
     return flag == "1" || flag == "true" || flag == "yes"
 }
 
-class RecordingBus : RobotBus {
+class RecordingBus(private val clock: () -> Long = { System.currentTimeMillis() }) : RobotBus {
     val events = mutableListOf<String>()
+    val faces = mutableListOf<com.geeui.voice.session.FaceEvent>()
 
     override fun speechCmd(command: String, data: String) {
         events += "speech $command $data"
@@ -107,6 +134,7 @@ class RecordingBus : RobotBus {
 
     override fun showFace(faceId: String) {
         events += "face $faceId"
+        faces += com.geeui.voice.session.FaceEvent(faceId, clock())
     }
 
     override fun ears(cmd: Int, step: Int, speedMs: Int, angle: Int) {

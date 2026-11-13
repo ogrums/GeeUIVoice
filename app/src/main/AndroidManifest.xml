@@ -9,6 +9,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:icon="@mipmap/ic_launcher"
@@ -21,7 +22,9 @@
             android:name=".VoiceActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:screenOrientation="landscape">
+            android:screenOrientation="landscape"
+            android:turnScreenOn="true"
+            android:showWhenLocked="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -31,5 +34,20 @@
             android:name=".VoiceService"
             android:exported="true"
             android:foregroundServiceType="microphone" />
+        <!-- Exported for adb only. Paths are allowlisted in WavTestAccess; does nothing until broadcast. -->
+        <receiver
+            android:name=".TestWavReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.geeui.voice.TEST_WAV" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".TestMicReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.geeui.voice.TEST_MIC" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

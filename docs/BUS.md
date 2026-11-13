@@ -174,7 +174,7 @@ DUI reminder insert and remove use different strings, on the command callback ra
 
 Two vocabularies. They are not proven to be the same clip.
 
-SDK and `setAudioEffect("controlSound", id)` use file ids: `a0020` angry, `a0032` laugh, `a0037` fear, `a0086` sad, `a0095` surprise. The longer list is in `GeeUIVoiceEmo/docs/ROBOTSDK.md`.
+SDK and `setAudioEffect("controlSound", id)` use file ids: `a0020` angry, `a0032` laugh, `a0033` disgust, `a0037` fear, `a0086` sad, `a0095` surprise. The official list is in [tags/SONS.md](tags/SONS.md).
 
 `MCUCommandConsts` also defines symbolic names: `lose`, `angry`, `funny`, `anger`, `cry`, `spoiledChild`, `happy`, `wrySmile`, `sad`, `avoidance`, `click`, `mistake`, `finish`, `findPerson`, `clock`, `shutdown`, `startUp`, `lowPower`, `charge`, `mainToFace`, `dizziness`, `wake`, `sleep`, `pant`. Do not pass these to `robotControlSound` unless a device log shows the firmware accepts them.
 
@@ -193,7 +193,7 @@ SDK and `setAudioEffect("controlSound", id)` use file ids: `a0020` angry, `a0032
 | `clock_start` / `clock_stop` | | alarm window |
 | `go_sleep` | | sleep |
 | `identHandResult` | `10101` in, `10102` out | hand ident |
-| `start_audio_service` / `stop_audio_service` / `shut_down_audio_service` | | audio process |
+| `start_audio_service` / `stop_audio_service` / `shut_down_audio_service` | same string as the command (not a package name) | audio process. Must be sent with `setRobotStatusCmd`, not `setAppCmd`. On DUI firmware, `stop` calls Lex `disableWakeup()`. On the installed iFlytek VTN build, that does **not** close the 32 kHz wake-word session (`WakeManager.stopVtnWake` is only called from `BotService.onDestroy`). |
 | `cliff_trigger` | | cliff event |
 | `take_photo` | | photo, distinct from `rhj.controller.takephoto` |
 | `stop_app` | | stop an app |

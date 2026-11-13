@@ -14,6 +14,12 @@ class LtpApiTest {
         assertEquals(15, LtpApi.code("setExpression"))
         assertEquals(24, LtpApi.code("setTTS"))
         assertEquals(27, LtpApi.code("setSpeechCmd"))
+        assertEquals(28, LtpApi.code("registerSpeechCallback"))
+        assertEquals(29, LtpApi.code("unregisterSpeechCallback"))
+        assertEquals(
+            "com.letianpai.robot.letianpaiservice.LtpSpeechCallback",
+            LtpApi.SPEECH_CALLBACK_TOKEN,
+        )
     }
 
     @Test

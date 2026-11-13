@@ -30,7 +30,7 @@
       "timezone": "Europe/Paris",
       "maxToolIterations": 6,
       "maxConcurrentSubagents": 1,
-      "disabledSkills": ["clawhub", "github", "tmux", "image-generation", "nanobot-document", "weather", "cron", "summarize"],
+      "disabledSkills": ["skill-creator", "clawhub", "github", "tmux", "image-generation", "nanobot-document", "weather", "cron", "summarize"],
       "dream": { "enabled": true, "modelOverride": "lourd" }
     }
   },
@@ -40,10 +40,27 @@
     "timeout": 60,
     "apiKey": "${NANOBOT_API_KEY}"
   },
+  "gateway": {
+    "host": "0.0.0.0",
+    "port": 18790
+  },
+  "channels": {
+    "websocket": {
+      "enabled": true,
+      "host": "0.0.0.0",
+      "port": 8765,
+      "tokenIssueSecret": "${NANOBOT_WEB_TOKEN}",
+      "websocketRequiresToken": true
+    }
+  },
   "tools": {
     "restrictToWorkspace": true,
     "exec": { "enable": false },
-    "web": { "enable": false },
+    "web": {
+      "enable": true,
+      "search": { "provider": "duckduckgo", "maxResults": 3, "timeout": 15 },
+      "fetch": { "useJinaReader": false }
+    },
     "cliApps": { "enable": false },
     "my": { "enable": false },
     "mcpServers": {}

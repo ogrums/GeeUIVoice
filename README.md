@@ -7,6 +7,7 @@ Kotlin service for the RUX robot. `com.geeui.lex` stays installed and keeps the 
 - [docs/AGENT.md](docs/AGENT.md) : nanobot comme cerveau du robot (mémoire, skills, soul, MCP)
 - [docs/PERSONNALISATION.md](docs/PERSONNALISATION.md) : reconnaître qui parle, prendre l'initiative, souvenirs utiles
 - [docs/ROADMAP.md](docs/ROADMAP.md) : la suite (humeur, vision, skills appris, maison, mode enfant/invité)
+- [tools/voicetest/README.md](tools/voicetest/README.md) : campagne de tests vocaux (hook WAV + chaîne haut-parleur/micro)
 
 ## Decisions
 
