@@ -6,10 +6,12 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.Parcel
+import android.os.SystemClock
 import android.util.Log
 import com.geeui.voice.bus.LtpApi
 import com.geeui.voice.bus.RobotBus
 import com.geeui.voice.bus.faceCommand
+import java.util.concurrent.Executors
 
 /** Forwards skills to the robot process. Motion opens the servo rail first. */
 class AidlBus(context: Context) : RobotBus, ServiceConnection {
@@ -18,6 +20,11 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
     /** Invoked on the binder thread when Letianpai is bound (and again if rebound). */
     var onConnected: (() -> Unit)? = null
     private var speechCallback: IBinder? = null
+    private val faceGate = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "geeui-face").apply { isDaemon = true }
+    }
+    private var lastFaceSent = ""
+    private var lastFaceAt = 0L
 
     init {
         val intent = Intent("android.intent.action.LETIANPAI")
@@ -88,7 +95,29 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
 
     override fun showFace(faceId: String) {
         VoiceHud.recordFace(faceId)
+        faceGate.execute { sendFace(faceId) }
+    }
+
+    /**
+     * Skip a repeated id (wake sends hear twice: accepted + onListen) and leave
+     * a short gap so the RK3566 OMX decoder can switch clips without a SIGSEGV.
+     */
+    private fun sendFace(faceId: String) {
+        val now = SystemClock.elapsedRealtime()
+        if (faceId == lastFaceSent && now - lastFaceAt < FACE_SKIP_MS) {
+            Log.i(TAG, "setExpression skip $faceId")
+            return
+        }
+        val wait = FACE_GAP_MS - (now - lastFaceAt)
+        if (lastFaceAt != 0L && wait > 0) {
+            try {
+                Thread.sleep(wait)
+            } catch (_: InterruptedException) {
+            }
+        }
         call("setExpression", "controlFace", faceCommand(faceId))
+        lastFaceSent = faceId
+        lastFaceAt = SystemClock.elapsedRealtime()
     }
 
     fun appCmd(command: String, data: String) {
@@ -203,5 +232,7 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
 
     private companion object {
         const val TAG = "GeeUIVoice"
+        const val FACE_SKIP_MS = 1500L
+        const val FACE_GAP_MS = 300L
     }
 }

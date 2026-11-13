@@ -31,6 +31,7 @@ class DialogueFaceTest {
     @Test
     fun emotionPoseWinsWhileSpeakingAndAfter() {
         assertEquals("h0006", dialogueFace("talk", true, "h0006"))
+        assertEquals("h0006", dialogueFace("talk", false, "h0006"))
         assertEquals("h0119", dialogueFace("idle", false, "h0119"))
     }
 
@@ -40,11 +41,15 @@ class DialogueFaceTest {
     }
 
     @Test
-    fun stateClipsAreSmall() {
-        for (id in listOf(LISTEN_FACE, THINK_FACE, SPEAK_FACE)) {
+    fun stateClipsAreBundledAndSmall() {
+        for (id in listOf(LISTEN_FACE, THINK_FACE, SPEAK_FACE, IDLE_FACE)) {
             val f = listOf("../app/src/main/assets/video/$id.mp4", "app/src/main/assets/video/$id.mp4")
-                .map { java.io.File(it) }.firstOrNull { it.exists() } ?: continue
-            assertEquals(true, f.length() < 200_000, "$id trop gros")
+                .map { java.io.File(it) }.firstOrNull { it.exists() }
+            assertEquals(true, f != null, "$id absent des assets")
+            // Idle h0059 keeps its AAC track (~300 Ko). Dialogue clips stay small.
+            if (id != IDLE_FACE) {
+                assertEquals(true, f!!.length() < 200_000, "$id trop gros: ${f.length()}")
+            }
         }
     }
 

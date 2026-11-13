@@ -4,7 +4,7 @@ Liste officielle des vidéos d'expression du robot Letianpai RUX (`cmd_tag` `h00
 
 Copie machine : [`faces_h_tags.json`](faces_h_tags.json) (champs `cmd_tag`, `cmd_tag_name`, `name_fr`, `usage`, et `uncertain` si la traduction n'est pas sûre).
 
-Les vidéos vivent dans l'app système GeeUIFace (`assets/video/<id>.mp4`). GeeUIVoice n'en embarque qu'un sous-ensemble pour l'écran local (`TextureView`). Un tag absent de l'APK peut quand même s'afficher via le bus (`controlFace`), comme le dégoût `h0033`. Les clips bundlés aujourd'hui :
+Les vidéos vivent dans l'app système GeeUIFace (`assets/video/<id>.mp4`). GeeUIVoice n'en embarque qu'un sous-ensemble pour l'écran local (`TextureView`), qui recouvre GeeUIFace : un tag envoyé sur le bus mais absent de *cette* APK ne se voit pas, et un échec de lecture figait l'écran sur la dernière image. Les clips d'état (écoute, backend, parole, repos) doivent donc être bundlés. Les clips bundlés aujourd'hui :
 
 - `h0001` — colère
 - `h0002` — arrogance — bundlé pour l'ancienne nuance « laugh », plus mappée
@@ -27,9 +27,11 @@ Les vidéos vivent dans l'app système GeeUIFace (`assets/video/<id>.mp4`). GeeU
 - `h0119` — pleurs — émotion triste
 - `h0131` — V5 — bundlé pour l'ancienne nuance « wink »
 - `h0133` — peur
-- `h0180` — écoute vocale — ancien état hear (toujours bundlé)
-- `h0181` — réflexion vocale — nuance thinking 🤔, ancien état think (toujours bundlé)
+- `h0180` — écoute vocale — ancien état hear (toujours bundlé, repli si `h0347` manque)
+- `h0181` — réflexion vocale — nuance thinking 🤔, ancien état think (toujours bundlé, repli si `h0242` manque)
+- `h0242` — attente backend (badge « AI »)
 - `h0292` — bouche qui parle — état speak neutre
+- `h0347` — début VAD, visage d'écoute par défaut
 
 Les six visages d'émotion d'origine (PR #15 et la série « Bundle the six emotion face clips ») sont `h0001`, `h0006`, `h0046`, `h0059`, `h0119`, `h0133`. D'autres clips ont été ajoutés ensuite pour le dialogue, les nuances d'emoji et l'humeur. On les garde tous dans l'APK, y compris ceux qui ne sont plus mappés (`h0002`, `h0131`, `h0063`).
 
@@ -78,7 +80,7 @@ Les visages d'écoute et de réflexion sont envoyés sur le bus (`controlFace`) 
 
 L'attente STT et l'appel au modèle sont la même phase dans la boucle : on affiche `h0242` (réglable via `backend_face` ou l'alias `think_face`). La nuance 🤔 de la réponse reste `h0181` 语音思考.
 
-Pourquoi ces tags : `h0347` est le clip que l'assistant d'origine joue au début du VAD. Il est dans l'APK GeeUIFace du robot (`assets/video/h0347.mp4`, 350 Ko) mais absent de la liste publique h0001–h0302. L'ancien `h0180` 语音听 (yeux et un « ? ») reste disponible dans le menu. `h0242` n'a pas de nom officiel (无) ; on s'en sert pour l'attente du backend. `h0181` et `h0050` restent des visages de réflexion, plus pour cette phase.
+Pourquoi ces tags : `h0347` est le clip que l'assistant d'origine joue au début du VAD. Il est dans l'APK GeeUIFace du robot (`assets/video/h0347.mp4`, 350 Ko avec une piste audio) mais absent de la liste publique h0001–h0302. GeeUIVoice en embarque une copie sans audio (~87 Ko). En boucle, le clip passe d'un regard d'écoute à un visage rougissant avec des cœurs. L'ancien `h0180` 语音听 (yeux et un « ? ») reste disponible dans le menu, et sert de repli si `h0347` n'est pas bundlé. `h0242` n'a pas de nom officiel (无) ; on s'en sert pour l'attente du backend (yeux et badge « AI »). L'original GeeUIFace est en H.264 High avec des B-frames, format qui plante le décodeur OMX du RK3566 : la copie dans notre APK est en Main, sans B-frames. `h0181` reste le repli et la nuance 🤔.
 
 Au repos, le visage par défaut est `h0059` (ou l'humeur). L'alternance parmi `h0135`–`h0175` est **coupée par défaut** (`idle_faces=off`) : sur le RK3566, un `controlFace` trop fréquent fait planter le décodeur vidéo (`libomxvpu_dec.so`, `Rkvpu_Wait_ProcessPause`) et fige l'écran.
 

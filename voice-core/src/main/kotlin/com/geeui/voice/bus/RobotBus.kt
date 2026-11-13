@@ -111,6 +111,9 @@ fun dialogueFace(mode: String, playing: Boolean, pose: String): String {
     val emotion = pose.isNotBlank() && !RestFace.isRest(pose)
     return when {
         playing -> if (emotion) pose else DialogueFaces.speak
+        // Apply the emotion face as soon as talk starts, even before TTS is audible.
+        // Otherwise the backend / think clip stays on the TextureView while the robot speaks.
+        mode == "talk" && emotion -> pose
         mode == "hear" -> DialogueFaces.listen
         mode == "think" || mode == "talk" -> DialogueFaces.think
         else -> pose

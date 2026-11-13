@@ -403,37 +403,61 @@ class VoiceActivity : Activity() {
     }
 
     private fun playFace(id: String) {
-        shownFace = id
         val view = faceView
         if (view != null && view.isAvailable && faceSurface != null) startFace(id)
         else pendingFace = id
     }
 
-    /** TextureView, not VideoView: a SurfaceView covers the controls, and VideoView pauses when speech starts. */
+    /**
+     * TextureView, not VideoView: a SurfaceView covers the controls, and VideoView pauses when speech starts.
+     * Prepare the new clip before releasing the current player. Releasing first froze the
+     * TextureView on the last frame when the asset was missing (h0347 / h0242 were sent
+     * on the bus in #42 but not bundled in this APK).
+     */
     private fun startFace(id: String) {
         pendingFace = null
         val surface = faceSurface ?: return
-        facePlayer?.release()
+        val local = localFace(id)
         val mp = MediaPlayer()
-        facePlayer = mp
         try {
-            assets.openFd(bundledFace(id)).use { afd ->
+            assets.openFd(bundledFace(local)).use { afd ->
                 mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             }
             mp.setSurface(surface)
             mp.setVolume(0f, 0f)
             mp.isLooping = true
             mp.setOnErrorListener { _, what, extra ->
-                VoiceHud.diag = "visage $id $what/$extra"
+                VoiceHud.diag = "visage $local $what/$extra"
                 true
             }
             mp.prepare()
+            facePlayer?.release()
+            facePlayer = mp
             mp.start()
+            shownFace = id
+            if (local != id) VoiceHud.diag = "visage $id absent, $local"
         } catch (e: Exception) {
             VoiceHud.diag = "visage $id ${e.javaClass.simpleName}"
             mp.release()
-            if (facePlayer === mp) facePlayer = null
         }
+    }
+
+    private fun hasFaceAsset(id: String): Boolean = try {
+        assets.openFd(bundledFace(id)).close()
+        true
+    } catch (_: Exception) {
+        false
+    }
+
+    /** If a dialogue face is not in this APK, keep a bundled stand-in so the TextureView stays alive. */
+    private fun localFace(id: String): String {
+        if (hasFaceAsset(id)) return id
+        val fallback = when (id) {
+            "h0347" -> "h0180"
+            "h0242" -> "h0181"
+            else -> com.geeui.voice.bus.IDLE_FACE
+        }
+        return if (hasFaceAsset(fallback)) fallback else id
     }
 
     private fun releaseFace() {

@@ -149,15 +149,15 @@ Our own screen shows a face for each dialogue state. These ids come from the sto
 
 | State | Face | Stock call | What the clip shows |
 |---|---|---|---|
-| mic capture (`hear`) | `h0347` | stock assistant VAD begin | on-device GeeUIFace clip, not in the public sheet |
-| STT and LLM (`think` / backend, `talk` before audio) | `h0242` | (unnamed 无) | waiting for the sidecar / model |
+| mic capture (`hear`) | `h0347` | stock assistant VAD begin | bundled in this APK (copy of the on-device GeeUIFace clip, not in the public sheet) |
+| STT and LLM (`think` / backend, `talk` before audio) | `h0242` | (unnamed 无) | waiting for the sidecar / model; bundled (Main profile, no B-frames) |
 | TTS playing, neutral reply | `h0292` | `getSpeakingGesture` | eyes and a moving mouth |
 | TTS playing, emotion reply | the pose face | | `h0020`, `h0119`, and the others from the table above |
 | after the clip | the pose face, then `h0059` | | `standAtAttention` after a short 800 ms tail |
 
 `dialogueFace` picks the face. It only changes the local `TextureView`. It sends nothing on the bus, so `applyPose` and `standAtAttention` still own `controlFace`.
 
-Clips checked frame by frame and not used: `h0098` 语音听 also shows eyes and a `?`. It is close to `h0180`, but the stock assistant does not call it. `h0276` 倾听 is a dragonfly, not a listening face. `h0184`, `h0183` and `h0082` are the GPT skin versions. The stock assistant also calls `h0347` (VAD begin), `h0352` (first speaking) and `h0346` (speaking with AI). `h0347` is in the on-device GeeUIFace APK and is now the default listening face; `h0346` and `h0352` are not on the robot.
+Clips checked frame by frame and not used: `h0098` 语音听 also shows eyes and a `?`. It is close to `h0180`, but the stock assistant does not call it. `h0276` 倾听 is a dragonfly, not a listening face. `h0184`, `h0183` and `h0082` are the GPT skin versions. The stock assistant also calls `h0347` (VAD begin), `h0352` (first speaking) and `h0346` (speaking with AI). `h0347` is in the on-device GeeUIFace APK and is now bundled in GeeUIVoice as the default listening face; `h0346` and `h0352` are not on the robot. The local `TextureView` sits on top of GeeUIFace: a face id that is only on the bus, not in this APK, will not be visible, and a failed `MediaPlayer` prepare used to freeze the last frame (that is what happened at wake when `h0347` / `h0242` were missing).
 
 GeeUIFace plays `assets/video/<id>.mp4` in a loop. The automatic robot mode picks a script at random, and every 5th cycle it runs face recognition instead of a video. That loop is GeeUIFace, not GeeUIVoice.
 

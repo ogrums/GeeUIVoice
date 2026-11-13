@@ -674,6 +674,16 @@ class VoiceLoop(
         }
     }
 
+    fun debugShowFace(faceId: String) {
+        val id = com.geeui.voice.bus.DialogueFaces.parseId(faceId, "")
+        if (id.isEmpty()) {
+            Log.w(TEST_TAG, "TEST_FACE id refusé: $faceId")
+            return
+        }
+        bus.showFace(id)
+        Log.i(TEST_TAG, "face test $id")
+    }
+
     fun enqueueWavTest(path: String, outDir: File) {
         outDir.mkdirs()
         val running = File(outDir, "status.txt")
