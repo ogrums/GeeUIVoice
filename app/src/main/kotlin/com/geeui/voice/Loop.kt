@@ -239,8 +239,13 @@ class VoiceLoop(
                     }
                     continue
                 }
+                // MIC / VOICE_RECOGNITION / UNPROCESSED are silenced on
+                // Android 11 while Lex keeps its privileged 32 kHz
+                // VOICE_RECOGNITION session (uid 1000). That session is not
+                // closed by stop_audio_service on this firmware.
+                // VOICE_COMMUNICATION stays unsilenced and carries signal.
                 val rec = AudioRecord(
-                    MediaRecorder.AudioSource.MIC,
+                    MediaRecorder.AudioSource.VOICE_COMMUNICATION,
                     rate,
                     AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT,

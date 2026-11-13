@@ -105,15 +105,19 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
     }
 
     /**
-     * Stop the stock wake-word recorder so ours is not silenced, then start
-     * it again at rest so "Hi RUX" still works.
+     * Best-effort pause of the stock wake-word path, then resume it at rest
+     * so "Hi RUX" still works.
      *
-     * The official path (GeeUITaskService, Lex `LTPAudioService`) is
-     * [setRobotStatusCmd] with command and data both `stop_audio_service` /
-     * `start_audio_service`. That reaches `RhjAudioManager.disableWakeup()` /
-     * `enableWakeup()`. `setAppCmd(..., "com.geeui.lex")` does not: the
-     * 32 kHz `VOICE_RECOGNITION` capture of the system UID stays open and
-     * Android 11 silences our `AudioRecord`.
+     * The official firmware command (GeeUITaskService, open-source Lex
+     * `LTPAudioService`) is [setRobotStatusCmd] with command and data both
+     * `stop_audio_service` / `start_audio_service`. On DUI / 思必驰 builds
+     * that reaches `RhjAudioManager.disableWakeup()`. On this robot the
+     * "Hi RUX" engine is iFlytek VTN; `WakeManager.stopVtnWake()` is only
+     * called from `BotService.onDestroy()`, so the 32 kHz uid-1000
+     * `VOICE_RECOGNITION` session stays open. We still send the official
+     * command (harmless, correct on DUI). Conversation capture uses
+     * `VOICE_COMMUNICATION`, which Android 11 does not silence while that
+     * session is up. Do not force-stop Lex.
      */
     fun pauseLexAudio() {
         robotStatusCmd("stop_audio_service", "stop_audio_service")

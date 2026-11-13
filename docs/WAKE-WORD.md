@@ -256,44 +256,72 @@ phrase n'est transcrite.
 - Des sessions `MIC` 16 kHz du même uid démarrent et s'arrêtent autour du
   réveil, sans libérer la session 9.
 - Sur Android 11, une capture privilégiée `VOICE_RECOGNITION` (uid 1000)
-  **silence** l'`AudioRecord` d'une app tierce, même en service avant-plan
-  de type `microphone`. Changer de source (`VOICE_RECOGNITION`,
-  `VOICE_COMMUNICATION`, `UNPROCESSED`, `CAMCORDER`) ne suffit pas tant que
-  la session 9 tourne. L'activité n'a pas besoin d'être au premier plan une
-  fois cette session arrêtée : le FGS suffit.
+  **silence** l'`AudioRecord` d'une app tierce sur `MIC`,
+  `VOICE_RECOGNITION` et `UNPROCESSED`, même en service avant-plan de type
+  `microphone`. `VOICE_COMMUNICATION` et `CAMCORDER` ne sont pas marqués
+  silenciés. Seul `VOICE_COMMUNICATION` transporte un vrai signal.
 
-### Mauvaise commande, bonne commande
+### Commandes testées : aucune n'arrête le VTN
 
 On envoyait `setAppCmd("stop_audio_service", "com.geeui.lex")`. Ce n'est pas
-le chemin du firmware.
-
-Dans le code ouvert Letianpai (`GeeUITaskService`, `GeeUIAIAudioService`) et
-dans le `classes2.dex` de `com.geeui.lex` installé :
+le chemin du firmware. La commande officielle (GeeUITaskService, Lex
+open-source `LTPAudioService`) est :
 
 ```text
 setRobotStatusCmd("stop_audio_service", "stop_audio_service")
   → LtpRobotStatusCallback.onRobotStatusChanged
-  → RhjAudioManager.disableWakeup()   // DDS / moteur d'écoute
+  → RhjAudioManager.disableWakeup()   // DDS / 思必驰 seulement
 
 setRobotStatusCmd("start_audio_service", "start_audio_service")
   → RhjAudioManager.enableWakeup()
 ```
 
-`AidlBus.pauseLexAudio()` / `resumeLexAudio()` utilise maintenant cette
-paire. Rien n'est désactivé par `pm`, aucun fichier système n'est modifié.
-Un hook `adb` `com.geeui.voice.TEST_MIC` compare l'ancienne commande, la
-nouvelle, et les cinq sources, avec RMS sur 3 s et le drapeau
-`isClientSilenced`.
+Sur le robot installé, « Hi RUX » n'est pas DUI : c'est iFlytek VTN
+(`WakeManager.startVtnWake` / `libvtn.so`). Dans le `classes2.dex` de
+`com.geeui.lex`, `WakeManager.stopVtnWake()` n'est appelé que depuis
+`BotService.onDestroy()`. Les deux commandes ci-dessus ont bien été
+envoyées (logs) : **la session 9 n'a jamais été fermée**. On n'arrête pas
+`BotService` et on ne désactive aucun paquet.
+
+`AidlBus.pauseLexAudio()` envoie quand même la commande officielle (correcte
+sur un firmware DUI, inoffensive ici). La correction côté app est d'ouvrir
+l'`AudioRecord` de conversation en `VOICE_COMMUNICATION`. Rien n'est
+désactivé par `pm`, aucun fichier système n'est modifié.
+
+Hook `adb` : `am broadcast -a com.geeui.voice.TEST_MIC -n com.geeui.voice/.TestMicReceiver`.
+Résultat dans `/data/local/tmp/geeui/mic-test.json` (RMS 3 s, `isClientSilenced`).
+
+### Mesures TEST_MIC (13 novembre 2026, vers 20:34 puis 20:38, heure de Paris)
+
+Session 9 (VTN 32 kHz, uid 1000) toujours ouverte après `setAppCmd` et après
+`setRobotStatusCmd`. Stimulus : ton 700 Hz joué par le haut-parleur du
+robot (le ton du PC était trop faible, pic 16).
+
+| Pause | Source | `silenced` | RMS | Pic |
+|---|---|---|---:|---:|
+| none / app / status | `MIC` | true | 0 | 0 |
+| status | `VOICE_RECOGNITION` | true | 0 | 0 |
+| status | `UNPROCESSED` | true | 0 | 0 |
+| status | `CAMCORDER` | false | 0 | 0 |
+| status (et, depuis, none) | **`VOICE_COMMUNICATION`** | **false** | **8,5×10⁻⁴** | **158** |
+
+Pic 158 ≫ silence (0). Le niveau reste bas parce que
+`VOICE_COMMUNICATION` applique une annulation d'écho sur le haut-parleur
+du robot ; une voix proche du micro doit être plus forte. C'est ce
+chemin qu'utilise maintenant la boucle.
 
 ## 8. Mot de réveil français à nous
 
 Utile si « Hi RUX » reste trop juste (seuil iFlytek 712, ncm souvent à peine
-au-dessus) ou si on veut un mot français. **Cela dépend de la section 7** :
-tant que la session 32 kHz uid 1000 tourne, *notre* mot de réveil serait
-silencé comme le STT. Il faudrait donc, au repos, arrêter l'écoute Lex
-(`setRobotStatusCmd stop_audio_service`) et garder *un seul* `AudioRecord`,
-le nôtre. « Hi RUX » cesserait d'être le mot de repos, sauf en secours si
-on relance Lex au besoin.
+au-dessus) ou si on veut un mot français.
+
+**Dépendance au micro (section 7).** `stop_audio_service` n'arrête pas le
+VTN sur ce firmware, donc on ne peut pas « éteindre Lex au repos » par une
+commande app. En revanche, `VOICE_COMMUNICATION` n'est pas silencé tant que
+la session 9 tourne : un mot de réveil à nous *peut* écouter en parallèle
+de « Hi RUX », sans tuer Lex. À mesurer (CPU, faux réveils, qualité). Si
+les deux se marchent dessus, il resterait à demander un accord pour un
+réglage système (seuil, ou arrêt du VTN) — ce n'est pas fait ici.
 
 Matériel : RK3566, 4× Cortex-A55, 3,3 Go de RAM, Android 11.
 
@@ -305,9 +333,11 @@ Matériel : RK3566, 4× Cortex-A55, 3,3 Go de RAM, Android 11.
 | **Porcupine** (Picovoice) | Gratuiciel limité ; **commercial** en production | Custom possible | Très léger | Faibles | À éviter tant que Vosk ou sherpa suffisent. |
 | iFlytek IVW de Lex | Propriétaire | Non (modèle `hi rux` seulement) | Déjà là | Juste au seuil (712) | On ne réentraîne pas cette pile. On peut seulement baisser le seuil dans `keywords_hi_rux.bin` (fichier système, pas fait). |
 
-**Recommandation.** D'abord valider la section 7 (entendre après « Hi RUX »).
-Si le mot d'origine reste trop peu fiable, ajouter **Vosk small FR à
-grammaire fermée** dans l'app, au repos seulement, à la place de Lex, et
-garder « Hi RUX » comme option de repli (réglage). Mesurer faux réveils et
-RTF sur le robot avant d'en faire le défaut. Un KWS sherpa-onnx français
-peut le remplacer plus tard, plus léger, une fois un modèle entraîné.
+**Recommandation.** La section 7 est réglée pour la *conversation* (source
+`VOICE_COMMUNICATION` après « Hi RUX »). Si le mot d'origine reste trop peu
+fiable (seuil 712), ajouter **Vosk small FR à grammaire fermée** dans l'app,
+au repos, sur la même source, *en parallèle* de Lex dans un premier temps,
+et garder « Hi RUX » comme option de repli (réglage). Mesurer faux réveils,
+RTF et concurrence avec le VTN sur le robot avant d'en faire le défaut. Un
+KWS sherpa-onnx français peut le remplacer plus tard, plus léger, une fois
+un modèle entraîné.

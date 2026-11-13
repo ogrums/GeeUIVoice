@@ -44,6 +44,15 @@ object MicProbe {
         try {
             // Baseline first: current stock recorder still running, MIC only.
             trials.put(recordOne(context, "none", "MIC", MediaRecorder.AudioSource.MIC))
+            // Conversation source: must work even if Lex VTN stays up.
+            trials.put(
+                recordOne(
+                    context,
+                    "none",
+                    "VOICE_COMMUNICATION",
+                    MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                ),
+            )
             // The command we used until now, then the official RobotStatus one.
             // After the official stop, try every source.
             for (pause in listOf("app", "status")) {
