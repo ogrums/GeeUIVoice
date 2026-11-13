@@ -11,6 +11,10 @@ x-common: &common
     args:
       NANOBOT_CHANNELS: ""
   restart: unless-stopped
+  # Home Assistant (optionnel) : HA_MCP_URL et HA_TOKEN, hors de config.json et de git.
+  env_file:
+    - path: ha.env
+      required: false
   environment:
     NANOBOT_API_KEY: ${NANOBOT_API_KEY:?set NANOBOT_API_KEY in .env}
     LEMONADE_API_BASE: ${LEMONADE_API_BASE:-http://nimbus:13305/api/v1}

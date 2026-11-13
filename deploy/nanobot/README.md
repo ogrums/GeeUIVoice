@@ -210,6 +210,52 @@ curl -s http://127.0.0.1:13306/v1/chat/completions   -H "Content-Type: applicati
 
 Si nanobot est arrêté, le sidecar journalise `chat route=lemonade fallback` et renvoie la requête d'origine à Lemonade.
 
+## La maison (Home Assistant via MCP)
+
+Home Assistant est un serveur MCP (intégration « Model Context Protocol », depuis 2025.2). nanobot s'y connecte en client MCP HTTP (`streamableHttp`) avec un jeton d'un utilisateur **non administrateur**. Le jeton est dans `ha.env`, jamais dans `config.json` ni dans git.
+
+Garde-fous, du plus sûr au moins sûr :
+
+1. **Côté Home Assistant** : n'exposer à Assist (Paramètres > Assistants vocaux > Exposer) que les lumières, prises et capteurs. Pas de serrure, d'alarme, de portail. Ce qui n'est pas exposé n'existe pas pour RUX.
+2. **`enabledTools`** : liste blanche des outils MCP. On commence en lecture seule.
+3. **`AGENTS.md` « La maison »** : confirmation à la voix pour ce qui ouvre, chauffe ou coupe ; jamais d'alarme ni de serrure ; rien pour un invité ou un enfant. Le sidecar envoie déjà les invités vers Lemonade sans outils (`SPEAKER_GUEST_ROUTE=lemonade`, PR « Qui parle »).
+
+### Étape 1 : lecture seule
+
+Dans Home Assistant : ajouter l'intégration « Model Context Protocol », puis **Configurer** : décocher « Expose all AI tools », cocher seulement « Device control », décocher « Require an administrator account », cocher « Read-only ». Créer un utilisateur `rux` (non administrateur), puis dans son profil > Sécurité, un jeton longue durée.
+
+```bash
+cd $NB
+cp ha.env.example ha.env && chmod 600 ha.env   # renseigner HA_MCP_URL et HA_TOKEN
+# Fusionner l'extrait dans la config (corriger l'IP de ssrfWhitelist = IP de Home Assistant) :
+jq -s '.[0] * .[1]' data/config.json home-assistant.example.json > /tmp/c.json && mv /tmp/c.json data/config.json
+cp workspace/AGENTS.md data/workspace/
+docker compose up -d
+docker compose logs nanobot-rux | grep -i mcp     # attendu : le serveur « maison » et ses outils
+```
+
+`ssrfWhitelist` est obligatoire : nanobot bloque par défaut les URL du réseau local, MCP compris. Attention : une fois l'extrait fusionné, nanobot **refuse de démarrer** si `HA_MCP_URL` ou `HA_TOKEN` manque (`ha.env` absent). Pour couper la maison, retirer `tools.mcpServers.maison` de `data/config.json`.
+
+Vérifier le jeton sans nanobot :
+
+```bash
+. ./ha.env
+curl -s -X POST "$HA_MCP_URL" -H "Authorization: Bearer $HA_TOKEN" \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"rux","version":"1"}}}'
+# attendu : "serverInfo" ; 401 = mauvais jeton ou URL qui exige un administrateur
+```
+
+### Étape 2 : les commandes
+
+Quand la lecture marche : `HA_MCP_URL=http://<ha>:8123/api/mcp/assist` (« Device control », jamais en lecture seule, accepte un non-administrateur), et dans `data/config.json` :
+
+```json
+"enabledTools": ["GetLiveContext", "GetDateTime", "HassTurnOn", "HassTurnOff", "HassLightSet"]
+```
+
+`HassClimateSetTemperature`, `HassSetPosition` (volets) et les autres restent hors liste tant que la confirmation n'a pas été vérifiée à l'usage. Les noms exacts dépendent de la version de Home Assistant : les lire dans les logs nanobot au démarrage (outils `mcp_maison_…`).
+
 ## Bon à savoir
 
 - **Une seule phrase par requête** : l'API refuse un message `system` ou un historique (`400 Only a single user message is supported`). Le sidecar doit n'envoyer que la dernière phrase.
