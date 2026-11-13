@@ -189,7 +189,9 @@ class VoiceLoop(
             policy.onTurnEnded()
         }
         live.allowBargeIn = {
-            !wavTestBusy.get() && !VoiceHud.playing && System.currentTimeMillis() >= VoiceHud.hearAfter
+            !wavTestBusy.get() && !VoiceHud.playing &&
+                System.currentTimeMillis() >= VoiceHud.hearAfter &&
+                VoiceHud.mode != "think" && VoiceHud.mode != "talk"
         }
         live.worker = { job -> turns.execute(job) }
         if (initiative && sidecar.isNotBlank()) {
