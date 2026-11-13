@@ -239,8 +239,13 @@ class VoiceLoop(
                     }
                     continue
                 }
+                // MIC / VOICE_RECOGNITION / UNPROCESSED are silenced on
+                // Android 11 while Lex keeps its privileged 32 kHz
+                // VOICE_RECOGNITION session (uid 1000). That session is not
+                // closed by stop_audio_service on this firmware.
+                // VOICE_COMMUNICATION stays unsilenced and carries signal.
                 val rec = AudioRecord(
-                    MediaRecorder.AudioSource.MIC,
+                    MediaRecorder.AudioSource.VOICE_COMMUNICATION,
                     rate,
                     AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT,
@@ -263,6 +268,12 @@ class VoiceLoop(
                     rec.startRecording()
                     VoiceHud.mic = true
                     policy.beginPostWakeTrim()
+                    try {
+                        val am = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        MicProbe.logClientState("rec start session=${rec.audioSessionId}", am, rec.audioSessionId)
+                    } catch (e: Exception) {
+                        Log.w(TEST_TAG, "rec silenced check failed", e)
+                    }
                     while (running.get() && wantMic.get()) {
                         val n = rec.read(buf, 0, frame)
                         if (n == frame) {
@@ -358,7 +369,7 @@ class VoiceLoop(
             (bus as? AidlBus)?.pauseLexAudio()
             lexPaused = true
             try {
-                Thread.sleep(200)
+                Thread.sleep(400)
             } catch (_: InterruptedException) {
             }
             wantMic.set(true)
@@ -395,6 +406,21 @@ class VoiceLoop(
      * last TTS clip into [outDir]. Safe to call from a broadcast; work runs on the
      * turn thread.
      */
+    fun enqueueMicProbe(outDir: File) {
+        outDir.mkdirs()
+        File(outDir, "status.txt").writeText("running\n")
+        turns.execute {
+            try {
+                MicProbe.run(appContext, bus as? AidlBus, outDir)
+            } catch (e: Exception) {
+                Log.e(TEST_TAG, "TEST_MIC failed", e)
+                val status = File(outDir, "status.txt")
+                status.writeText("error\n")
+                MicProbe.publish(status)
+            }
+        }
+    }
+
     fun enqueueWavTest(path: String, outDir: File) {
         outDir.mkdirs()
         val running = File(outDir, "status.txt")

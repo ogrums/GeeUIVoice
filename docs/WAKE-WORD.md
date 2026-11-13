@@ -1,8 +1,17 @@
 # Mot de réveil (wake word)
 
-Proposition seulement — rien n'est implémenté ici. Inspection en lecture seule
-sur le robot (`adb -s 2006014140527`, aucune commande `am` / `pm` / `settings put`),
-le 12 novembre 2026 vers 21:42 Europe/Paris.
+Le 12 novembre 2026 (Europe/Paris), ce document n'était qu'une proposition,
+issue d'une inspection en lecture seule. Depuis, l'option A (« Hi RUX ») est
+dans l'app (#34, correctifs #37) : au repos on cède le micro, on s'abonne au
+callback Lex, et un `wakeup_status avatar.listening` allume l'écran et ouvre
+notre boucle.
+
+Il restait un trou : après un vrai « Hi RUX », l'app ouvrait bien
+`AudioRecord` mais n'entendait rien. Voir la [section 7](#7-micro-silencé-après-hi-rux).
+Un mot de réveil français à nous est chiffré en [section 8](#8-mot-de-réveil-français-à-nous).
+
+Inspection d'origine : `adb -s 2006014140527`, le 12 novembre 2026 vers 21:42
+Europe/Paris, sans commande `am` / `pm` / `settings put`.
 
 Matériel vu : Rockchip RK3566 (4× Cortex-A55), 3,3 Go de RAM, Android 11 (SDK 30),
 `arm64-v8a`, écran 480×480 allumé, `isSleeping=false`.
@@ -228,6 +237,126 @@ survivre, ou une relance au `wakeup_status` depuis un processus qui reste
 4. Si un mot français est voulu, l'ajouter ensuite en sherpa-onnx KWS
    (Apache-2.0), avec la même discipline de micro.
 
-Pas d'implémentation dans ce document. Les étapes 1–3 touchent l'app et
-demandent un feu vert, plus un test réel du mode nuit (volontairement non
-fait ici).
+Les étapes 1–3 de l'option A sont dans l'app (#34 / #37). Le mode nuit n'a
+pas encore été revalidé après ces changements. Le trou restant est le micro
+silencé (section 7).
+
+## 7. Micro silencieux après « Hi RUX »
+
+Constat du 13 novembre 2026 vers 20:22 (heure de Paris), après #37 : deux
+réveils acceptés (`wake accepted` à 20:22:09 et 20:22:51). `com.geeui.voice`
+ouvre bien une session `MIC` 16 kHz pendant ~12 s, puis la rend. Aucune
+phrase n'est transcrite.
+
+`dumpsys audio` pendant ces fenêtres :
+
+- Session 9, `VOICE_RECOGNITION` 32 kHz, uid 1000, paquet attribué à
+  `com.renhejia.robot.launcher` : **reste ouverte tout le temps**.
+  `stop_audio_service` tel qu'on l'envoyait ne l'arrête pas.
+- Des sessions `MIC` 16 kHz du même uid démarrent et s'arrêtent autour du
+  réveil, sans libérer la session 9.
+- Sur Android 11, une capture privilégiée `VOICE_RECOGNITION` (uid 1000)
+  **silence** l'`AudioRecord` d'une app tierce sur `MIC`,
+  `VOICE_RECOGNITION` et `UNPROCESSED`, même en service avant-plan de type
+  `microphone`. `VOICE_COMMUNICATION` et `CAMCORDER` ne sont pas marqués
+  silenciés. Seul `VOICE_COMMUNICATION` transporte un vrai signal.
+
+### Commandes testées : aucune n'arrête le VTN
+
+On envoyait `setAppCmd("stop_audio_service", "com.geeui.lex")`. Ce n'est pas
+le chemin du firmware. La commande officielle (GeeUITaskService, Lex
+open-source `LTPAudioService`) est :
+
+```text
+setRobotStatusCmd("stop_audio_service", "stop_audio_service")
+  → LtpRobotStatusCallback.onRobotStatusChanged
+  → RhjAudioManager.disableWakeup()   // DDS / 思必驰 seulement
+
+setRobotStatusCmd("start_audio_service", "start_audio_service")
+  → RhjAudioManager.enableWakeup()
+```
+
+Sur le robot installé, « Hi RUX » n'est pas DUI : c'est iFlytek VTN
+(`WakeManager.startVtnWake` / `libvtn.so`). Dans le `classes2.dex` de
+`com.geeui.lex`, `WakeManager.stopVtnWake()` n'est appelé que depuis
+`BotService.onDestroy()`. Les deux commandes ci-dessus ont bien été
+envoyées (logs) : **la session 9 n'a jamais été fermée**. On n'arrête pas
+`BotService` et on ne désactive aucun paquet.
+
+`AidlBus.pauseLexAudio()` envoie quand même la commande officielle (correcte
+sur un firmware DUI, inoffensive ici). La correction côté app est d'ouvrir
+l'`AudioRecord` de conversation en `VOICE_COMMUNICATION`. Rien n'est
+désactivé par `pm`, aucun fichier système n'est modifié.
+
+Hook `adb` : `am broadcast -a com.geeui.voice.TEST_MIC -n com.geeui.voice/.TestMicReceiver`.
+Résultat dans `/data/local/tmp/geeui/mic-test.json` (RMS 3 s, `isClientSilenced`).
+
+### Mesures TEST_MIC (13 novembre 2026, vers 20:34 puis 20:38, heure de Paris)
+
+Session 9 (VTN 32 kHz, uid 1000) toujours ouverte après `setAppCmd` et après
+`setRobotStatusCmd`. Stimulus : ton 700 Hz joué par le haut-parleur du
+robot (le ton du PC était trop faible, pic 16).
+
+| Pause | Source | `silenced` | RMS | Pic |
+|---|---|---|---:|---:|
+| none / app / status | `MIC` | true | 0 | 0 |
+| status | `VOICE_RECOGNITION` | true | 0 | 0 |
+| status | `UNPROCESSED` | true | 0 | 0 |
+| status | `CAMCORDER` | false | 0 | 0 |
+| status (et, depuis, none) | **`VOICE_COMMUNICATION`** | **false** | **8,5×10⁻⁴** | **158** |
+
+Pic 158 ≫ silence (0). Le niveau reste bas parce que
+`VOICE_COMMUNICATION` applique une annulation d'écho sur le haut-parleur
+du robot ; une voix proche du micro doit être plus forte. C'est ce
+chemin qu'utilise maintenant la boucle.
+
+Après installation de cette version (13 novembre 2026, 20:42 heure de
+Paris), `TEST_MIC` avec le même ton sur le haut-parleur du robot, session 9
+toujours ouverte, activité au premier plan :
+
+| Pause | Source | `silenced` | RMS | Pic |
+|---|---|---|---:|---:|
+| none | `MIC` | false | 0,013 | 4138 |
+| none | **`VOICE_COMMUNICATION`** | **false** | **0,014** | **3439** |
+| app / status | `MIC` | false | 0,013–0,020 | 3760–14060 |
+| status | `VOICE_RECOGNITION` | false | 0,013 | 1228 |
+| status | `UNPROCESSED` | false | 0,013 | 966 |
+| status | `CAMCORDER` | false | 0 | 0 |
+
+Tous les chemins utiles dépassent largement le silence, sauf `CAMCORDER`.
+`MIC` n'était pas silencé cette fois (activité visible). On garde
+`VOICE_COMMUNICATION` comme source de conversation : c'est le seul qui
+avait déjà un signal quand seul le service avant-plan tournait, typiquement
+après un « Hi RUX » la nuit.
+
+## 8. Mot de réveil français à nous
+
+Utile si « Hi RUX » reste trop juste (seuil iFlytek 712, ncm souvent à peine
+au-dessus) ou si on veut un mot français.
+
+**Dépendance au micro (section 7).** `stop_audio_service` n'arrête pas le
+VTN sur ce firmware, donc on ne peut pas « éteindre Lex au repos » par une
+commande app. En revanche, `VOICE_COMMUNICATION` n'est pas silencé tant que
+la session 9 tourne : un mot de réveil à nous *peut* écouter en parallèle
+de « Hi RUX », sans tuer Lex. À mesurer (CPU, faux réveils, qualité). Si
+les deux se marchent dessus, il resterait à demander un accord pour un
+réglage système (seuil, ou arrêt du VTN) — ce n'est pas fait ici.
+
+Matériel : RK3566, 4× Cortex-A55, 3,3 Go de RAM, Android 11.
+
+| Moteur | Licence | Mot français prêt | Coût estimé sur le robot | Faux réveils | Remarque |
+|---|---|---|---|---|---|
+| **Vosk small FR 0.22**, grammaire fermée (`salut rux`, `hey rux`, …) | Apache-2.0 | Oui, dès maintenant | 41 Mo sur disque, **~140 Mo de RAM** (mesure box). RTF 0,27 sur une box x86 ; sur un A55, temps réel probable mais à mesurer. Un cœur suffit si on ne lance pas le STT en même temps. | Moyens : ce n'est pas un spotter, c'est un reconnaisseur. La grammaire courte limite les inventions, pas les quasi-homophones. Il faut un seuil d'énergie pour ne pas écouter le silence. | Meilleur candidat *immédiat*. Déjà mesuré dans `tools/sttbench`. |
+| **sherpa-onnx KWS** | Apache-2.0 | **Non** (pas de modèle français public) | Très léger (quelques Mo, une fraction de cœur) une fois entraîné | Faibles, si le modèle est bon | Aligné avec Parakeet / speaker-id. Il faudrait une campagne d'enregistrements et un entraînement icefall. Pas un basculement de la semaine. |
+| **openWakeWord** | Code Apache-2.0 ; **poids officiels non commerciaux** | Non (à entraîner) | Léger (ONNX) | Faibles après entraînement | Inutilisable en l'état pour un usage produit à cause de la licence des poids. Entraîner les nôtres est possible, plus de travail que Vosk. |
+| **Porcupine** (Picovoice) | Gratuiciel limité ; **commercial** en production | Custom possible | Très léger | Faibles | À éviter tant que Vosk ou sherpa suffisent. |
+| iFlytek IVW de Lex | Propriétaire | Non (modèle `hi rux` seulement) | Déjà là | Juste au seuil (712) | On ne réentraîne pas cette pile. On peut seulement baisser le seuil dans `keywords_hi_rux.bin` (fichier système, pas fait). |
+
+**Recommandation.** La section 7 est réglée pour la *conversation* (source
+`VOICE_COMMUNICATION` après « Hi RUX »). Si le mot d'origine reste trop peu
+fiable (seuil 712), ajouter **Vosk small FR à grammaire fermée** dans l'app,
+au repos, sur la même source, *en parallèle* de Lex dans un premier temps,
+et garder « Hi RUX » comme option de repli (réglage). Mesurer faux réveils,
+RTF et concurrence avec le VTN sur le robot avant d'en faire le défaut. Un
+KWS sherpa-onnx français peut le remplacer plus tard, plus léger, une fois
+un modèle entraîné.
