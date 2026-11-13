@@ -310,6 +310,25 @@ Pic 158 ≫ silence (0). Le niveau reste bas parce que
 du robot ; une voix proche du micro doit être plus forte. C'est ce
 chemin qu'utilise maintenant la boucle.
 
+Après installation de cette version (13 novembre 2026, 20:42 heure de
+Paris), `TEST_MIC` avec le même ton sur le haut-parleur du robot, session 9
+toujours ouverte, activité au premier plan :
+
+| Pause | Source | `silenced` | RMS | Pic |
+|---|---|---|---:|---:|
+| none | `MIC` | false | 0,013 | 4138 |
+| none | **`VOICE_COMMUNICATION`** | **false** | **0,014** | **3439** |
+| app / status | `MIC` | false | 0,013–0,020 | 3760–14060 |
+| status | `VOICE_RECOGNITION` | false | 0,013 | 1228 |
+| status | `UNPROCESSED` | false | 0,013 | 966 |
+| status | `CAMCORDER` | false | 0 | 0 |
+
+Tous les chemins utiles dépassent largement le silence, sauf `CAMCORDER`.
+`MIC` n'était pas silencé cette fois (activité visible). On garde
+`VOICE_COMMUNICATION` comme source de conversation : c'est le seul qui
+avait déjà un signal quand seul le service avant-plan tournait, typiquement
+après un « Hi RUX » la nuit.
+
 ## 8. Mot de réveil français à nous
 
 Utile si « Hi RUX » reste trop juste (seuil iFlytek 712, ncm souvent à peine
