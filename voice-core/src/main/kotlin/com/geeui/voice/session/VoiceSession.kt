@@ -38,10 +38,15 @@ class VoiceSession(
     private val plan: TtsPlan? = null,
     private val pause: (Long) -> Unit = { Thread.sleep(it) },
     private val fusion: com.geeui.voiceemo.EmotionFusion? = null,
+    /** Action kinds allowed for the person who just spoke (sidecar allowed_actions); null = all. */
+    private val allowedActions: () -> Set<String>? = { null },
     /** One JPEG on demand ("qu'est-ce que tu vois ?"), or null when the camera fails. Null = no vision. */
     private val camera: (() -> ByteArray?)? = null,
 ) {
     private val skills = SkillRouter(bus, charging)
+    /** Walk or go home, waiting for « oui ». */
+    private var pending: RobotAction? = null
+    private var pendingAt = 0L
     var state: Dialogue = Dialogue.Idle
         private set
 
@@ -61,7 +66,26 @@ class VoiceSession(
 
     fun onUserText(text: String): String {
         state = Dialogue.Listening
+        val waiting = pending
+        pending = null
+        if (waiting != null && now() - pendingAt <= CONFIRM_MS) {
+            if (ActionTags.isYes(text)) {
+                if (allowed(waiting.kind)) run(waiting) else say(REFUSED)
+                state = Dialogue.Idle
+                return ""
+            }
+            if (NO.containsMatchIn(text)) {
+                say(CANCELLED)
+                state = Dialogue.Idle
+                return ""
+            }
+        }
         val hit = SkillLexicon.match(text)
+        if (hit != null && !allowed(kindOf(hit.id))) {
+            say(REFUSED)
+            state = Dialogue.Idle
+            return ""
+        }
         if (hit != null && skills.handle(hit)) {
             state = Dialogue.Idle
             return ""
@@ -89,16 +113,17 @@ class VoiceSession(
             delta(chat.reply(asked))
             answer.append(tags.finish().text)
         }
+        val (withoutActions, actions) = ActionTags.split(answer.toString())
         // Always look at a trailing emoji, even when a [happy] tag is already present.
         // Previously a leading tag skipped the cue, and a tag alone stayed under the
         // fusion threshold, so a reply like "[happy] 😄" left the face at h0059.
-        val cue = com.geeui.voiceemo.EmojiEmotion.cue(answer.toString())
+        val cue = com.geeui.voiceemo.EmojiEmotion.cue(withoutActions)
         if (cue?.face != null && nuanceFace == null) nuanceFace = cue.face
         if (!tagged && cue != null) {
             tagged = true
             if (cue.emotion != Emotion.NEUTRAL) replyEmotion = cue.emotion
         }
-        val whole = spoken(answer.toString())
+        val whole = spoken(withoutActions)
         var moved = false
         var pendingPose: com.geeui.voiceemo.SdkPose? = null
         if (mood != null) {
@@ -182,13 +207,39 @@ class VoiceSession(
             pause(PoseTiming.REST_AFTER_MS)
             bus.standAtAttention()
         }
+        // AGENTS.md: one action tag per reply. Others are dropped.
+        actions.firstOrNull()?.let { act(it) }
         state = Dialogue.Idle
         return whole
+    }
+
+    private fun allowed(kind: String): Boolean = allowedActions()?.contains(kind) ?: true
+
+    private fun act(action: RobotAction) {
+        when {
+            !allowed(action.kind) -> say(REFUSED)
+            action.needsConfirmation -> {
+                say(ASK)
+                pending = action
+                pendingAt = now()
+            }
+            else -> run(action)
+        }
+    }
+
+    private fun run(action: RobotAction) {
+        val hit = action.hit
+        if (hit != null) {
+            skills.handle(hit)
+        } else if (action.light != null) {
+            bus.antennaLight(action.light != 0, action.light)
+        }
     }
 
     /**
      * Initiative from the sidecar (reminder, follow-up): say [text] as is, with its leading
      * emotion tag driving face and voice, without calling the LLM or the skills.
+     * Also used for the short confirmation / refusal lines of action tags.
      */
     fun say(text: String): String {
         state = Dialogue.Speaking
@@ -228,8 +279,23 @@ class VoiceSession(
         return s
     }
 
-    private companion object {
-        const val INITIATIVE_SCORE = 0.7
-        const val EMOJI_SCORE = 0.7
+    companion object {
+        const val CONFIRM_MS = 10_000L
+        const val ASK = "Je peux y aller ?"
+        const val CANCELLED = "D'accord, je ne bouge pas."
+        const val REFUSED = "Je n'ai pas le droit de faire ça pour toi."
+        private val NO = Regex("^\\W*(non|nan|stop|attends|annule|pas maintenant)\\b", RegexOption.IGNORE_CASE)
+
+        /** Local phrase skill → action kind, for allowed_actions. */
+        fun kindOf(skill: String): String = when (skill) {
+            "actin" -> "move"
+            "goHome" -> "home"
+            "takePhoto" -> "photo"
+            "volumeUp", "volumeDown", "volumemax", "volumemix", "volumeadjust" -> "volume"
+            else -> "other"
+        }
+
+        private const val INITIATIVE_SCORE = 0.7
+        private const val EMOJI_SCORE = 0.7
     }
 }

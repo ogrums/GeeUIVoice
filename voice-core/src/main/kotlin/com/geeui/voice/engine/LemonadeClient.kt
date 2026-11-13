@@ -110,6 +110,12 @@ class LemonadeClient(
     /** Sidecar « qui parle » : Paul, Invité, ou vide si la fonction est éteinte. */
     var lastSpeakerName: String = ""
         private set
+    /** adulte, enfant, invite, ou vide si le sidecar n'en dit rien. */
+    var lastSpeakerRole: String = ""
+        private set
+    /** Balises d'action permises pour cette personne ; null = pas de restriction (champ absent). */
+    var lastAllowedActions: Set<String>? = null
+        private set
 
     fun transcribe(wav: ByteArray): String {
         lastAudioEmotion = "neutral"
@@ -117,6 +123,8 @@ class LemonadeClient(
         lastAudioEmotionRaw = "neutral"
         lastAudioRawConfidence = 0.0
         lastSpeakerName = ""
+        lastSpeakerRole = ""
+        lastAllowedActions = null
         return transcribeCore(wav)
     }
 
@@ -145,8 +153,22 @@ class LemonadeClient(
         lastAudioEmotionRaw = stringField(raw, "emotion_raw") ?: lastAudioEmotion
         lastAudioRawConfidence = numberField(raw, "emotion_raw_confidence") ?: lastAudioConfidence
         lastSpeakerName = stringField(raw, "speaker_name") ?: ""
+        lastSpeakerRole = stringField(raw, "speaker_role") ?: ""
+        lastAllowedActions = stringList(raw, "allowed_actions")
         // Whisper (Lemonade) wraps the text in a leading space and a trailing "\n".
         return unquote(raw.substring(at + marker.length).trimStart()).trim()
+    }
+
+    /** ["a","b"] → {a, b} ; absent ou null → null. */
+    private fun stringList(raw: String, key: String): Set<String>? {
+        val marker = "\"$key\":"
+        val at = raw.indexOf(marker)
+        if (at < 0) return null
+        val rest = raw.substring(at + marker.length).trimStart()
+        if (!rest.startsWith("[")) return null
+        val end = rest.indexOf(']')
+        if (end < 0) return null
+        return Regex("\"([^\"]*)\"").findAll(rest.substring(1, end)).map { it.groupValues[1] }.toSet()
     }
 
     private fun stringField(raw: String, key: String): String? {
@@ -353,6 +375,9 @@ class EmotionStt(
         private set
     /** Prénom reconnu par le sidecar pour la dernière phrase, vide sinon. */
     val lastSpeakerName: String get() = sidecar.lastSpeakerName
+    val lastSpeakerRole: String get() = sidecar.lastSpeakerRole
+    /** null quand le sidecar ne restreint rien (reconnaissance éteinte ou sidecar en panne). */
+    val lastAllowedActions: Set<String>? get() = sidecar.lastAllowedActions
     val lastAudioEmotion: String get() = sidecar.lastAudioEmotion
     val lastAudioConfidence: Double get() = sidecar.lastAudioConfidence
     val lastAudioEmotionRaw: String get() = sidecar.lastAudioEmotionRaw

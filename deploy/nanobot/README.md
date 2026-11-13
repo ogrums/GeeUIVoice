@@ -306,3 +306,10 @@ DB=$(find data -name sessions.sqlite3 | head -1)
 python3 -c "import sqlite3,sys; print([r[0] for r in sqlite3.connect(sys.argv[1]).execute('select key from sessions')])" "$DB"
 # attendu après une conversation : 'api:rux-paul'
 ```
+
+## Mode enfant / invité (sidecar + app)
+
+- Rôles : `adulte`, `enfant` dans `speakers.json` du sidecar ; voix inconnue = `invite`. La première voix inscrite est adulte, les suivantes enfant jusqu'à ce qu'un adulte reconnu dise « Marie est une adulte » (section « Mode enfant / invité » de GeeUIVoiceSidecar).
+- La STT du sidecar renvoie `allowed_actions`. L'app **exécute** maintenant les balises d'action de `AGENTS.md` (`ActionTags`), mais seulement celles permises. Elle demande « Je peux y aller ? » avant `[move:…]` et `[home]`, et n'agit que sur un « oui » dans les 10 s. Les phrases locales (« avance ») suivent la même liste.
+- Par défaut : adulte = tout ; enfant = volume, lumière, photo ; invité = volume, lumière. Les invités vont à Lemonade sans nanobot (`SPEAKER_GUEST_ROUTE=lemonade`) : ni mémoire ni outils.
+- Limite : nanobot n'a pas de liste d'outils par session. Pour un enfant, la maison (MCP) et le web restent techniquement disponibles. C'est la règle « Enfants » de `AGENTS.md` qui les interdit. Pour une garantie, n'exposer à Assist que des entités sans risque.

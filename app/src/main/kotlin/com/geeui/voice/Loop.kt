@@ -104,6 +104,7 @@ class VoiceLoop(
         plan = plan,
         audioAffect = { stt.lastAudioAffect },
         fusion = com.geeui.voiceemo.EmotionFusion(),
+        allowedActions = { stt.lastAllowedActions },
         camera = camera?.let { cam ->
             {
                 VoiceHud.line = "je regarde…"
