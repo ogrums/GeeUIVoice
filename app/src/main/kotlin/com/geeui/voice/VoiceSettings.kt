@@ -7,6 +7,7 @@ import com.geeui.voiceemo.HostConfig
 /** What the settings menu edits. A saved value wins over the launch extra. */
 object VoiceSettings {
     private const val FILE = "geeui_voice"
+    private const val SCHEMA = "faces_schema"
 
     val fields = listOf(
         "lemonade" to HostConfig.LEMONADE,
@@ -19,8 +20,11 @@ object VoiceSettings {
         "phonon_voice" to com.geeui.voice.engine.PhononTts.VOICE,
         "listen_mode" to "auto",
         "wake_word" to "both",
-        "listen_face" to "h0180",
-        "think_face" to "h0181",
+        "listen_face" to "h0347",
+        "backend_face" to "h0242",
+        "think_face" to "",
+        "idle_faces" to "",
+        "idle_face_interval" to "",
     )
 
     private val labels = mapOf(
@@ -34,8 +38,11 @@ object VoiceSettings {
         "phonon_voice" to "Voix Phonon",
         "listen_mode" to "Écoute (auto, wake, continuous)",
         "wake_word" to "Mot de réveil (hirux, dobby, both)",
-        "listen_face" to "Visage écoute (h0180)",
-        "think_face" to "Visage réflexion (h0181)",
+        "listen_face" to "Visage écoute (h0347)",
+        "backend_face" to "Visage backend (h0242)",
+        "think_face" to "Visage réflexion (vide = backend)",
+        "idle_faces" to "Visages au repos (vide = alternance, off = h0059)",
+        "idle_face_interval" to "Intervalle repos en secondes (20-40)",
     )
 
     private val extras = mapOf(
@@ -50,15 +57,29 @@ object VoiceSettings {
         "listen_mode" to "listen_mode",
         "wake_word" to "wake_word",
         "listen_face" to "listen_face",
+        "backend_face" to "backend_face",
         "think_face" to "think_face",
+        "idle_faces" to "idle_faces",
+        "idle_face_interval" to "idle_face_interval",
     )
 
     fun label(key: String): String = labels.getValue(key)
 
     fun extra(key: String): String = extras.getValue(key)
 
+    /** One-time: previous packaged defaults (h0180 / h0181) become the new ones. */
+    internal fun migrate(prefs: android.content.SharedPreferences) {
+        if (prefs.getInt(SCHEMA, 0) >= 2) return
+        val edit = prefs.edit()
+        if (prefs.getString("listen_face", null) == "h0180") edit.putString("listen_face", "h0347")
+        if (prefs.getString("think_face", null) == "h0181") edit.remove("think_face")
+        edit.putInt(SCHEMA, 2)
+        edit.apply()
+    }
+
     fun effective(context: Context, intent: Intent): Map<String, String> {
         val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        migrate(prefs)
         return fields.associate { (key, fallback) ->
             val saved = prefs.getString(key, null)?.trim()?.takeIf { it.isNotEmpty() }
             val fromIntent = intent.getStringExtra(extra(key))?.trim()?.takeIf { it.isNotEmpty() }

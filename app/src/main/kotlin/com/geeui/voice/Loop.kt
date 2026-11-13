@@ -63,6 +63,9 @@ class VoiceLoop(
     wakeWord: String = "both",
     listenFace: String = com.geeui.voice.bus.LISTEN_FACE,
     thinkFace: String = com.geeui.voice.bus.THINK_FACE,
+    backendFace: String = "",
+    idleFaces: String = "",
+    idleInterval: String = "",
     vision: Boolean = true,
 ) {
     private val camera = if (vision) RobotCamera(audio) else null
@@ -159,7 +162,15 @@ class VoiceLoop(
         com.geeui.voice.session.ListenPolicy.parseMode(listenMode),
     ).also { it.setWakeSource(parseWakeSource(wakeWord)) }
     private val listenFaceId = DialogueFaces.parseId(listenFace, com.geeui.voice.bus.LISTEN_FACE)
-    private val thinkFaceId = DialogueFaces.parseId(thinkFace, com.geeui.voice.bus.THINK_FACE)
+    private val thinkFaceId = DialogueFaces.parseId(
+        backendFace.ifBlank { thinkFace },
+        com.geeui.voice.bus.BACKEND_FACE,
+    )
+    private val idleFaceList = com.geeui.voice.bus.IdleFaces.parseList(idleFaces)
+    private val idleIntervalMs = com.geeui.voice.bus.IdleFaces.parseInterval(idleInterval)
+    private var lastIdleRotateAt = 0L
+    private var nextIdleDelayMs = 0L
+    private var lastIdleRotated = ""
     private val wantMic = AtomicBoolean(false)
     private val micGate = Object()
     private val wantDobby = AtomicBoolean(false)
@@ -218,6 +229,7 @@ class VoiceLoop(
                     VoiceHud.line = restLabel()
                     Log.i(TEST_TAG, "mic yielded after idle")
                 }
+                maybeRotateIdle()
                 applyMic()
             }
         }, 500, 500, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -430,7 +442,15 @@ class VoiceLoop(
     }
 
     private fun setHudMode(mode: String) {
+        val leavingIdle = VoiceHud.mode == "idle" && mode != "idle"
         VoiceHud.mode = mode
+        if (mode == "idle") {
+            lastIdleRotateAt = System.currentTimeMillis()
+            nextIdleDelayMs = com.geeui.voice.bus.IdleFaces.nextDelayMs(idleIntervalMs)
+            lastIdleRotated = ""
+        } else if (leavingIdle) {
+            lastIdleRotateAt = 0L
+        }
         val face = when (mode) {
             "hear" -> listenFaceId
             "think" -> thinkFaceId
@@ -441,6 +461,31 @@ class VoiceLoop(
             bus.showFace(face)
             Log.i(TEST_TAG, "face $mode $face")
         }
+    }
+
+    /**
+     * Cycle rest faces every 20–40 s, only when truly idle, the mood is calm,
+     * and the screen is on (do not fight Letianpai night sleep).
+     */
+    private fun maybeRotateIdle(now: Long = System.currentTimeMillis()) {
+        if (idleFaceList.isEmpty()) return
+        if (!running.get()) return
+        if (VoiceHud.mode != "idle" || VoiceHud.playing || wavTestBusy.get()) return
+        if (session.state != com.geeui.voice.session.Dialogue.Idle) return
+        if (!com.geeui.voice.bus.RestFace.isCalm()) return
+        if (!screenOn.isInteractive()) return
+        if (lastIdleRotateAt == 0L) {
+            lastIdleRotateAt = now
+            nextIdleDelayMs = com.geeui.voice.bus.IdleFaces.nextDelayMs(idleIntervalMs)
+            return
+        }
+        if (now - lastIdleRotateAt < nextIdleDelayMs) return
+        val next = com.geeui.voice.bus.IdleFaces.next(lastIdleRotated, idleFaceList)
+        lastIdleRotated = next
+        lastIdleRotateAt = now
+        nextIdleDelayMs = com.geeui.voice.bus.IdleFaces.nextDelayMs(idleIntervalMs)
+        bus.showFace(next)
+        Log.i(TEST_TAG, "face idle $next")
     }
 
     private fun restLabel(): String {

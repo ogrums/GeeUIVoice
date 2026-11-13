@@ -38,6 +38,14 @@ class ScreenOn(private val context: Context) {
         }
     }
 
+    /** False when the screen is off (night sleep or timeout): do not rotate rest faces. */
+    fun isInteractive(): Boolean = try {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        pm.isInteractive
+    } catch (_: Exception) {
+        false
+    }
+
     fun release() {
         try {
             lock?.let { if (it.isHeld) it.release() }

@@ -46,8 +46,11 @@ class VoiceService : Service() {
     private var listenMode = "auto"
     /** "hirux", "dobby", or "both" (default). */
     private var wakeWord = "both"
-    private var listenFace = "h0180"
-    private var thinkFace = "h0181"
+    private var listenFace = com.geeui.voice.bus.LISTEN_FACE
+    private var thinkFace = com.geeui.voice.bus.THINK_FACE
+    private var backendFace = ""
+    private var idleFaces = ""
+    private var idleInterval = ""
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -98,12 +101,15 @@ class VoiceService : Service() {
             intent.getStringExtra("listen_mode")?.let { listenMode = it }
             intent.getStringExtra("wake_word")?.let { wakeWord = it }
             intent.getStringExtra("listen_face")?.let { listenFace = it }
+            intent.getStringExtra("backend_face")?.let { backendFace = it }
             intent.getStringExtra("think_face")?.let { thinkFace = it }
+            intent.getStringExtra("idle_faces")?.let { idleFaces = it }
+            intent.getStringExtra("idle_face_interval")?.let { idleInterval = it }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
                 sidecar, cosyModel, phonon, phononVoice, initiative, listenMode, wakeWord,
-                listenFace, thinkFace, vision,
+                listenFace, thinkFace, backendFace, idleFaces, idleInterval, vision,
             )
             loop?.start()
             VoiceHud.running = true

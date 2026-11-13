@@ -1,6 +1,6 @@
 # Expressions et visages (tags h)
 
-Liste officielle des vidéos d'expression du robot Letianpai RUX (`cmd_tag` `h0001`–`h0302`). Le nom chinois `cmd_tag_name` vient des fichiers de tags du fabricant. L'identifiant est celui passé à `robotStartExpression` / `controlFace`.
+Liste officielle des vidéos d'expression du robot Letianpai RUX (`cmd_tag` `h0001`–`h0302`). Le nom chinois `cmd_tag_name` vient des fichiers de tags du fabricant. L'identifiant est celui passé à `robotStartExpression` / `controlFace`. L'APK GeeUIFace installée sur le robot contient aussi des clips hors liste, jusqu'à `h0351` (328 fichiers) ; voir plus bas pour `h0347`.
 
 Copie machine : [`faces_h_tags.json`](faces_h_tags.json) (champs `cmd_tag`, `cmd_tag_name`, `name_fr`, `usage`, et `uncertain` si la traduction n'est pas sûre).
 
@@ -27,8 +27,8 @@ Les vidéos vivent dans l'app système GeeUIFace (`assets/video/<id>.mp4`). GeeU
 - `h0119` — pleurs — émotion triste
 - `h0131` — V5 — bundlé pour l'ancienne nuance « wink »
 - `h0133` — peur
-- `h0180` — écoute vocale — état hear
-- `h0181` — réflexion vocale — état think, nuance thinking
+- `h0180` — écoute vocale — ancien état hear (toujours bundlé)
+- `h0181` — réflexion vocale — nuance thinking 🤔, ancien état think (toujours bundlé)
 - `h0292` — bouche qui parle — état speak neutre
 
 Les six visages d'émotion d'origine (PR #15 et la série « Bundle the six emotion face clips ») sont `h0001`, `h0006`, `h0046`, `h0059`, `h0119`, `h0133`. D'autres clips ont été ajoutés ensuite pour le dialogue, les nuances d'emoji et l'humeur. On les garde tous dans l'APK, y compris ceux qui ne sont plus mappés (`h0002`, `h0131`, `h0063`).
@@ -71,14 +71,24 @@ Les visages d'écoute et de réflexion sont envoyés sur le bus (`controlFace`) 
 
 | État | Moment | Tag par défaut | Nom chinois | Traduction | Réglage |
 |------|--------|----------------|-------------|------------|---------|
-| Écoute | Après « Hi RUX » / « Hey Dobby », pendant l'enregistrement de la phrase | `h0180` | 语音听 | Écoute vocale | `listen_face` |
-| Réflexion | Fin de la phrase, pendant le STT et l'attente du modèle, jusqu'au début de la voix | `h0181` | 语音思考 | Réflexion vocale | `think_face` |
+| Écoute | Après « Hi RUX » / « Hey Dobby », pendant l'enregistrement de la phrase | `h0347` | — | Début VAD (assistant d'origine) | `listen_face` |
+| Backend | Fin de la phrase, pendant l'envoi au sidecar / STT / LLM, jusqu'au début de la voix | `h0242` | 无 | Sans nom (attente backend) | `backend_face` (alias `think_face`) |
 | Parole | Pendant la synthèse : visage d'émotion (ou `h0292` bouche qui parle si neutre), inchangé | émotion ou `h0292` | — | — | (pas de réglage) |
-| Repos | Fin de conversation, ou 12 s sans parole | `h0059` ou humeur | 常规环 | Anneau au repos | — |
+| Repos | Fin de conversation, ou 12 s sans parole : d'abord `h0059` (ou l'humeur), puis alternance | `h0135`–`h0175` (filtre) ou `h0059` | — | Regards / clignements | `idle_faces`, `idle_face_interval` |
 
-Pourquoi ces tags : `h0180` 语音听 est le clip d'écoute de l'assistant d'origine (yeux et un « ? »), distinct de `h0098` (même nom, non utilisé par l'assistant) et de `h0276` 倾听 (libellule, pas un visage d'écoute). `h0181` 语音思考 est déjà le visage « think » et la nuance 🤔 : un ampoule s'affiche pendant que le modèle réfléchit. `h0050` 思考 est un visage de réflexion générique, non utilisé pour la voix.
+L'attente STT et l'appel au modèle sont la même phase dans la boucle : on affiche `h0242` (réglable via `backend_face` ou l'alias `think_face`). La nuance 🤔 de la réponse reste `h0181` 语音思考.
 
-Les identifiants se changent dans le menu (`listen_face`, `think_face`) ou par extra de lancement. Valeurs acceptées : `h0180` ou `0180`. Un identifiant invalide retombe sur le défaut. L'humeur au repos ne remplace pas le visage tant que le robot écoute, réfléchit ou parle.
+Pourquoi ces tags : `h0347` est le clip que l'assistant d'origine joue au début du VAD. Il est dans l'APK GeeUIFace du robot (`assets/video/h0347.mp4`, 350 Ko) mais absent de la liste publique h0001–h0302. L'ancien `h0180` 语音听 (yeux et un « ? ») reste disponible dans le menu. `h0242` n'a pas de nom officiel (无) ; on s'en sert pour l'attente du backend. `h0181` et `h0050` restent des visages de réflexion, plus pour cette phase.
+
+Au repos, si l'humeur est calme et que l'écran est allumé, l'app alterne toutes les 20 à 40 s parmi les clips `h0135`–`h0175` qui vont bien à une attente (regards, clignements, sourires discrets). Sont exclus, parce qu'ils ne conviennent pas au repos ou qu'ils se confondent avec le backend :
+
+- stupéfaction : `h0142`, `h0148`
+- réflexion : `h0149`, `h0170`
+- yeux écarquillés (air surpris) : `h0157`, `h0158`, `h0160`, `h0164`, `h0172`
+
+32 clips restent dans la liste par défaut. `idle_faces=off` (ou `h0059`) coupe l'alternance et garde `h0059`. Une humeur autre que « calme » (triste, fatigué…) garde son visage, sans rotation. On ne change pas de visage si l'écran est éteint (sommeil de nuit Letianpai).
+
+Les identifiants se changent dans le menu (`listen_face`, `backend_face`, `think_face`, `idle_faces`, `idle_face_interval`) ou par extra de lancement. Valeurs acceptées : `h0347` ou `0347`. Un identifiant invalide retombe sur le défaut. L'humeur au repos ne remplace pas le visage tant que le robot écoute, attend le backend ou parle.
 
 ### Humeur au repos (`RestFace`)
 
@@ -291,8 +301,8 @@ Les trois boucles d'attente du fabricant sont faites pour tourner à l'infini : 
 | `h0177` | 收音 | Prise de son | Enregistre / capte le son. |
 | `h0178` | 失落 | Déception | Air déçu, abattu. |
 | `h0179` | 偷看2 | Coup d'œil furtif 2 | Variante de coup d'œil furtif. |
-| `h0180` | 语音听 | Écoute vocale | État d'écoute de l'assistant. L'app utilise h0180, pas h0098. |
-| `h0181` | 语音思考 | Réflexion vocale | L'assistant réfléchit. Visage « think » et nuance 🤔. |
+| `h0180` | 语音听 | Écoute vocale | Ancien visage d'écoute de l'app (yeux et un « ? »). Le défaut est maintenant h0347. Toujours utilisable via `listen_face`. |
+| `h0181` | 语音思考 | Réflexion vocale | Nuance 🤔. Ancien visage d'attente STT/LLM (remplacé par h0242). |
 | `h0182` | 拍照 | Photo | Prend une photo / pose appareil. |
 | `h0183` | 紫GPT思考 | GPT violet réfléchit | Habillage GPT violet. Non utilisé. |
 | `h0184` | 紫GPT听 | GPT violet écoute | Habillage GPT violet, état d'écoute. Non utilisé. |
@@ -353,7 +363,7 @@ Les trois boucles d'attente du fabricant sont faites pour tourner à l'infini : 
 | `h0239` | 该运动2 | Il faut bouger 2 | Variante du rappel mouvement. |
 | `h0240` | 该健身2 | Il faut faire du sport 2 | Variante du rappel sport. |
 | `h0241` | 注意坐姿2 | Attention à la posture 2 | Variante du rappel posture. |
-| `h0242` | 无 | Sans nom | Réservé, pas de nom officiel. |
+| `h0242` | 无 | Sans nom | Attente backend (STT / LLM). Réglage `backend_face`. |
 | `h0243` | 无 | Sans nom | Réservé, pas de nom officiel. |
 | `h0244` | 无 | Sans nom | Réservé, pas de nom officiel. |
 | `h0245` | 无 | Sans nom | Réservé, pas de nom officiel. |
@@ -416,12 +426,22 @@ Les trois boucles d'attente du fabricant sont faites pour tourner à l'infini : 
 | `h0302` | h0302 | Réservé (sans nom) | Identifiant vide dans la liste officielle, jusqu'à h0302. |
 
 
+## Clips présents sur le robot, hors liste publique
+
+L'APK système GeeUIFace du robot (`com.geeui.face`, `assets/video/`) contient **328** fichiers `hNNNN.mp4`, de `h0001` à `h0351`. La liste officielle s'arrête à `h0302`. Manquent dans cette plage élargie : `h0303`, `h0341`, `h0346`, `h0352` (ce dernier est cité par l'assistant d'origine, mais le fichier n'est pas dans l'APK).
+
+| Tag | Nom | Usage |
+|-----|-----|-------|
+| `h0347` | Début VAD (pas de nom dans la liste publique) | Visage d'écoute par défaut de l'app. L'assistant d'origine le joue au début du VAD. Fichier `assets/video/h0347.mp4` (350 Ko) dans GeeUIFace sur le robot. |
+
+Les autres identifiants `h0304`–`h0351` (sauf les absents ci-dessus) existent sur le robot mais n'ont pas de nom officiel ici.
+
 ## Vérifié par l'utilisateur
 
 | Tag | Nom chinois | Note |
 |-----|-------------|------|
 | `h0006` | 大笑 | Les yeux forment un grand X un peu aplati (rire « XD »), pas un sourire. Gardé pour 😂🤣, plus pour le joyeux simple. |
-| `h0074` | 俄罗斯 | Tetris : indique que le robot est occupé à jouer. Pas branché dans l'app (pas d'état « occupé à jouer » aujourd'hui ; l'attente STT/LLM reste `h0181`). |
+| `h0074` | 俄罗斯 | Tetris : indique que le robot est occupé à jouer. Pas branché dans l'app (pas d'état « occupé à jouer » aujourd'hui ; l'attente STT/LLM utilise `h0242`). |
 
 ## Traductions incertaines
 

@@ -59,16 +59,24 @@ fun bundledFace(id: String) = "video/$id.mp4"
 
 const val IDLE_FACE = "h0059"
 
-/** Same ids as the stock assistant (GestureCenter): wake / avatar.listening. Eyes with a "?". */
-const val LISTEN_FACE = "h0180"
-/** avatar.understanding in GestureCenter: eyes and a light bulb, while STT and the LLM work. */
-const val THINK_FACE = "h0181"
+/**
+ * Listening face: stock assistant uses this clip at VAD begin. Present in the
+ * on-device GeeUIFace APK (`assets/video/h0347.mp4`), not in the public h0001–h0302 list.
+ */
+const val LISTEN_FACE = "h0347"
+/**
+ * Face while the phrase is sent to the sidecar / STT / LLM (the current "think" phase).
+ * Same moment as [THINK_FACE]: there is no separate thinking step in the loop.
+ */
+const val BACKEND_FACE = "h0242"
+/** Alias of [BACKEND_FACE], kept so `think_face` and DialogueFaces.think stay valid. */
+const val THINK_FACE = BACKEND_FACE
 /** getSpeakingGesture in GestureCenter: eyes and a moving mouth. */
 const val SPEAK_FACE = "h0292"
 
 /**
- * Configurable dialogue face ids (settings `listen_face` / `think_face`).
- * Defaults match the stock assistant: [LISTEN_FACE], [THINK_FACE], [SPEAK_FACE].
+ * Configurable dialogue face ids (settings `listen_face` / `backend_face` / `think_face`).
+ * Defaults: [LISTEN_FACE], [BACKEND_FACE] (also [THINK_FACE]), [SPEAK_FACE].
  */
 object DialogueFaces {
     @Volatile var listen: String = LISTEN_FACE

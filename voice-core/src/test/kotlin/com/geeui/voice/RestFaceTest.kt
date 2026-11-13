@@ -59,4 +59,16 @@ class RestFaceTest {
         assertEquals(listOf("boudeur"), moods)
         assertEquals(emptyList(), said)
     }
+
+    @Test
+    fun isRestAcceptsIdleRotationFacesAndCalmMood() {
+        RestFace.current = IDLE_FACE
+        assertEquals(true, RestFace.isCalm())
+        assertEquals(true, RestFace.isRest("h0135"))
+        assertEquals(true, RestFace.isRest("h0175"))
+        RestFace.current = "h0010"
+        assertEquals(false, RestFace.isCalm())
+        assertEquals(true, RestFace.isRest("h0136")) // still a rest-loop clip
+        assertEquals(false, RestFace.isRest("h0006"))
+    }
 }
