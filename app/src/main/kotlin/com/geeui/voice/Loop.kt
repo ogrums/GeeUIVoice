@@ -19,6 +19,7 @@ import com.geeui.voice.engine.LemonadeTts
 import com.geeui.voice.engine.PlannedTts
 import com.geeui.voice.engine.TextToSpeech
 import com.geeui.voice.engine.TtsPlan
+import com.geeui.voice.bus.DialogueFaces
 import com.geeui.voice.session.DobbyPhrase
 import com.geeui.voice.session.LiveTurn
 import com.geeui.voice.session.parseWakeSource
@@ -60,6 +61,8 @@ class VoiceLoop(
     private val initiative: Boolean = true,
     listenMode: String = "auto",
     wakeWord: String = "both",
+    listenFace: String = com.geeui.voice.bus.LISTEN_FACE,
+    thinkFace: String = com.geeui.voice.bus.THINK_FACE,
 ) {
     private val appContext = audio
     private val client = LemonadeClient(
@@ -133,7 +136,8 @@ class VoiceLoop(
         if (face == rest.current) return
         val resting = VoiceHud.face.isBlank() || rest.isRest(VoiceHud.face)
         rest.current = face
-        if (resting) bus.showFace(face)
+        val inDialogue = VoiceHud.mode in setOf("hear", "think", "talk") || VoiceHud.playing
+        if (resting && !inDialogue) bus.showFace(face)
     }
 
     private val running = AtomicBoolean(false)
@@ -143,6 +147,8 @@ class VoiceLoop(
     private val policy = com.geeui.voice.session.ListenPolicy(
         com.geeui.voice.session.ListenPolicy.parseMode(listenMode),
     ).also { it.setWakeSource(parseWakeSource(wakeWord)) }
+    private val listenFaceId = DialogueFaces.parseId(listenFace, com.geeui.voice.bus.LISTEN_FACE)
+    private val thinkFaceId = DialogueFaces.parseId(thinkFace, com.geeui.voice.bus.THINK_FACE)
     private val wantMic = AtomicBoolean(false)
     private val micGate = Object()
     private val wantDobby = AtomicBoolean(false)
@@ -157,26 +163,29 @@ class VoiceLoop(
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
+        DialogueFaces.listen = listenFaceId
+        DialogueFaces.think = thinkFaceId
         live.onUserText = {
             VoiceHud.clearFaceEvents()
             val who = stt.lastSpeakerName
             VoiceHud.heard = if (who.isBlank()) it else "$who : $it"
             VoiceHud.answer = ""
             VoiceHud.line = it
-            VoiceHud.mode = "think"
+            setHudMode("think")
             Log.i(TEST_TAG, "heard=$it")
             writeLastTurn()
         }
         live.onAnswer = {
             VoiceHud.answer = it
             VoiceHud.line = it
-            VoiceHud.mode = "talk"
+            setHudMode("talk")
             Log.i(TEST_TAG, "answer=$it")
             writeLastTurn()
         }
-        live.onListen = { VoiceHud.mode = "hear" }
+        live.onListen = { setHudMode("hear") }
+        live.onThink = { setHudMode("think") }
         live.onIdle = {
-            VoiceHud.mode = "idle"
+            setHudMode("idle")
             policy.onTurnEnded()
         }
         live.allowBargeIn = {
@@ -192,6 +201,7 @@ class VoiceLoop(
                 val busy = wavTestBusy.get() || VoiceHud.playing ||
                     session.state != com.geeui.voice.session.Dialogue.Idle
                 if (policy.onTick(busy = busy)) {
+                    setHudMode("idle")
                     VoiceHud.line = restLabel()
                     Log.i(TEST_TAG, "mic yielded after idle")
                 }
@@ -375,7 +385,7 @@ class VoiceLoop(
             return
         }
         VoiceHud.line = "Hi RUX"
-        VoiceHud.mode = "hear"
+        setHudMode("hear")
         screenOn.turnOn()
         (bus as? AidlBus)?.exitDarkScreen()
         applyMic()
@@ -404,6 +414,20 @@ class VoiceLoop(
             synchronized(micGate) { micGate.notifyAll() }
         }
         refreshDobby()
+    }
+
+    private fun setHudMode(mode: String) {
+        VoiceHud.mode = mode
+        val face = when (mode) {
+            "hear" -> listenFaceId
+            "think" -> thinkFaceId
+            "idle" -> com.geeui.voice.bus.RestFace.current
+            else -> null
+        }
+        if (face != null) {
+            bus.showFace(face)
+            Log.i(TEST_TAG, "face $mode $face")
+        }
     }
 
     private fun restLabel(): String {
@@ -545,7 +569,7 @@ class VoiceLoop(
         }
         Log.i(TEST_TAG, "wake accepted(dobby: ${verdict.phrase})")
         VoiceHud.line = "Hey Dobby"
-        VoiceHud.mode = "hear"
+        setHudMode("hear")
         screenOn.turnOn()
         (bus as? AidlBus)?.exitDarkScreen()
         applyMic()

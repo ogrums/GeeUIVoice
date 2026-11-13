@@ -67,7 +67,33 @@ const val THINK_FACE = "h0181"
 const val SPEAK_FACE = "h0292"
 
 /**
- * Face shown on our own screen for a dialogue state. Local only: nothing is sent on the bus.
+ * Configurable dialogue face ids (settings `listen_face` / `think_face`).
+ * Defaults match the stock assistant: [LISTEN_FACE], [THINK_FACE], [SPEAK_FACE].
+ */
+object DialogueFaces {
+    @Volatile var listen: String = LISTEN_FACE
+    @Volatile var think: String = THINK_FACE
+    @Volatile var speak: String = SPEAK_FACE
+
+    fun reset() {
+        listen = LISTEN_FACE
+        think = THINK_FACE
+        speak = SPEAK_FACE
+    }
+
+    /** Accepts `h0180`, `H0180` or `0180`. Unknown values keep [fallback]. */
+    fun parseId(raw: String?, fallback: String): String {
+        val trimmed = raw?.trim()?.lowercase().orEmpty()
+        if (trimmed.isEmpty()) return fallback
+        val id = if (trimmed.startsWith("h")) trimmed else "h$trimmed"
+        return if (id.matches(Regex("h\\d{4}"))) id else fallback
+    }
+}
+
+/**
+ * Face shown on our own screen for a dialogue state.
+ * The same ids are also sent on the bus (`controlFace`) when the loop enters
+ * hear / think, so the robot face matches even if the activity is not on top.
  * [mode] is VoiceHud.mode (hear, think, talk, idle). [playing] is true while the TTS clip plays.
  * [pose] is the face of the last pose (VoiceHud.face). An emotion face wins over the speaking
  * face, so the EmotionFusion reaction stays visible while the robot talks. Neutral or no pose
@@ -76,9 +102,9 @@ const val SPEAK_FACE = "h0292"
 fun dialogueFace(mode: String, playing: Boolean, pose: String): String {
     val emotion = pose.isNotBlank() && !RestFace.isRest(pose)
     return when {
-        playing -> if (emotion) pose else SPEAK_FACE
-        mode == "hear" -> LISTEN_FACE
-        mode == "think" || mode == "talk" -> THINK_FACE
+        playing -> if (emotion) pose else DialogueFaces.speak
+        mode == "hear" -> DialogueFaces.listen
+        mode == "think" || mode == "talk" -> DialogueFaces.think
         else -> pose
     }
 }
