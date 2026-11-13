@@ -63,7 +63,9 @@ class VoiceLoop(
     wakeWord: String = "both",
     listenFace: String = com.geeui.voice.bus.LISTEN_FACE,
     thinkFace: String = com.geeui.voice.bus.THINK_FACE,
+    vision: Boolean = true,
 ) {
+    private val camera = if (vision) RobotCamera(audio) else null
     private val appContext = audio
     private val client = LemonadeClient(
         baseUrl,
@@ -102,6 +104,14 @@ class VoiceLoop(
         plan = plan,
         audioAffect = { stt.lastAudioAffect },
         fusion = com.geeui.voiceemo.EmotionFusion(),
+        camera = camera?.let { cam ->
+            {
+                VoiceHud.line = "je regarde…"
+                val jpeg = cam.snapshot()
+                VoiceHud.diag = if (jpeg == null) "caméra : ${cam.lastError}" else "photo ${jpeg.size / 1024} Ko"
+                jpeg
+            }
+        },
         sidecarOkAt = {
             val now = System.currentTimeMillis()
             if (sidecar.isNotBlank() && now - sidecarOk.get() > 5_000L) pingSidecar(sidecar)

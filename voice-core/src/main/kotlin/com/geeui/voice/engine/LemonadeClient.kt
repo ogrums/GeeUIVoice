@@ -21,6 +21,12 @@ class LemonadeClient(
     @Volatile private var resolvedStt: String? = null
     @Volatile private var resolvedChat: String? = null
     @Volatile private var resolvedTts: String? = null
+    /** JPEG sent with the next chat turn only, then dropped (never kept). */
+    @Volatile private var nextImage: ByteArray? = null
+
+    fun attachImage(jpeg: ByteArray) {
+        nextImage = jpeg
+    }
 
     /** Model id actually sent to /audio/transcriptions. Falls back to Whisper-Small. */
     fun resolveStt(): String {
@@ -270,7 +276,17 @@ class LemonadeClient(
         val sys = systemPrompt.trim()
         val system = if (sys.isEmpty()) "" else """{"role":"system","content":${json(sys)}},"""
         val flag = if (stream) ""","stream":true""" else ""
-        return """{"model":"${resolveChat()}"$flag,"messages":[$system{"role":"user","content":${json(userText)}}]}"""
+        val image = nextImage
+        nextImage = null
+        val content = if (image == null) json(userText) else userContent(userText, image)
+        return """{"model":"${resolveChat()}"$flag,"messages":[$system{"role":"user","content":$content}]}"""
+    }
+
+    /** OpenAI multimodal content: the question, then the photo as a data URL. */
+    internal fun userContent(text: String, jpeg: ByteArray): String {
+        val b64 = java.util.Base64.getEncoder().encodeToString(jpeg)
+        return """[{"type":"text","text":${json(text)}},""" +
+            """{"type":"image_url","image_url":{"url":"data:image/jpeg;base64,$b64"}}]"""
     }
 
     /** Only a quoted message. `null`, finish_reason and token counts are not speech. */
@@ -293,6 +309,8 @@ class LemonadeClient(
 
 class LemonadeChat(private val client: LemonadeClient) : Chat, StreamingChat {
     override fun reply(userText: String): String = client.chat(userText)
+
+    override fun attachImage(jpeg: ByteArray) = client.attachImage(jpeg)
 
     override fun stream(userText: String, onDelta: (String) -> Unit) {
         client.chatStream(userText, onDelta)

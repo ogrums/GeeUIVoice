@@ -28,6 +28,9 @@ class TimingChat(
         return (first - start).coerceAtLeast(0)
     }
 
+    /** Forward a vision photo so the next turn of the inner chat includes it. */
+    override fun attachImage(jpeg: ByteArray) = inner.attachImage(jpeg)
+
     override fun reply(userText: String): String {
         chatStartedAt = now()
         val text = inner.reply(userText)
