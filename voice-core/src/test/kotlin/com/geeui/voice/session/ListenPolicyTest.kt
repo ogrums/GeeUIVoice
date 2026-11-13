@@ -7,8 +7,13 @@ import kotlin.test.assertTrue
 
 class ListenPolicyTest {
     private var now = 1_000L
-    private fun policy(mode: ListenMode = ListenMode.AUTO): ListenPolicy =
-        ListenPolicy(mode, idleTimeoutMs = 12_000, clock = { now })
+    private fun policy(
+        mode: ListenMode = ListenMode.AUTO,
+        source: WakeSource = WakeSource.HIRUX,
+    ): ListenPolicy =
+        ListenPolicy(mode, idleTimeoutMs = 12_000, clock = { now }).also {
+            it.setWakeSource(source)
+        }
 
     @Test
     fun parseModeReadsSettings() {
@@ -216,6 +221,79 @@ class ListenPolicyTest {
         p.beginPostWakeTrim()
         assertFalse(p.shouldDropFrame())
         now += 10
+        assertFalse(p.shouldDropFrame())
+    }
+
+    @Test
+    fun parseWakeSourceReadsSettings() {
+        assertEquals(WakeSource.BOTH, parseWakeSource(null))
+        assertEquals(WakeSource.BOTH, parseWakeSource(""))
+        assertEquals(WakeSource.BOTH, parseWakeSource("both"))
+        assertEquals(WakeSource.HIRUX, parseWakeSource("hirux"))
+        assertEquals(WakeSource.HIRUX, parseWakeSource("hi-rux"))
+        assertEquals(WakeSource.HIRUX, parseWakeSource("HI_RUX"))
+        assertEquals(WakeSource.DOBBY, parseWakeSource("dobby"))
+        assertEquals(WakeSource.DOBBY, parseWakeSource("Hey Dobby"))
+        assertEquals(WakeSource.DOBBY, parseWakeSource("hey-dobby"))
+    }
+
+    @Test
+    fun dobbyKeepsWakeModeWhenLexCallbackFails() {
+        val p = policy(source = WakeSource.BOTH)
+        p.onCallbackAvailable(false)
+        assertTrue(p.useWake)
+        assertTrue(p.dobbyEnabled)
+        assertFalse(p.shouldHoldMic())
+        assertFalse(p.holdingMic)
+        val v = p.acceptLocalWake()
+        assertTrue(v.accepted)
+        assertTrue(p.shouldHoldMic())
+    }
+
+    @Test
+    fun dobbyOnlyIgnoresHiRux() {
+        val p = policy(source = WakeSource.DOBBY)
+        p.onCallbackAvailable(true)
+        val lex = p.considerWake("wakeup_status", "avatar.listening")
+        assertFalse(lex.accepted)
+        assertEquals("hirux-off", lex.reason)
+        assertFalse(p.shouldHoldMic())
+        val dobby = p.acceptLocalWake()
+        assertTrue(dobby.accepted)
+        assertTrue(p.shouldHoldMic())
+    }
+
+    @Test
+    fun hiruxOnlyRejectsLocalWake() {
+        val p = policy(source = WakeSource.HIRUX)
+        p.onCallbackAvailable(true)
+        val v = p.acceptLocalWake()
+        assertFalse(v.accepted)
+        assertEquals("dobby-off", v.reason)
+        assertFalse(p.shouldHoldMic())
+    }
+
+    @Test
+    fun bothAcceptsHiRuxAndDobby() {
+        val p = policy(source = WakeSource.BOTH)
+        p.onCallbackAvailable(true)
+        val lex = p.considerWake("wakeup_status", "avatar.listening")
+        assertTrue(lex.accepted)
+        now += 20_000
+        assertTrue(p.onTick())
+        val dobby = p.acceptLocalWake()
+        assertTrue(dobby.accepted)
+        assertTrue(p.shouldHoldMic())
+    }
+
+    @Test
+    fun dobbyWakeAlsoTrimsPostWakeFrames() {
+        val p = policy(source = WakeSource.DOBBY)
+        p.onCallbackAvailable(false)
+        p.acceptLocalWake()
+        p.beginPostWakeTrim()
+        assertTrue(p.shouldDropFrame())
+        now += ListenPolicy.POST_WAKE_TRIM_MS
         assertFalse(p.shouldDropFrame())
     }
 }

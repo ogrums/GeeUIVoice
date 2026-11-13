@@ -42,6 +42,8 @@ class VoiceService : Service() {
     private var initiative = true
     /** "auto" (default), "wake", or "continuous". */
     private var listenMode = "auto"
+    /** "hirux", "dobby", or "both" (default). */
+    private var wakeWord = "both"
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -89,10 +91,11 @@ class VoiceService : Service() {
             for (key in VAD_KEYS) intent.getStringExtra(key)?.let { vad[key] = it }
             intent.getStringExtra("initiative")?.let { initiative = it.trim() !in setOf("0", "false", "non") }
             intent.getStringExtra("listen_mode")?.let { listenMode = it }
+            intent.getStringExtra("wake_word")?.let { wakeWord = it }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
-                sidecar, cosyModel, phonon, phononVoice, initiative, listenMode,
+                sidecar, cosyModel, phonon, phononVoice, initiative, listenMode, wakeWord,
             )
             loop?.start()
             VoiceHud.running = true

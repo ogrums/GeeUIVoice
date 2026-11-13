@@ -18,6 +18,7 @@ object VoiceSettings {
         "phonon" to "",
         "phonon_voice" to com.geeui.voice.engine.PhononTts.VOICE,
         "listen_mode" to "auto",
+        "wake_word" to "both",
     )
 
     private val labels = mapOf(
@@ -30,6 +31,7 @@ object VoiceSettings {
         "phonon" to "Phonon (vide = Kokoro)",
         "phonon_voice" to "Voix Phonon",
         "listen_mode" to "Écoute (auto, wake, continuous)",
+        "wake_word" to "Mot de réveil (hirux, dobby, both)",
     )
 
     private val extras = mapOf(
@@ -42,6 +44,7 @@ object VoiceSettings {
         "phonon" to "phonon",
         "phonon_voice" to "phonon_voice",
         "listen_mode" to "listen_mode",
+        "wake_word" to "wake_word",
     )
 
     fun label(key: String): String = labels.getValue(key)
