@@ -83,6 +83,7 @@ class VoiceSession(
         }
         val whole = spoken(answer.toString())
         var moved = false
+        var pendingPose: com.geeui.voiceemo.SdkPose? = null
         if (mood != null) {
             val fused = fusion?.fuse(
                 audioAffect().emotion,
@@ -135,17 +136,29 @@ class VoiceSession(
             plan?.prosody = if (reaction == null) com.geeui.voiceemo.Prosody.NEUTRAL
             else com.geeui.voiceemo.EmotionProsody.of(reaction.emotion, reaction.score)
             onEmotion?.invoke(turn)
-            // Apply the pose now, not only when TTS becomes audible: a reply that is
-            // only an emoji has nothing to speak, so whenAudible would never fire.
-            if (pose.faceId != IDLE_FACE) {
+            // Keep the thinking face until TTS starts. An emoji-only reply has
+            // nothing to play, so apply immediately; EchoTts (tests) never
+            // fires whenAudible, so we also apply after speak() if needed.
+            tts.whenAudible {
+                if (pose.faceId != IDLE_FACE) {
+                    bus.applyPose(pose)
+                    moved = true
+                }
+            }
+            if (whole.isEmpty() && pose.faceId != IDLE_FACE) {
                 bus.applyPose(pose)
                 moved = true
             }
-            tts.whenAudible {
-                if (pose.faceId != IDLE_FACE) bus.applyPose(pose)
-            }
+            pendingPose = pose
         }
         if (whole.isNotEmpty()) tts.speak(whole, language)
+        if (!moved) {
+            val pose = pendingPose
+            if (pose != null && pose.faceId != IDLE_FACE && whole.isNotEmpty()) {
+                bus.applyPose(pose)
+                moved = true
+            }
+        }
         // Hold the emotion face for the whole clip (speak is blocking) plus a short
         // tail, then rest. Do not start the rest timer at the beginning of speech.
         if (moved) {

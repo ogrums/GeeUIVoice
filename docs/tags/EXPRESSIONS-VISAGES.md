@@ -65,6 +65,21 @@ Il n'existe pas de clip nommé 恶心 ou 厌恶 (dégoût). `h0033` 抗拒 (refu
 
 L'amour (`love`) pointe déjà vers `h0027` 爱心. L'utilisateur a confirmé que `h0006` 大笑 montre les yeux en grand X un peu aplati (rire « XD »), pas un sourire : on le garde pour la nuance « laugh » (😂🤣😆😁), et on met l'émotion joyeux (`HAPPY`, `[happy]`, 😊🙂) sur `h0020` 快乐 (joie), présent dans GeeUIFace et désormais dans l'APK. Il n'existe pas de clip nommé 微笑, 开心 ou 高兴 ; `h0060` 笑容环 reste la boucle sourire de l'humeur « content » au repos, pas la réaction joyeux. Le clin d'œil utilisait `h0131` V5 : on le rattache à `h0036` 单眨眼.
 
+### États de dialogue (écoute, réflexion, parole)
+
+Les visages d'écoute et de réflexion sont envoyés sur le bus (`controlFace`) et affichés sur l'écran local (`TextureView`). Ils ne remplacent pas le visage d'émotion pendant la parole.
+
+| État | Moment | Tag par défaut | Nom chinois | Traduction | Réglage |
+|------|--------|----------------|-------------|------------|---------|
+| Écoute | Après « Hi RUX » / « Hey Dobby », pendant l'enregistrement de la phrase | `h0180` | 语音听 | Écoute vocale | `listen_face` |
+| Réflexion | Fin de la phrase, pendant le STT et l'attente du modèle, jusqu'au début de la voix | `h0181` | 语音思考 | Réflexion vocale | `think_face` |
+| Parole | Pendant la synthèse : visage d'émotion (ou `h0292` bouche qui parle si neutre), inchangé | émotion ou `h0292` | — | — | (pas de réglage) |
+| Repos | Fin de conversation, ou 12 s sans parole | `h0059` ou humeur | 常规环 | Anneau au repos | — |
+
+Pourquoi ces tags : `h0180` 语音听 est le clip d'écoute de l'assistant d'origine (yeux et un « ? »), distinct de `h0098` (même nom, non utilisé par l'assistant) et de `h0276` 倾听 (libellule, pas un visage d'écoute). `h0181` 语音思考 est déjà le visage « think » et la nuance 🤔 : un ampoule s'affiche pendant que le modèle réfléchit. `h0050` 思考 est un visage de réflexion générique, non utilisé pour la voix.
+
+Les identifiants se changent dans le menu (`listen_face`, `think_face`) ou par extra de lancement. Valeurs acceptées : `h0180` ou `0180`. Un identifiant invalide retombe sur le défaut. L'humeur au repos ne remplace pas le visage tant que le robot écoute, réfléchit ou parle.
+
 ### Humeur au repos (`RestFace`)
 
 Les trois boucles d'attente du fabricant sont faites pour tourner à l'infini : `h0059` 常规环 (neutre), `h0060` 笑容环 (sourire), `h0058` 皱眉环 (froncé).
