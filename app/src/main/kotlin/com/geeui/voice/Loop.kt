@@ -144,7 +144,6 @@ class VoiceLoop(
     private val micGate = Object()
     private val screenOn = ScreenOn(appContext)
     @Volatile private var lexPaused = false
-    @Volatile private var lastWakeAt = 0L
     private val speechCb = SpeechCallbackBinder { command, data ->
         turns.execute { onLexSpeech(command, data) }
     }
@@ -263,6 +262,7 @@ class VoiceLoop(
                 try {
                     rec.startRecording()
                     VoiceHud.mic = true
+                    policy.beginPostWakeTrim()
                     try {
                         val am = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                         MicProbe.logClientState("rec start session=${rec.audioSessionId}", am, rec.audioSessionId)
@@ -273,7 +273,7 @@ class VoiceLoop(
                         val n = rec.read(buf, 0, frame)
                         if (n == frame) {
                             VoiceHud.level = levelOf(buf)
-                            live.onFrame(buf.copyOf())
+                            if (!policy.shouldDropFrame()) live.onFrame(buf.copyOf())
                         }
                     }
                 } finally {
@@ -340,13 +340,16 @@ class VoiceLoop(
 
     private fun onLexSpeech(command: String, data: String) {
         Log.i(TEST_TAG, "LtpSpeech $command $data")
-        val wake = command.equals("wakeup_status", ignoreCase = true) ||
+        val related = command.equals("wakeup_status", ignoreCase = true) ||
             command.equals("wakeup_doa", ignoreCase = true)
-        if (!wake) return
-        val now = System.currentTimeMillis()
-        if (now - lastWakeAt < 800L) return
-        lastWakeAt = now
-        if (!policy.onWake()) return
+        if (!related) return
+        val verdict = policy.considerWake(command, data)
+        if (verdict.accepted) {
+            Log.i(TEST_TAG, "wake accepted")
+        } else {
+            Log.i(TEST_TAG, "wake ignored(${verdict.reason})")
+            return
+        }
         VoiceHud.line = "Hi RUX"
         VoiceHud.mode = "hear"
         screenOn.turnOn()
@@ -374,6 +377,7 @@ class VoiceLoop(
 
     private fun resumeLexIfPaused() {
         if (!lexPaused) return
+        policy.onLexResumed()
         (bus as? AidlBus)?.resumeLexAudio()
         lexPaused = false
     }
