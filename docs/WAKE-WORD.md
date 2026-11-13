@@ -360,3 +360,43 @@ et garder « Hi RUX » comme option de repli (réglage). Mesurer faux réveils,
 RTF et concurrence avec le VTN sur le robot avant d'en faire le défaut. Un
 KWS sherpa-onnx français peut le remplacer plus tard, plus léger, une fois
 un modèle entraîné.
+
+## 9. « Hey Dobby » (Vosk small FR)
+
+Le mot choisi est **Hey Dobby**. Il tourne sur le robot avec
+`vosk-model-small-fr-0.22` (Apache-2.0, Alpha Cephei), grammaire fermée :
+
+```text
+["hey dobby", "hé dobby", "et dobby", "salut dobby", "dobby", "[unk]"]
+```
+
+« dobby » est dans le lexique du modèle ; « dobi » n'y est pas. Un « Hey
+Dobby » de Noémie sans grammaire sortait parfois seulement « hey » : la
+grammaire rétablit « hey dobby ». « Hé Dobby » est reconnu comme « hé
+dobby » ou « et dobby ». Le mot seul « dobby » est accepté seulement si
+sa confiance est ≥ 0,85. « hey [unk] » et « hé [unk] » sont rejetés.
+
+Réglage `wake_word` (menu, ou extra `wake_word`) : `hirux`, `dobby`,
+`both` (défaut). L'écoute Vosk n'est active qu'au repos, 16 kHz, source
+`VOICE_COMMUNICATION`, en parallèle de Lex. Pendant la conversation ou
+la synthèse vocale, elle s'arrête. Un réveil emprunte le même chemin que
+« Hi RUX » (écran, `exitDarkScreen`, micro de conversation, 350 ms de
+trim, restitution après 12 s).
+
+Le modèle n'est **pas** dans le dépôt ni dans l'APK (~41 Mo zip, ~66 Mo
+décompressé). Au premier lancement l'app cherche, dans cet ordre :
+
+1. `files/vosk/vosk-model-small-fr-0.22` (déjà installé)
+2. `/data/local/tmp/geeui/vosk-model-small-fr-0.22` (poussé par `adb`)
+3. le zip au même endroit, à décompresser
+4. un téléchargement depuis https://alphacephei.com/vosk/models/vosk-model-small-fr-0.22.zip
+
+```bash
+# installation manuelle (recommandée sur le robot)
+adb -s 2006014140527 push vosk-model-small-fr-0.22 /data/local/tmp/geeui/vosk-model-small-fr-0.22
+adb -s 2006014140527 shell chmod -R a+rX /data/local/tmp/geeui/vosk-model-small-fr-0.22
+```
+
+Attribution : Vosk et `vosk-model-small-fr-0.22`, Alpha Cephei, licence
+Apache-2.0. Voir aussi https://alphacephei.com/vosk/models et
+https://github.com/alphacep/vosk-api.

@@ -19,7 +19,9 @@ import com.geeui.voice.engine.LemonadeTts
 import com.geeui.voice.engine.PlannedTts
 import com.geeui.voice.engine.TextToSpeech
 import com.geeui.voice.engine.TtsPlan
+import com.geeui.voice.session.DobbyPhrase
 import com.geeui.voice.session.LiveTurn
+import com.geeui.voice.session.parseWakeSource
 import com.geeui.voice.session.VoiceSession
 import com.geeui.voice.session.WavTestResult
 import com.geeui.voice.session.WavTestTurn
@@ -57,6 +59,7 @@ class VoiceLoop(
     /** Ask the sidecar every 15 s, when idle, if the robot should speak first. */
     private val initiative: Boolean = true,
     listenMode: String = "auto",
+    wakeWord: String = "both",
 ) {
     private val appContext = audio
     private val client = LemonadeClient(
@@ -139,9 +142,13 @@ class VoiceLoop(
     private var thread: Thread? = null
     private val policy = com.geeui.voice.session.ListenPolicy(
         com.geeui.voice.session.ListenPolicy.parseMode(listenMode),
-    )
+    ).also { it.setWakeSource(parseWakeSource(wakeWord)) }
     private val wantMic = AtomicBoolean(false)
     private val micGate = Object()
+    private val wantDobby = AtomicBoolean(false)
+    private val dobbyGate = Object()
+    @Volatile private var dobby: VoskDobbyWake? = null
+    private var dobbyThread: Thread? = null
     private val screenOn = ScreenOn(appContext)
     @Volatile private var lexPaused = false
     private val speechCb = SpeechCallbackBinder { command, data ->
@@ -185,13 +192,14 @@ class VoiceLoop(
                 val busy = wavTestBusy.get() || VoiceHud.playing ||
                     session.state != com.geeui.voice.session.Dialogue.Idle
                 if (policy.onTick(busy = busy)) {
-                    VoiceHud.line = "repos (Hi RUX)"
+                    VoiceHud.line = restLabel()
                     Log.i(TEST_TAG, "mic yielded after idle")
                 }
                 applyMic()
             }
         }, 500, 500, java.util.concurrent.TimeUnit.MILLISECONDS)
         hookLexWake()
+        prepareDobby()
         thread = Thread({
             val used = try {
                 client.resolveStt()
@@ -300,10 +308,16 @@ class VoiceLoop(
         running.set(false)
         wantMic.set(false)
         synchronized(micGate) { micGate.notifyAll() }
+        wantDobby.set(false)
+        synchronized(dobbyGate) { dobbyGate.notifyAll() }
         ticker.shutdownNow()
         tts.stop()
         VoiceHud.mode = "idle"
         thread?.join(500)
+        dobbyThread?.join(800)
+        dobbyThread = null
+        dobby?.close()
+        dobby = null
         (bus as? AidlBus)?.unregisterSpeechCallback()
         resumeLexIfPaused()
         screenOn.release()
@@ -323,8 +337,10 @@ class VoiceLoop(
             ticker.schedule({
                 turns.execute {
                     if (!policy.resolved) {
-                        Log.i(TEST_TAG, "registerSpeechCallback timed out, fallback continuous")
                         policy.onCallbackAvailable(false)
+                        val fallback = if (policy.useWake) "Hey Dobby still on" else "fallback continuous"
+                        Log.i(TEST_TAG, "registerSpeechCallback timed out, $fallback")
+                        if (policy.useWake) VoiceHud.line = restLabel()
                         applyMic()
                     }
                 }
@@ -338,7 +354,10 @@ class VoiceLoop(
         Log.i(TEST_TAG, "registerSpeechCallback=$ok")
         policy.onCallbackAvailable(ok)
         if (ok && policy.useWake) {
-            VoiceHud.line = "repos (Hi RUX)"
+            VoiceHud.line = restLabel()
+        } else if (!ok && policy.useWake) {
+            VoiceHud.line = restLabel()
+            Log.i(TEST_TAG, "Lex hook failed, Hey Dobby still on")
         }
         applyMic()
     }
@@ -364,8 +383,14 @@ class VoiceLoop(
 
     private fun applyMic() {
         val hold = policy.shouldHoldMic()
-        if (hold == wantMic.get()) return
+        if (hold == wantMic.get()) {
+            refreshDobby()
+            return
+        }
         if (hold) {
+            // Stop the rest-time Dobby recorder before opening the conversation mic.
+            wantDobby.set(false)
+            synchronized(dobbyGate) { dobbyGate.notifyAll() }
             (bus as? AidlBus)?.pauseLexAudio()
             lexPaused = true
             try {
@@ -378,6 +403,152 @@ class VoiceLoop(
             wantMic.set(false)
             synchronized(micGate) { micGate.notifyAll() }
         }
+        refreshDobby()
+    }
+
+    private fun restLabel(): String {
+        val bits = buildList {
+            if (policy.hiruxEnabled) add("Hi RUX")
+            if (policy.dobbyEnabled) add("Hey Dobby")
+        }
+        return if (bits.isEmpty()) "repos" else "repos (${bits.joinToString(" / ")})"
+    }
+
+    private fun refreshDobby() {
+        val listen = running.get() && policy.dobbyEnabled && !wantMic.get() && dobby != null
+        wantDobby.set(listen)
+        synchronized(dobbyGate) { dobbyGate.notifyAll() }
+    }
+
+    private fun prepareDobby() {
+        if (!policy.dobbyEnabled) return
+        Thread({
+            val dir = try {
+                VoskModelStore.ensure(appContext)
+            } catch (e: Exception) {
+                Log.w(TEST_TAG, "vosk model ensure failed", e)
+                null
+            }
+            if (dir == null) {
+                Log.w(
+                    TEST_TAG,
+                    "vosk model missing; Hey Dobby off. " +
+                        "adb push the folder to /data/local/tmp/geeui/${VoskModelStore.MODEL_NAME}",
+                )
+                VoiceHud.line = "Hey Dobby : modèle manquant"
+                return@Thread
+            }
+            try {
+                dobby = VoskDobbyWake(dir)
+                refreshDobby()
+            } catch (e: Exception) {
+                Log.w(TEST_TAG, "vosk init failed", e)
+                VoiceHud.line = "Hey Dobby : modèle illisible"
+            }
+        }, "geeui-dobby-init").start()
+        dobbyThread = Thread({
+            val rate = 16_000
+            val frame = 1_600 // 100 ms, keeps CPU low
+            val min = AudioRecord.getMinBufferSize(
+                rate,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+            )
+            val bytes = ByteArray(frame * 2)
+            val shorts = ShortArray(frame)
+            while (running.get()) {
+                if (!wantDobby.get()) {
+                    try {
+                        dobby?.flush()
+                    } catch (_: Exception) {
+                    }
+                    synchronized(dobbyGate) {
+                        while (running.get() && !wantDobby.get()) {
+                            try {
+                                dobbyGate.wait(200)
+                            } catch (_: InterruptedException) {
+                                break
+                            }
+                        }
+                    }
+                    continue
+                }
+                if (min <= 0) {
+                    synchronized(dobbyGate) {
+                        try { dobbyGate.wait(1_000) } catch (_: InterruptedException) {}
+                    }
+                    continue
+                }
+                val rec = AudioRecord(
+                    MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                    rate,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    min.coerceAtLeast(frame * 4),
+                )
+                if (rec.state != AudioRecord.STATE_INITIALIZED) {
+                    rec.release()
+                    synchronized(dobbyGate) {
+                        try { dobbyGate.wait(800) } catch (_: InterruptedException) {}
+                    }
+                    continue
+                }
+                try {
+                    rec.startRecording()
+                    Log.i(TEST_TAG, "dobby listen start session=${rec.audioSessionId}")
+                    val engine = dobby ?: break
+                    while (running.get() && wantDobby.get()) {
+                        val n = rec.read(shorts, 0, frame)
+                        if (n <= 0) continue
+                        var energy = 0L
+                        for (i in 0 until n) {
+                            val s = shorts[i].toInt()
+                            energy += s * s
+                        }
+                        // Skip near-silence so Vosk is not woken on every frame.
+                        if (energy < n * 80L * 80L) continue
+                        for (i in 0 until n) {
+                            val s = shorts[i].toInt()
+                            bytes[i * 2] = s.toByte()
+                            bytes[i * 2 + 1] = (s shr 8).toByte()
+                        }
+                        val verdict = try {
+                            engine.accept(bytes, n * 2)
+                        } catch (e: Exception) {
+                            Log.w(TEST_TAG, "vosk accept failed", e)
+                            null
+                        } ?: continue
+                        wantDobby.set(false)
+                        turns.execute { onDobbyWake(verdict) }
+                        break
+                    }
+                } finally {
+                    try {
+                        rec.stop()
+                    } catch (_: IllegalStateException) {
+                    }
+                    rec.release()
+                    try {
+                        dobby?.flush()
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+        }, "geeui-dobby").also { it.start() }
+    }
+
+    private fun onDobbyWake(verdict: DobbyPhrase.Verdict) {
+        val decision = policy.acceptLocalWake()
+        if (!decision.accepted) {
+            Log.i(TEST_TAG, "wake ignored(${decision.reason}) dobby=${verdict.phrase}")
+            return
+        }
+        Log.i(TEST_TAG, "wake accepted(dobby: ${verdict.phrase})")
+        VoiceHud.line = "Hey Dobby"
+        VoiceHud.mode = "hear"
+        screenOn.turnOn()
+        (bus as? AidlBus)?.exitDarkScreen()
+        applyMic()
     }
 
     private fun resumeLexIfPaused() {

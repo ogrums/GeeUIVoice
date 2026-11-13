@@ -13,6 +13,10 @@ android {
         targetSdk = 29
         versionCode = 1
         versionName = "0.1"
+        // Robot is RK3566 / arm64-v8a. Keep libvosk.so off the other ABIs.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     compileOptions {
@@ -30,4 +34,6 @@ android {
 dependencies {
     implementation(project(":voice-core"))
     implementation(project(":emotion-core"))
+    // Vosk (Apache-2.0) for the on-device « Hey Dobby » wake word.
+    implementation("com.alphacephei:vosk-android:0.3.75")
 }

@@ -33,13 +33,34 @@ class ListenPolicy(
         private set
     var holdingMic: Boolean = mode == ListenMode.CONTINUOUS
         private set
+    var wakeSource: WakeSource = WakeSource.HIRUX
+        private set
 
-    /** Use the Hi RUX path: only after the callback is known to work. */
+    val hiruxEnabled: Boolean get() = wakeSource.usesHirux()
+    val dobbyEnabled: Boolean get() = wakeSource.usesDobby()
+
+    /**
+     * Use a wake-word path (stock Hi RUX and/or Hey Dobby) instead of
+     * continuous VAD. Hi RUX still needs [callbackAvailable]. Hey Dobby
+     * does not: it has its own recorder.
+     */
     val useWake: Boolean
         get() = when (mode) {
             ListenMode.CONTINUOUS -> false
-            ListenMode.WAKE, ListenMode.AUTO -> callbackAvailable
+            ListenMode.WAKE, ListenMode.AUTO -> callbackAvailable || dobbyEnabled
         }
+
+    fun setWakeSource(next: WakeSource) {
+        wakeSource = next
+        if (resolved) {
+            if (useWake) {
+                if (!holdingMic) deadline = 0L
+            } else {
+                holdingMic = true
+                deadline = 0L
+            }
+        }
+    }
 
     private var deadline: Long = 0L
     /** Last time we sent `start_audio_service` to Lex. */
@@ -109,11 +130,31 @@ class ListenPolicy(
         if (!isDoa && !isStatus) {
             return WakeVerdict(false, "not-wake")
         }
+        if (!hiruxEnabled) {
+            return WakeVerdict(false, "hirux-off")
+        }
         if (isStatus && !isListeningStatus(payload)) {
             return WakeVerdict(false, payload.ifBlank { "empty-status" })
         }
         if (isStatus && lexResumedAt > 0L && at - lexResumedAt < POST_RESUME_IGNORE_MS) {
             return WakeVerdict(false, "post-resume")
+        }
+        if (!onWake(at)) {
+            return WakeVerdict(false, "wake-mode-off")
+        }
+        trimArmed = true
+        trimUntil = 0L
+        return WakeVerdict(true, "accepted")
+    }
+
+    /**
+     * Vosk « Hey Dobby » (or an equivalent local wake). Same mic-holding
+     * path as a stock Hi RUX. Returns false when Dobby is not enabled or
+     * wake mode is off.
+     */
+    fun acceptLocalWake(at: Long = clock()): WakeVerdict {
+        if (!dobbyEnabled) {
+            return WakeVerdict(false, "dobby-off")
         }
         if (!onWake(at)) {
             return WakeVerdict(false, "wake-mode-off")
