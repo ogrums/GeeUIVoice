@@ -105,17 +105,22 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
     }
 
     /**
-     * Best-effort: stop Lex's recorder so ours is not silenced, or start it
-     * again so "Hi RUX" works at rest. Exact strings are from BUS.md / FUSION.md
-     * (`stop_audio_service` / `start_audio_service`). Hardware must confirm
-     * Lex still wakes after we yield.
+     * Stop the stock wake-word recorder so ours is not silenced, then start
+     * it again at rest so "Hi RUX" still works.
+     *
+     * The official path (GeeUITaskService, Lex `LTPAudioService`) is
+     * [setRobotStatusCmd] with command and data both `stop_audio_service` /
+     * `start_audio_service`. That reaches `RhjAudioManager.disableWakeup()` /
+     * `enableWakeup()`. `setAppCmd(..., "com.geeui.lex")` does not: the
+     * 32 kHz `VOICE_RECOGNITION` capture of the system UID stays open and
+     * Android 11 silences our `AudioRecord`.
      */
     fun pauseLexAudio() {
-        appCmd("stop_audio_service", "com.geeui.lex")
+        robotStatusCmd("stop_audio_service", "stop_audio_service")
     }
 
     fun resumeLexAudio() {
-        appCmd("start_audio_service", "com.geeui.lex")
+        robotStatusCmd("start_audio_service", "start_audio_service")
     }
 
     /**

@@ -1,8 +1,17 @@
 # Mot de réveil (wake word)
 
-Proposition seulement — rien n'est implémenté ici. Inspection en lecture seule
-sur le robot (`adb -s 2006014140527`, aucune commande `am` / `pm` / `settings put`),
-le 12 novembre 2026 vers 21:42 Europe/Paris.
+Le 12 novembre 2026 (Europe/Paris), ce document n'était qu'une proposition,
+issue d'une inspection en lecture seule. Depuis, l'option A (« Hi RUX ») est
+dans l'app (#34, correctifs #37) : au repos on cède le micro, on s'abonne au
+callback Lex, et un `wakeup_status avatar.listening` allume l'écran et ouvre
+notre boucle.
+
+Il restait un trou : après un vrai « Hi RUX », l'app ouvrait bien
+`AudioRecord` mais n'entendait rien. Voir la [section 7](#7-micro-silencé-après-hi-rux).
+Un mot de réveil français à nous est chiffré en [section 8](#8-mot-de-réveil-français-à-nous).
+
+Inspection d'origine : `adb -s 2006014140527`, le 12 novembre 2026 vers 21:42
+Europe/Paris, sans commande `am` / `pm` / `settings put`.
 
 Matériel vu : Rockchip RK3566 (4× Cortex-A55), 3,3 Go de RAM, Android 11 (SDK 30),
 `arm64-v8a`, écran 480×480 allumé, `isSleeping=false`.
@@ -228,6 +237,77 @@ survivre, ou une relance au `wakeup_status` depuis un processus qui reste
 4. Si un mot français est voulu, l'ajouter ensuite en sherpa-onnx KWS
    (Apache-2.0), avec la même discipline de micro.
 
-Pas d'implémentation dans ce document. Les étapes 1–3 touchent l'app et
-demandent un feu vert, plus un test réel du mode nuit (volontairement non
-fait ici).
+Les étapes 1–3 de l'option A sont dans l'app (#34 / #37). Le mode nuit n'a
+pas encore été revalidé après ces changements. Le trou restant est le micro
+silencé (section 7).
+
+## 7. Micro silencieux après « Hi RUX »
+
+Constat du 13 novembre 2026 vers 20:22 (heure de Paris), après #37 : deux
+réveils acceptés (`wake accepted` à 20:22:09 et 20:22:51). `com.geeui.voice`
+ouvre bien une session `MIC` 16 kHz pendant ~12 s, puis la rend. Aucune
+phrase n'est transcrite.
+
+`dumpsys audio` pendant ces fenêtres :
+
+- Session 9, `VOICE_RECOGNITION` 32 kHz, uid 1000, paquet attribué à
+  `com.renhejia.robot.launcher` : **reste ouverte tout le temps**.
+  `stop_audio_service` tel qu'on l'envoyait ne l'arrête pas.
+- Des sessions `MIC` 16 kHz du même uid démarrent et s'arrêtent autour du
+  réveil, sans libérer la session 9.
+- Sur Android 11, une capture privilégiée `VOICE_RECOGNITION` (uid 1000)
+  **silence** l'`AudioRecord` d'une app tierce, même en service avant-plan
+  de type `microphone`. Changer de source (`VOICE_RECOGNITION`,
+  `VOICE_COMMUNICATION`, `UNPROCESSED`, `CAMCORDER`) ne suffit pas tant que
+  la session 9 tourne. L'activité n'a pas besoin d'être au premier plan une
+  fois cette session arrêtée : le FGS suffit.
+
+### Mauvaise commande, bonne commande
+
+On envoyait `setAppCmd("stop_audio_service", "com.geeui.lex")`. Ce n'est pas
+le chemin du firmware.
+
+Dans le code ouvert Letianpai (`GeeUITaskService`, `GeeUIAIAudioService`) et
+dans le `classes2.dex` de `com.geeui.lex` installé :
+
+```text
+setRobotStatusCmd("stop_audio_service", "stop_audio_service")
+  → LtpRobotStatusCallback.onRobotStatusChanged
+  → RhjAudioManager.disableWakeup()   // DDS / moteur d'écoute
+
+setRobotStatusCmd("start_audio_service", "start_audio_service")
+  → RhjAudioManager.enableWakeup()
+```
+
+`AidlBus.pauseLexAudio()` / `resumeLexAudio()` utilise maintenant cette
+paire. Rien n'est désactivé par `pm`, aucun fichier système n'est modifié.
+Un hook `adb` `com.geeui.voice.TEST_MIC` compare l'ancienne commande, la
+nouvelle, et les cinq sources, avec RMS sur 3 s et le drapeau
+`isClientSilenced`.
+
+## 8. Mot de réveil français à nous
+
+Utile si « Hi RUX » reste trop juste (seuil iFlytek 712, ncm souvent à peine
+au-dessus) ou si on veut un mot français. **Cela dépend de la section 7** :
+tant que la session 32 kHz uid 1000 tourne, *notre* mot de réveil serait
+silencé comme le STT. Il faudrait donc, au repos, arrêter l'écoute Lex
+(`setRobotStatusCmd stop_audio_service`) et garder *un seul* `AudioRecord`,
+le nôtre. « Hi RUX » cesserait d'être le mot de repos, sauf en secours si
+on relance Lex au besoin.
+
+Matériel : RK3566, 4× Cortex-A55, 3,3 Go de RAM, Android 11.
+
+| Moteur | Licence | Mot français prêt | Coût estimé sur le robot | Faux réveils | Remarque |
+|---|---|---|---|---|---|
+| **Vosk small FR 0.22**, grammaire fermée (`salut rux`, `hey rux`, …) | Apache-2.0 | Oui, dès maintenant | 41 Mo sur disque, **~140 Mo de RAM** (mesure box). RTF 0,27 sur une box x86 ; sur un A55, temps réel probable mais à mesurer. Un cœur suffit si on ne lance pas le STT en même temps. | Moyens : ce n'est pas un spotter, c'est un reconnaisseur. La grammaire courte limite les inventions, pas les quasi-homophones. Il faut un seuil d'énergie pour ne pas écouter le silence. | Meilleur candidat *immédiat*. Déjà mesuré dans `tools/sttbench`. |
+| **sherpa-onnx KWS** | Apache-2.0 | **Non** (pas de modèle français public) | Très léger (quelques Mo, une fraction de cœur) une fois entraîné | Faibles, si le modèle est bon | Aligné avec Parakeet / speaker-id. Il faudrait une campagne d'enregistrements et un entraînement icefall. Pas un basculement de la semaine. |
+| **openWakeWord** | Code Apache-2.0 ; **poids officiels non commerciaux** | Non (à entraîner) | Léger (ONNX) | Faibles après entraînement | Inutilisable en l'état pour un usage produit à cause de la licence des poids. Entraîner les nôtres est possible, plus de travail que Vosk. |
+| **Porcupine** (Picovoice) | Gratuiciel limité ; **commercial** en production | Custom possible | Très léger | Faibles | À éviter tant que Vosk ou sherpa suffisent. |
+| iFlytek IVW de Lex | Propriétaire | Non (modèle `hi rux` seulement) | Déjà là | Juste au seuil (712) | On ne réentraîne pas cette pile. On peut seulement baisser le seuil dans `keywords_hi_rux.bin` (fichier système, pas fait). |
+
+**Recommandation.** D'abord valider la section 7 (entendre après « Hi RUX »).
+Si le mot d'origine reste trop peu fiable, ajouter **Vosk small FR à
+grammaire fermée** dans l'app, au repos seulement, à la place de Lex, et
+garder « Hi RUX » comme option de repli (réglage). Mesurer faux réveils et
+RTF sur le robot avant d'en faire le défaut. Un KWS sherpa-onnx français
+peut le remplacer plus tard, plus léger, une fois un modèle entraîné.

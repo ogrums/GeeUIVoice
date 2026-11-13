@@ -193,7 +193,7 @@ SDK and `setAudioEffect("controlSound", id)` use file ids: `a0020` angry, `a0032
 | `clock_start` / `clock_stop` | | alarm window |
 | `go_sleep` | | sleep |
 | `identHandResult` | `10101` in, `10102` out | hand ident |
-| `start_audio_service` / `stop_audio_service` / `shut_down_audio_service` | | audio process |
+| `start_audio_service` / `stop_audio_service` / `shut_down_audio_service` | same string as the command (not a package name) | audio process. Must be sent with `setRobotStatusCmd`, not `setAppCmd`. `stop` calls Lex `disableWakeup()`, `start` calls `enableWakeup()`. |
 | `cliff_trigger` | | cliff event |
 | `take_photo` | | photo, distinct from `rhj.controller.takephoto` |
 | `stop_app` | | stop an app |

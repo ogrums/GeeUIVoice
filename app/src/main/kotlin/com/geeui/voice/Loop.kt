@@ -263,6 +263,12 @@ class VoiceLoop(
                 try {
                     rec.startRecording()
                     VoiceHud.mic = true
+                    try {
+                        val am = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        MicProbe.logClientState("rec start session=${rec.audioSessionId}", am, rec.audioSessionId)
+                    } catch (e: Exception) {
+                        Log.w(TEST_TAG, "rec silenced check failed", e)
+                    }
                     while (running.get() && wantMic.get()) {
                         val n = rec.read(buf, 0, frame)
                         if (n == frame) {
@@ -355,7 +361,7 @@ class VoiceLoop(
             (bus as? AidlBus)?.pauseLexAudio()
             lexPaused = true
             try {
-                Thread.sleep(200)
+                Thread.sleep(400)
             } catch (_: InterruptedException) {
             }
             wantMic.set(true)
@@ -391,6 +397,21 @@ class VoiceLoop(
      * last TTS clip into [outDir]. Safe to call from a broadcast; work runs on the
      * turn thread.
      */
+    fun enqueueMicProbe(outDir: File) {
+        outDir.mkdirs()
+        File(outDir, "status.txt").writeText("running\n")
+        turns.execute {
+            try {
+                MicProbe.run(appContext, bus as? AidlBus, outDir)
+            } catch (e: Exception) {
+                Log.e(TEST_TAG, "TEST_MIC failed", e)
+                val status = File(outDir, "status.txt")
+                status.writeText("error\n")
+                MicProbe.publish(status)
+            }
+        }
+    }
+
     fun enqueueWavTest(path: String, outDir: File) {
         outDir.mkdirs()
         val running = File(outDir, "status.txt")
