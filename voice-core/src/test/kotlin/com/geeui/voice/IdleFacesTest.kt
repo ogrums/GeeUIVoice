@@ -21,15 +21,16 @@ class IdleFacesTest {
     }
 
     @Test
-    fun blankSettingUsesTheBuiltInList() {
-        assertEquals(IdleFaces.DEFAULT, IdleFaces.parseList(null))
-        assertEquals(IdleFaces.DEFAULT, IdleFaces.parseList("  "))
+    fun blankOrOffDisablesRotation() {
+        for (raw in listOf(null, "", "  ", "off", "OFF", "0", "false", "non", "none", "h0059", "0059")) {
+            assertEquals(emptyList(), IdleFaces.parseList(raw), raw.toString())
+        }
     }
 
     @Test
-    fun offOrH0059DisablesRotation() {
-        for (raw in listOf("off", "OFF", "0", "false", "non", "none", "h0059", "0059")) {
-            assertEquals(emptyList(), IdleFaces.parseList(raw), raw)
+    fun onAutoOrDefaultUsesTheBuiltInList() {
+        for (raw in listOf("on", "ON", "auto", "default")) {
+            assertEquals(IdleFaces.DEFAULT, IdleFaces.parseList(raw), raw)
         }
     }
 
@@ -39,21 +40,23 @@ class IdleFacesTest {
     }
 
     @Test
-    fun parseIntervalTreatsSmallNumbersAsSeconds() {
+    fun parseIntervalClampsToAtLeastOneMinute() {
         assertEquals(0L, IdleFaces.parseInterval(null))
         assertEquals(0L, IdleFaces.parseInterval(""))
-        assertEquals(20_000L, IdleFaces.parseInterval("20"))
-        assertEquals(25_000L, IdleFaces.parseInterval("25000"))
-        assertEquals(15_000L, IdleFaces.parseInterval("5"))
-        assertEquals(90_000L, IdleFaces.parseInterval("120"))
+        assertEquals(60_000L, IdleFaces.parseInterval("20"))
+        assertEquals(90_000L, IdleFaces.parseInterval("90"))
+        assertEquals(90_000L, IdleFaces.parseInterval("90000"))
+        assertEquals(180_000L, IdleFaces.parseInterval("180"))
     }
 
     @Test
-    fun nextDelayPicksTwentyToFortySecondsWhenUnset() {
-        assertEquals(30_000L, IdleFaces.nextDelayMs(0L) { 10 })
-        assertEquals(20_000L, IdleFaces.nextDelayMs(0L) { 0 })
-        assertEquals(40_000L, IdleFaces.nextDelayMs(0L) { 20 })
-        assertEquals(25_000L, IdleFaces.nextDelayMs(25_000L) { 99 })
+    fun nextDelayPicksSixtyToOneHundredTwentySecondsWhenUnset() {
+        assertEquals(70_000L, IdleFaces.nextDelayMs(0L) { 10 })
+        assertEquals(60_000L, IdleFaces.nextDelayMs(0L) { 0 })
+        assertEquals(120_000L, IdleFaces.nextDelayMs(0L) { 60 })
+        assertEquals(90_000L, IdleFaces.nextDelayMs(90_000L) { 99 })
+        // A too-short configured value is raised to the minimum.
+        assertEquals(60_000L, IdleFaces.nextDelayMs(15_000L) { 99 })
     }
 
     @Test

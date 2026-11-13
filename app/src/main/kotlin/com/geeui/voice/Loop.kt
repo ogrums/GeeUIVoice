@@ -464,8 +464,8 @@ class VoiceLoop(
     }
 
     /**
-     * Cycle rest faces every 20–40 s, only when truly idle, the mood is calm,
-     * and the screen is on (do not fight Letianpai night sleep).
+     * Optional rest-face rotation (off by default). At least 60 s between
+     * switches, only when truly idle, the mood is calm, and the screen is on.
      */
     private fun maybeRotateIdle(now: Long = System.currentTimeMillis()) {
         if (idleFaceList.isEmpty()) return

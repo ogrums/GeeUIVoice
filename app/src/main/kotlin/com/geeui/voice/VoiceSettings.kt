@@ -23,7 +23,7 @@ object VoiceSettings {
         "listen_face" to "h0347",
         "backend_face" to "h0242",
         "think_face" to "",
-        "idle_faces" to "",
+        "idle_faces" to "off",
         "idle_face_interval" to "",
     )
 
@@ -41,8 +41,8 @@ object VoiceSettings {
         "listen_face" to "Visage écoute (h0347)",
         "backend_face" to "Visage backend (h0242)",
         "think_face" to "Visage réflexion (vide = backend)",
-        "idle_faces" to "Visages au repos (vide = alternance, off = h0059)",
-        "idle_face_interval" to "Intervalle repos en secondes (20-40)",
+        "idle_faces" to "Visages au repos (off, ou on = alternance)",
+        "idle_face_interval" to "Intervalle repos en secondes (min. 60, défaut 90)",
     )
 
     private val extras = mapOf(

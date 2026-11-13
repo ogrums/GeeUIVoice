@@ -74,19 +74,21 @@ Les visages d'écoute et de réflexion sont envoyés sur le bus (`controlFace`) 
 | Écoute | Après « Hi RUX » / « Hey Dobby », pendant l'enregistrement de la phrase | `h0347` | — | Début VAD (assistant d'origine) | `listen_face` |
 | Backend | Fin de la phrase, pendant l'envoi au sidecar / STT / LLM, jusqu'au début de la voix | `h0242` | 无 | Sans nom (attente backend) | `backend_face` (alias `think_face`) |
 | Parole | Pendant la synthèse : visage d'émotion (ou `h0292` bouche qui parle si neutre), inchangé | émotion ou `h0292` | — | — | (pas de réglage) |
-| Repos | Fin de conversation, ou 12 s sans parole : d'abord `h0059` (ou l'humeur), puis alternance | `h0135`–`h0175` (filtre) ou `h0059` | — | Regards / clignements | `idle_faces`, `idle_face_interval` |
+| Repos | Fin de conversation, ou 12 s sans parole | `h0059` ou humeur (alternance optionnelle) | 常规环 | Anneau au repos | `idle_faces` (défaut `off`), `idle_face_interval` |
 
 L'attente STT et l'appel au modèle sont la même phase dans la boucle : on affiche `h0242` (réglable via `backend_face` ou l'alias `think_face`). La nuance 🤔 de la réponse reste `h0181` 语音思考.
 
 Pourquoi ces tags : `h0347` est le clip que l'assistant d'origine joue au début du VAD. Il est dans l'APK GeeUIFace du robot (`assets/video/h0347.mp4`, 350 Ko) mais absent de la liste publique h0001–h0302. L'ancien `h0180` 语音听 (yeux et un « ? ») reste disponible dans le menu. `h0242` n'a pas de nom officiel (无) ; on s'en sert pour l'attente du backend. `h0181` et `h0050` restent des visages de réflexion, plus pour cette phase.
 
-Au repos, si l'humeur est calme et que l'écran est allumé, l'app alterne toutes les 20 à 40 s parmi les clips `h0135`–`h0175` qui vont bien à une attente (regards, clignements, sourires discrets). Sont exclus, parce qu'ils ne conviennent pas au repos ou qu'ils se confondent avec le backend :
+Au repos, le visage par défaut est `h0059` (ou l'humeur). L'alternance parmi `h0135`–`h0175` est **coupée par défaut** (`idle_faces=off`) : sur le RK3566, un `controlFace` trop fréquent fait planter le décodeur vidéo (`libomxvpu_dec.so`, `Rkvpu_Wait_ProcessPause`) et fige l'écran.
+
+Pour la réactiver : `idle_faces=on` (ou une liste de tags). L'intervalle est alors d'au moins 60 s (90 s par défaut, réglage `idle_face_interval`) afin de laisser la vidéo en cours se terminer. Sont exclus, parce qu'ils ne conviennent pas au repos ou qu'ils se confondent avec le backend :
 
 - stupéfaction : `h0142`, `h0148`
 - réflexion : `h0149`, `h0170`
 - yeux écarquillés (air surpris) : `h0157`, `h0158`, `h0160`, `h0164`, `h0172`
 
-32 clips restent dans la liste par défaut. `idle_faces=off` (ou `h0059`) coupe l'alternance et garde `h0059`. Une humeur autre que « calme » (triste, fatigué…) garde son visage, sans rotation. On ne change pas de visage si l'écran est éteint (sommeil de nuit Letianpai).
+32 clips restent dans la liste « on ». Une humeur autre que « calme » (triste, fatigué…) garde son visage, sans rotation. On ne change pas de visage si l'écran est éteint (sommeil de nuit Letianpai).
 
 Les identifiants se changent dans le menu (`listen_face`, `backend_face`, `think_face`, `idle_faces`, `idle_face_interval`) ou par extra de lancement. Valeurs acceptées : `h0347` ou `0347`. Un identifiant invalide retombe sur le défaut. L'humeur au repos ne remplace pas le visage tant que le robot écoute, attend le backend ou parle.
 
