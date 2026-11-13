@@ -1,39 +1,58 @@
 # nanobot (HKUDS/nanobot) as the robot's brain on nimbus.
 # There is no official image: it is built from the upstream Dockerfile.
-# Only the OpenAI-compatible API ("nanobot serve") is started; see README.md.
+# Two services share the same image, config.json and ./data volume:
+#   nanobot-rux          — OpenAI-compatible API (`nanobot serve`) for the sidecar
+#   nanobot-rux-gateway  — WebUI / WebSocket (`nanobot gateway`) on port 8765
+# See README.md for LAN bind, WebUI password, and workspace-sharing notes.
+x-common: &common
+  build:
+    context: ${NANOBOT_SRC:-./nanobot-src}
+    dockerfile: Dockerfile
+    args:
+      NANOBOT_CHANNELS: ""
+  restart: unless-stopped
+  environment:
+    NANOBOT_API_KEY: ${NANOBOT_API_KEY:?set NANOBOT_API_KEY in .env}
+    LEMONADE_API_BASE: ${LEMONADE_API_BASE:-http://nimbus:13305/api/v1}
+    # Required: the WebSocket channel refuses host 0.0.0.0 without a token.
+    NANOBOT_WEB_TOKEN: ${NANOBOT_WEB_TOKEN:?set NANOBOT_WEB_TOKEN in .env}
+  # Lemonade runs on the same host: "nimbus" inside the container = the host.
+  extra_hosts:
+    - "nimbus:host-gateway"
+  volumes:
+    - ./data:/home/nanobot/.nanobot
+  # Same hardening as upstream docker-compose.yml.
+  cap_drop:
+    - ALL
+  cap_add:
+    - CHOWN
+    - SETGID
+    - SETUID
+  security_opt:
+    - no-new-privileges:true
+  deploy:
+    resources:
+      limits:
+        cpus: "1"
+        memory: 1G
+
 services:
   nanobot-rux:
     container_name: nanobot-rux
-    build:
-      context: ${NANOBOT_SRC:-./nanobot-src}
-      dockerfile: Dockerfile
-      args:
-        NANOBOT_CHANNELS: ""
+    <<: *common
     # An explicit --config skips the upstream first-boot bootstrap (entrypoint.sh).
     command: ["serve", "--config", "/home/nanobot/.nanobot/config.json"]
-    restart: unless-stopped
-    environment:
-      NANOBOT_API_KEY: ${NANOBOT_API_KEY:?set NANOBOT_API_KEY in .env}
-      LEMONADE_API_BASE: ${LEMONADE_API_BASE:-http://nimbus:13305/api/v1}
-    # Lemonade runs on the same host: "nimbus" inside the container = the host.
-    extra_hosts:
-      - "nimbus:host-gateway"
-    volumes:
-      - ./data:/home/nanobot/.nanobot
     # Reached only by the sidecar on this host, never by the LAN.
     ports:
       - 127.0.0.1:8900:8900
-    # Same hardening as upstream docker-compose.yml.
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          cpus: "1"
-          memory: 1G
+
+  nanobot-rux-gateway:
+    container_name: nanobot-rux-gateway
+    <<: *common
+    command: ["gateway", "--config", "/home/nanobot/.nanobot/config.json"]
+    ports:
+      # Bundled WebUI + WebSocket (default 8765). Bind defaults to the LAN.
+      # Set NANOBOT_WEBUI_BIND=127.0.0.1 in .env to keep it on loopback.
+      - "${NANOBOT_WEBUI_BIND:-0.0.0.0}:8765:8765"
+      # Health endpoint is unauthenticated: publish to host loopback only.
+      - 127.0.0.1:18790:18790
