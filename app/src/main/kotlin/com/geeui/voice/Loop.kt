@@ -518,6 +518,7 @@ class VoiceLoop(
                             Log.w(TEST_TAG, "vosk accept failed", e)
                             null
                         } ?: continue
+                        wantDobby.set(false)
                         turns.execute { onDobbyWake(verdict) }
                         break
                     }

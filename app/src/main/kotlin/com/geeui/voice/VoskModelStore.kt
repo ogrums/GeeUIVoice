@@ -33,6 +33,7 @@ object VoskModelStore {
         return candidates.firstOrNull { isComplete(it) }
     }
 
+    @Synchronized
     fun ensure(context: Context): File? {
         locate(context)?.let { return it }
         val destParent = File(context.filesDir, "vosk")
@@ -45,19 +46,47 @@ object VoskModelStore {
         for (zip in zips) {
             if (!zip.isFile) continue
             Log.i(TAG, "vosk unzip ${zip.absolutePath}")
-            if (unzip(zip, destParent) && isComplete(dest)) return dest
+            if (installZip(zip, destParent, dest)) return dest
         }
         Log.i(TAG, "vosk download $ZIP_URL")
         val tmpZip = File(destParent, "$MODEL_NAME.zip.part")
         return try {
             download(ZIP_URL, tmpZip)
-            val ready = unzip(tmpZip, destParent) && isComplete(dest)
+            val ready = installZip(tmpZip, destParent, dest)
             tmpZip.delete()
             if (ready) dest else null
         } catch (e: Exception) {
             Log.w(TAG, "vosk download failed", e)
             tmpZip.delete()
             null
+        }
+    }
+
+    private fun installZip(zip: File, destParent: File, dest: File): Boolean {
+        if (isComplete(dest)) return true
+        val staging = File(destParent, "$MODEL_NAME.staging")
+        if (staging.exists()) staging.deleteRecursively()
+        if (!unzip(zip, staging)) {
+            staging.deleteRecursively()
+            return false
+        }
+        // Zip root is vosk-model-small-fr-0.22/… ; accept that or a flat extract.
+        val extracted = when {
+            isComplete(File(staging, MODEL_NAME)) -> File(staging, MODEL_NAME)
+            isComplete(staging) -> staging
+            else -> null
+        }
+        if (extracted == null) {
+            staging.deleteRecursively()
+            return false
+        }
+        if (dest.exists()) dest.deleteRecursively()
+        return if (extracted.renameTo(dest) || (extracted.copyRecursively(dest) && isComplete(dest))) {
+            if (staging.exists()) staging.deleteRecursively()
+            true
+        } else {
+            staging.deleteRecursively()
+            false
         }
     }
 
