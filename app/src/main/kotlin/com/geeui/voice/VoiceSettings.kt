@@ -21,6 +21,8 @@ object VoiceSettings {
         "wake_word" to "both",
         "listen_face" to "h0180",
         "think_face" to "h0181",
+        "hermes" to "on",
+        "hermes_token" to "",
     )
 
     private val labels = mapOf(
@@ -36,6 +38,8 @@ object VoiceSettings {
         "wake_word" to "Mot de réveil (hirux, dobby, both)",
         "listen_face" to "Visage écoute (h0180)",
         "think_face" to "Visage réflexion (h0181)",
+        "hermes" to "Hermes (on, off)",
+        "hermes_token" to "Jeton Hermes (vide = aucun)",
     )
 
     private val extras = mapOf(
@@ -51,6 +55,8 @@ object VoiceSettings {
         "wake_word" to "wake_word",
         "listen_face" to "listen_face",
         "think_face" to "think_face",
+        "hermes" to "hermes",
+        "hermes_token" to "hermes_token",
     )
 
     fun label(key: String): String = labels.getValue(key)

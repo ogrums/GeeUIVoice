@@ -42,6 +42,8 @@ class VoiceSession(
     private val allowedActions: () -> Set<String>? = { null },
     /** One JPEG on demand ("qu'est-ce que tu vois ?"), or null when the camera fails. Null = no vision. */
     private val camera: (() -> ByteArray?)? = null,
+    /** Tasks handed to Hermes through the sidecar (« confie à Hermes … »). Null = off. */
+    private val hermes: HermesDesk? = null,
 ) {
     private val skills = SkillRouter(bus, charging)
     /** Walk or go home, waiting for « oui ». */
@@ -89,6 +91,23 @@ class VoiceSession(
         if (hit != null && skills.handle(hit)) {
             state = Dialogue.Idle
             return ""
+        }
+        val desk = hermes
+        if (desk != null && HermesDesk.mayConcern(text)) {
+            if (!allowed(HERMES_KIND)) {
+                if (HermesDesk.mentionsHermes(text)) {
+                    say(REFUSED)
+                    state = Dialogue.Idle
+                    return ""
+                }
+            } else {
+                val line = try {
+                    desk.handle(text)
+                } catch (_: Exception) {
+                    null
+                }
+                if (line != null) return say(line)
+            }
         }
         state = Dialogue.Speaking
         val asked = look(text)
@@ -281,6 +300,8 @@ class VoiceSession(
 
     companion object {
         const val CONFIRM_MS = 10_000L
+        /** allowed_actions kind needed to hand a task to Hermes (null list = everyone). */
+        const val HERMES_KIND = "hermes"
         const val ASK = "Je peux y aller ?"
         const val CANCELLED = "D'accord, je ne bouge pas."
         const val REFUSED = "Je n'ai pas le droit de faire ça pour toi."

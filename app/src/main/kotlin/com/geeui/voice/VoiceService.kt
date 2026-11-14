@@ -48,6 +48,9 @@ class VoiceService : Service() {
     private var wakeWord = "both"
     private var listenFace = "h0180"
     private var thinkFace = "h0181"
+    /** Extra "hermes" = "off" : pas de « confie à Hermes », pas de lumière de résultat. */
+    private var hermes = true
+    private var hermesToken = ""
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -99,11 +102,13 @@ class VoiceService : Service() {
             intent.getStringExtra("wake_word")?.let { wakeWord = it }
             intent.getStringExtra("listen_face")?.let { listenFace = it }
             intent.getStringExtra("think_face")?.let { thinkFace = it }
+            intent.getStringExtra("hermes")?.let { hermes = it.trim().lowercase() !in setOf("0", "false", "non", "off") }
+            intent.getStringExtra("hermes_token")?.let { hermesToken = it.trim() }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
                 sidecar, cosyModel, phonon, phononVoice, initiative, listenMode, wakeWord,
-                listenFace, thinkFace, vision,
+                listenFace, thinkFace, vision, hermes, hermesToken,
             )
             loop?.start()
             VoiceHud.running = true
