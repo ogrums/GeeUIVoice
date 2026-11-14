@@ -29,6 +29,14 @@ class DialogueFaceTest {
     }
 
     @Test
+    fun backendFaceDoesNotStayWhileSpeaking() {
+        // Neutral answer: the last showFace was the backend clip, the mouth must replace it.
+        assertEquals(SPEAK_FACE, dialogueFace("talk", true, THINK_FACE))
+        assertEquals(SPEAK_FACE, dialogueFace("talk", true, LISTEN_FACE))
+        assertEquals(THINK_FACE, dialogueFace("talk", false, THINK_FACE))
+    }
+
+    @Test
     fun emotionPoseWinsWhileSpeakingAndAfter() {
         assertEquals("h0006", dialogueFace("talk", true, "h0006"))
         assertEquals("h0006", dialogueFace("talk", false, "h0006"))

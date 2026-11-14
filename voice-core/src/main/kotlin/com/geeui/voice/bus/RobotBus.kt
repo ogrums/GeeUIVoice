@@ -108,7 +108,9 @@ object DialogueFaces {
  * gets the mouth. After the clip, the pose face holds until standAtAttention puts the rest face back.
  */
 fun dialogueFace(mode: String, playing: Boolean, pose: String): String {
-    val emotion = pose.isNotBlank() && !RestFace.isRest(pose)
+    // The listen / backend clips are states, not emotions: they must not stay on while speaking.
+    val emotion = pose.isNotBlank() && !RestFace.isRest(pose) &&
+        pose != DialogueFaces.listen && pose != DialogueFaces.think
     return when {
         playing -> if (emotion) pose else DialogueFaces.speak
         // Apply the emotion face as soon as talk starts, even before TTS is audible.

@@ -16,6 +16,8 @@ object VoiceHud {
     @Volatile var running: Boolean = false
     /** Face id to play, h0006 and the others. Empty until a pose starts. */
     @Volatile var face: String = ""
+    /** True between VoiceActivity onStart and onStop: our face is on screen. */
+    @Volatile var visible: Boolean = false
 
     /** Every showFace of the current turn, with timestamps. Cleared at the start of a turn. */
     val faceEvents = java.util.concurrent.CopyOnWriteArrayList<com.geeui.voice.session.FaceEvent>()

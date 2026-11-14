@@ -383,6 +383,28 @@ la synthèse vocale, elle s'arrête. Un réveil emprunte le même chemin que
 « Hi RUX » (écran, `exitDarkScreen`, micro de conversation, 350 ms de
 trim, restitution après 12 s).
 
+**Fin de phrase (14 novembre 2026).** Pour économiser le CPU, les trames
+de 100 ms sous un seuil d'énergie (RMS 50) ne sont pas données à Vosk.
+Avant ce correctif, *aucune* trame silencieuse n'était donnée : dans une
+pièce calme, Vosk ne voyait jamais la fin de « Hey Dobby » et le réveil
+ne partait qu'au bruit suivant, souvent quand on répétait la phrase (le
+STT entendait alors « Et de bi »). Désormais, après de la parole, 8
+trames silencieuses (800 ms) sont encore données, puis la phrase est
+close (`finalResult`). Simulation sur les clips Noémie / Hélène avec un
+bruit de fond RMS 15 ou 40 : 0/7 réveils avant, 7/7 après ; au RMS 120,
+7/7 dans les deux cas. Sur le robot, clips joués par le haut-parleur du
+PC : 5/5, confiance 1,00 sur « dobby », réveil ~0,4 s après la fin de la
+phrase.
+
+**Journal.** `chatty` supprime la plupart des lignes de l'app dans
+logcat. Les réveils (avec la confiance Vosk), les visages et les passages
+au premier plan sont aussi écrits dans `files/events.log` (heure UTC,
+256 Ko max, un fichier précédent) :
+
+```bash
+adb -s 2006014140527 shell run-as com.geeui.voice cat files/events.log
+```
+
 Le modèle n'est **pas** dans le dépôt ni dans l'APK (~41 Mo zip, ~66 Mo
 décompressé). Au premier lancement l'app cherche, dans cet ordre :
 

@@ -37,12 +37,14 @@ class VoskDobbyWake(modelDir: File) : AutoCloseable {
     private fun consider(json: String): DobbyPhrase.Verdict? {
         val parsed = parse(json) ?: return null
         val verdict = DobbyPhrase.consider(parsed.text, dobbyConf = parsed.dobbyConf)
+        val conf = parsed.dobbyConf?.let { String.format(java.util.Locale.ROOT, "%.2f", it) } ?: "-"
         if (!verdict.accepted) {
             if (verdict.phrase.isNotBlank() && verdict.phrase != "[unk]") {
-                Log.i(TAG, "dobby ignored(${verdict.reason}) [${verdict.phrase}]")
+                EventLog.add("dobby ignored(${verdict.reason}) [${verdict.phrase}] conf=$conf")
             }
             return null
         }
+        EventLog.add("dobby heard [${verdict.phrase}] conf=$conf")
         return verdict
     }
 

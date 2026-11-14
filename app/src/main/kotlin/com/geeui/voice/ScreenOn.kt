@@ -29,6 +29,11 @@ class ScreenOn(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "wake lock failed", e)
         }
+        bringToFront()
+    }
+
+    /** Put our face back on top (Lex opens its own full-screen activity on « Hi RUX »). */
+    fun bringToFront() {
         try {
             val launch = Intent(context, VoiceActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)

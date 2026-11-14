@@ -410,14 +410,19 @@ class VoiceActivity : Activity() {
 
     /**
      * TextureView, not VideoView: a SurfaceView covers the controls, and VideoView pauses when speech starts.
-     * Prepare the new clip before releasing the current player. Releasing first froze the
-     * TextureView on the last frame when the asset was missing (h0347 / h0242 were sent
-     * on the bus in #42 but not bundled in this APK).
+     * Release the current player before preparing the next one: a Surface accepts one producer
+     * at a time, so preparing first failed with "BufferQueueProducer already connected" and
+     * the screen stayed on the first clip (h0059) for every later face. A missing asset is
+     * handled by [localFace], so releasing first no longer leaves a frozen frame.
+     * A clip that still fails is marked as shown, so the 120 ms refresh does not retry it in a loop.
      */
     private fun startFace(id: String) {
         pendingFace = null
         val surface = faceSurface ?: return
         val local = localFace(id)
+        facePlayer?.release()
+        facePlayer = null
+        shownFace = id
         val mp = MediaPlayer()
         try {
             assets.openFd(bundledFace(local)).use { afd ->
@@ -428,16 +433,17 @@ class VoiceActivity : Activity() {
             mp.isLooping = true
             mp.setOnErrorListener { _, what, extra ->
                 VoiceHud.diag = "visage $local $what/$extra"
+                EventLog.add("hud error $local $what/$extra")
                 true
             }
             mp.prepare()
-            facePlayer?.release()
             facePlayer = mp
             mp.start()
-            shownFace = id
+            EventLog.add("hud play $id${if (local != id) " (as $local)" else ""} mode=${VoiceHud.mode} playing=${VoiceHud.playing}")
             if (local != id) VoiceHud.diag = "visage $id absent, $local"
         } catch (e: Exception) {
             VoiceHud.diag = "visage $id ${e.javaClass.simpleName}"
+            EventLog.add("hud fail $id: ${e.javaClass.simpleName} ${e.message ?: ""}")
             mp.release()
         }
     }
@@ -564,13 +570,30 @@ class VoiceActivity : Activity() {
         super.onDestroy()
     }
 
-    override fun onResume() {
-        super.onResume()
+    // The face refresh runs while the activity is visible (onStart..onStop), so a translucent
+    // activity on top (the Letianpai desktop) does not freeze our clip. VoiceHud.visible means
+    // "resumed and on top": the loop brings us back when it is false during a turn.
+    override fun onStart() {
+        super.onStart()
+        EventLog.init(this)
+        handler.removeCallbacks(refresh)
         handler.post(refresh)
     }
 
-    override fun onPause() {
+    override fun onStop() {
         handler.removeCallbacks(refresh)
+        super.onStop()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        VoiceHud.visible = true
+        EventLog.add("hud front mode=${VoiceHud.mode}")
+    }
+
+    override fun onPause() {
+        VoiceHud.visible = false
+        EventLog.add("hud behind mode=${VoiceHud.mode}")
         super.onPause()
     }
 }

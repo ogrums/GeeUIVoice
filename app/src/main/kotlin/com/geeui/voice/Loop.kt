@@ -185,6 +185,8 @@ class VoiceLoop(
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
+        EventLog.init(appContext)
+        EventLog.add("loop start hirux=${policy.hiruxEnabled} dobby=${policy.dobbyEnabled} listen=$listenFaceId backend=$thinkFaceId")
         DialogueFaces.listen = listenFaceId
         DialogueFaces.think = thinkFaceId
         live.onUserText = {
@@ -194,14 +196,14 @@ class VoiceLoop(
             VoiceHud.answer = ""
             VoiceHud.line = it
             setHudMode("think")
-            Log.i(TEST_TAG, "heard=$it")
+            EventLog.add("heard=$it")
             writeLastTurn()
         }
         live.onAnswer = {
             VoiceHud.answer = it
             VoiceHud.line = it
             setHudMode("talk")
-            Log.i(TEST_TAG, "answer=$it")
+            EventLog.add("answer=$it")
             writeLastTurn()
         }
         live.onListen = { setHudMode("hear") }
@@ -230,6 +232,7 @@ class VoiceLoop(
                     Log.i(TEST_TAG, "mic yielded after idle")
                 }
                 maybeRotateIdle()
+                keepHudInFront()
                 applyMic()
             }
         }, 500, 500, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -404,9 +407,9 @@ class VoiceLoop(
         if (!related) return
         val verdict = policy.considerWake(command, data)
         if (verdict.accepted) {
-            Log.i(TEST_TAG, "wake accepted")
+            EventLog.add("wake accepted(hirux: $command $data) hud=${VoiceHud.visible}")
         } else {
-            Log.i(TEST_TAG, "wake ignored(${verdict.reason})")
+            EventLog.add("wake ignored(hirux ${verdict.reason}: $command $data)")
             return
         }
         VoiceHud.line = "Hi RUX"
@@ -459,8 +462,28 @@ class VoiceLoop(
         }
         if (face != null) {
             bus.showFace(face)
-            Log.i(TEST_TAG, "face $mode $face")
+            EventLog.add("face $mode $face hud=${VoiceHud.visible}")
+        } else {
+            EventLog.add("mode $mode hud=${VoiceHud.visible}")
         }
+    }
+
+    private var lastFrontAt = 0L
+
+    /**
+     * During one of our turns, put VoiceActivity back on top if something
+     * covered it (Lex opens com.geeui.lex/.MainActivity on « Hi RUX », the task
+     * service can open the desktop). Otherwise the listen / backend / speech
+     * faces play on a hidden TextureView. At most every 1.5 s.
+     */
+    private fun keepHudInFront(now: Long = System.currentTimeMillis()) {
+        if (!running.get() || VoiceHud.visible) return
+        val inTurn = VoiceHud.mode in setOf("hear", "think", "talk") || VoiceHud.playing
+        if (!inTurn) return
+        if (now - lastFrontAt < 1_500L) return
+        lastFrontAt = now
+        EventLog.add("hud covered during ${VoiceHud.mode}: bring to front")
+        screenOn.bringToFront()
     }
 
     /**
@@ -485,7 +508,7 @@ class VoiceLoop(
         lastIdleRotateAt = now
         nextIdleDelayMs = com.geeui.voice.bus.IdleFaces.nextDelayMs(idleIntervalMs)
         bus.showFace(next)
-        Log.i(TEST_TAG, "face idle $next")
+        EventLog.add("face idle $next")
     }
 
     private fun restLabel(): String {
@@ -579,6 +602,8 @@ class VoiceLoop(
                     rec.startRecording()
                     Log.i(TEST_TAG, "dobby listen start session=${rec.audioSessionId}")
                     val engine = dobby ?: break
+                    var quiet = DOBBY_HANG_FRAMES + 1
+                    var inUtterance = false
                     while (running.get() && wantDobby.get()) {
                         val n = rec.read(shorts, 0, frame)
                         if (n <= 0) continue
@@ -587,8 +612,33 @@ class VoiceLoop(
                             val s = shorts[i].toInt()
                             energy += s * s
                         }
-                        // Skip near-silence so Vosk is not woken on every frame.
-                        if (energy < n * 80L * 80L) continue
+                        // Skip long silence so Vosk is not woken on every frame, but keep
+                        // feeding a short tail after speech: without that tail Vosk never
+                        // sees the end of « Hey Dobby » in a quiet room, and the wake only
+                        // fires on the next noise (often the user repeating it).
+                        if (energy >= n.toLong() * DOBBY_GATE_RMS * DOBBY_GATE_RMS) {
+                            quiet = 0
+                            inUtterance = true
+                        } else {
+                            quiet++
+                            if (quiet > DOBBY_HANG_FRAMES) {
+                                if (inUtterance) {
+                                    inUtterance = false
+                                    val tail = try {
+                                        engine.flush()
+                                    } catch (e: Exception) {
+                                        Log.w(TEST_TAG, "vosk flush failed", e)
+                                        null
+                                    }
+                                    if (tail != null) {
+                                        wantDobby.set(false)
+                                        turns.execute { onDobbyWake(tail) }
+                                        break
+                                    }
+                                }
+                                continue
+                            }
+                        }
                         for (i in 0 until n) {
                             val s = shorts[i].toInt()
                             bytes[i * 2] = s.toByte()
@@ -622,10 +672,10 @@ class VoiceLoop(
     private fun onDobbyWake(verdict: DobbyPhrase.Verdict) {
         val decision = policy.acceptLocalWake()
         if (!decision.accepted) {
-            Log.i(TEST_TAG, "wake ignored(${decision.reason}) dobby=${verdict.phrase}")
+            EventLog.add("wake ignored(${decision.reason}) dobby=${verdict.phrase}")
             return
         }
-        Log.i(TEST_TAG, "wake accepted(dobby: ${verdict.phrase})")
+        EventLog.add("wake accepted(dobby: ${verdict.phrase}) hud=${VoiceHud.visible}")
         VoiceHud.line = "Hey Dobby"
         setHudMode("hear")
         screenOn.turnOn()
@@ -681,7 +731,7 @@ class VoiceLoop(
             return
         }
         bus.showFace(id)
-        Log.i(TEST_TAG, "face test $id")
+        EventLog.add("face test $id hud=${VoiceHud.visible}")
     }
 
     fun enqueueWavTest(path: String, outDir: File) {
@@ -819,6 +869,10 @@ class VoiceLoop(
 
     companion object {
         private const val TEST_TAG = "GeeUIVoiceTest"
+        /** Mean amplitude under which a 100 ms frame counts as silence for the Dobby listener. */
+        private const val DOBBY_GATE_RMS = 50L
+        /** Silent frames still fed to Vosk after speech (8 × 100 ms), then the phrase is flushed. */
+        private const val DOBBY_HANG_FRAMES = 8
     }
 }
 
