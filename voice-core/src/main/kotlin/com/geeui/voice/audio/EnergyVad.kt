@@ -8,7 +8,7 @@ package com.geeui.voice.audio
  * a soft first sound ("v" of "voiture") is under the threshold and would be cut.
  */
 class EnergyVad(
-    private val threshold: Int = 600,
+    val threshold: Int = 600,
     private val startFrames: Int = 3,
     private val hangoverFrames: Int = 25,
     private val minSpeechFrames: Int = 12,

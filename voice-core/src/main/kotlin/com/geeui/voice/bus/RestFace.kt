@@ -21,6 +21,9 @@ object RestFace {
 
     fun forMood(label: String): String = BY_MOOD[label.trim().lowercase()] ?: IDLE_FACE
 
-    /** True for the plain idle face and the current mood face: neither is an emotion reaction. */
-    fun isRest(face: String): Boolean = face == IDLE_FACE || face == current
+    /** True for the plain idle face, a rest-rotation clip, and the current mood face. */
+    fun isRest(face: String): Boolean = face == IDLE_FACE || face == current || IdleFaces.isIdle(face)
+
+    /** Mood is the default calm loop, so the h0135–h0175 rest rotation may run. */
+    fun isCalm(): Boolean = current == IDLE_FACE
 }

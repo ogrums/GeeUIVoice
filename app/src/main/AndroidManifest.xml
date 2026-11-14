@@ -49,5 +49,12 @@
                 <action android:name="com.geeui.voice.TEST_MIC" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name=".TestFaceReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.geeui.voice.TEST_FACE" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

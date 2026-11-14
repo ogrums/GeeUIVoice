@@ -29,6 +29,11 @@ class ScreenOn(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "wake lock failed", e)
         }
+        bringToFront()
+    }
+
+    /** Put our face back on top (Lex opens its own full-screen activity on « Hi RUX »). */
+    fun bringToFront() {
         try {
             val launch = Intent(context, VoiceActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -36,6 +41,14 @@ class ScreenOn(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "start VoiceActivity failed", e)
         }
+    }
+
+    /** False when the screen is off (night sleep or timeout): do not rotate rest faces. */
+    fun isInteractive(): Boolean = try {
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        pm.isInteractive
+    } catch (_: Exception) {
+        false
     }
 
     fun release() {

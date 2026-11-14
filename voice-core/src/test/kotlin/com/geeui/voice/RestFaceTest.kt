@@ -43,7 +43,14 @@ class RestFaceTest {
     fun moodFaceIsRestSoTheMouthStillShowsWhileSpeaking() {
         RestFace.current = "h0060"
         assertEquals(SPEAK_FACE, dialogueFace("talk", true, "h0060"))
-        assertEquals("h0001", dialogueFace("talk", true, "h0001"))
+        // talk_face=speak (default): the mouth also wins over an emotion; talk_face=emotion keeps it.
+        assertEquals(SPEAK_FACE, dialogueFace("talk", true, "h0001"))
+        com.geeui.voice.bus.DialogueFaces.speakDuringTalk = false
+        try {
+            assertEquals("h0001", dialogueFace("talk", true, "h0001"))
+        } finally {
+            com.geeui.voice.bus.DialogueFaces.reset()
+        }
     }
 
     @Test
@@ -58,5 +65,17 @@ class RestFaceTest {
         assertNull(poller.poll())
         assertEquals(listOf("boudeur"), moods)
         assertEquals(emptyList(), said)
+    }
+
+    @Test
+    fun isRestAcceptsIdleRotationFacesAndCalmMood() {
+        RestFace.current = IDLE_FACE
+        assertEquals(true, RestFace.isCalm())
+        assertEquals(true, RestFace.isRest("h0135"))
+        assertEquals(true, RestFace.isRest("h0175"))
+        RestFace.current = "h0010"
+        assertEquals(false, RestFace.isCalm())
+        assertEquals(true, RestFace.isRest("h0136")) // still a rest-loop clip
+        assertEquals(false, RestFace.isRest("h0006"))
     }
 }

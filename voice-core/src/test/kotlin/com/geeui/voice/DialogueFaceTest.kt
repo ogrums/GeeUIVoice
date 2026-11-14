@@ -29,9 +29,33 @@ class DialogueFaceTest {
     }
 
     @Test
-    fun emotionPoseWinsWhileSpeakingAndAfter() {
-        assertEquals("h0006", dialogueFace("talk", true, "h0006"))
+    fun backendFaceDoesNotStayWhileSpeaking() {
+        // Neutral answer: the last showFace was the backend clip, the mouth must replace it.
+        assertEquals(SPEAK_FACE, dialogueFace("talk", true, THINK_FACE))
+        assertEquals(SPEAK_FACE, dialogueFace("talk", true, LISTEN_FACE))
+        assertEquals(THINK_FACE, dialogueFace("talk", false, THINK_FACE))
+    }
+
+    @Test
+    fun emotionPoseWinsWhileSpeakingWithTalkFaceEmotion() {
+        DialogueFaces.speakDuringTalk = false
+        try {
+            assertEquals("h0006", dialogueFace("talk", true, "h0006"))
+            assertEquals("h0006", dialogueFace("talk", false, "h0006"))
+            assertEquals("h0119", dialogueFace("idle", false, "h0119"))
+        } finally {
+            DialogueFaces.reset()
+        }
+    }
+
+    @Test
+    fun mouthWhileSpeakingByDefault() {
+        // The user wants to see the speaking clip: an emotion answer no longer hides it.
+        assertEquals(SPEAK_FACE, dialogueFace("talk", true, "h0006"))
+        assertEquals(THINK_FACE, dialogueFace("talk", false, "h0006"))
         assertEquals("h0119", dialogueFace("idle", false, "h0119"))
+        assertEquals(true, DialogueFaces.parseTalkFace(null))
+        assertEquals(false, DialogueFaces.parseTalkFace("emotion"))
     }
 
     @Test
@@ -40,11 +64,22 @@ class DialogueFaceTest {
     }
 
     @Test
-    fun stateClipsAreSmall() {
-        for (id in listOf(LISTEN_FACE, THINK_FACE, SPEAK_FACE)) {
+    fun backAtRestNeverFlashesTheBackendClip() {
+        // Seen on the robot: mode idle while the pose was still h0242 for ~0.45 s.
+        assertEquals(IDLE_FACE, dialogueFace("idle", false, THINK_FACE))
+        assertEquals(IDLE_FACE, dialogueFace("idle", false, LISTEN_FACE))
+    }
+
+    @Test
+    fun stateClipsAreBundledAndSmall() {
+        for (id in listOf(LISTEN_FACE, THINK_FACE, SPEAK_FACE, IDLE_FACE)) {
             val f = listOf("../app/src/main/assets/video/$id.mp4", "app/src/main/assets/video/$id.mp4")
-                .map { java.io.File(it) }.firstOrNull { it.exists() } ?: continue
-            assertEquals(true, f.length() < 200_000, "$id trop gros")
+                .map { java.io.File(it) }.firstOrNull { it.exists() }
+            assertEquals(true, f != null, "$id absent des assets")
+            // Idle h0059 keeps its AAC track (~300 Ko). Dialogue clips stay small.
+            if (id != IDLE_FACE) {
+                assertEquals(true, f!!.length() < 200_000, "$id trop gros: ${f.length()}")
+            }
         }
     }
 
