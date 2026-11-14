@@ -45,9 +45,22 @@ class VoiceActivity : Activity() {
     private var status: TextView? = null
     private var caption: TextView? = null
     private var mic: Switch? = null
-    private var faceView: TextureView? = null
+    /**
+     * Two stacked TextureViews. The next clip is prepared on the hidden one, shown when its
+     * first frame is drawn, and the previous player is released on [releaser]. On the RK3566
+     * a release can block 4 s or more in the vendor decoder (Rkvpu_Wait_ProcessPause, once a
+     * media.codec crash): on the main thread that froze the face and delayed the next clip.
+     */
+    private class FaceSlot(val view: TextureView) {
+        var surface: Surface? = null
+        var player: MediaPlayer? = null
+        /** True while the previous player of this slot is being released in the background. */
+        var releasing = false
+    }
+    private val slots = ArrayList<FaceSlot>(2)
+    private var front = 0
+    private val releaser = java.util.concurrent.Executors.newSingleThreadExecutor()
     private var facePlayer: MediaPlayer? = null
-    private var faceSurface: Surface? = null
     private var pendingFace: String? = null
     private var shownFace = ""
     private var menu: ScrollView? = null
@@ -56,10 +69,33 @@ class VoiceActivity : Activity() {
         override fun run() {
             if (debug) paintDebug()
             val pose = VoiceHud.face.ifBlank { if (debug) "" else com.geeui.voice.bus.RestFace.current }
-            val face = if (debug && pose.isBlank()) "" else dialogueFace(VoiceHud.mode, VoiceHud.playing, pose)
+            var face = if (debug && pose.isBlank()) "" else dialogueFace(VoiceHud.mode, VoiceHud.playing, pose)
+            face = afterglow(pose, face)
             if (face.isNotBlank() && face != shownFace) playFace(face)
             handler.postDelayed(this, 120)
         }
+    }
+
+    private var speechEmotion = ""
+    private var wasPlaying = false
+    private var speechEndedAt = 0L
+
+    /**
+     * talk_face=speak: the mouth clip plays while the robot speaks, so the emotion of the
+     * answer is shown for [AFTERGLOW_MS] right after the speech, before the rest face.
+     */
+    private fun afterglow(pose: String, face: String, now: Long = System.currentTimeMillis()): String {
+        val dialogue = com.geeui.voice.bus.DialogueFaces
+        val playing = VoiceHud.playing
+        if (playing && dialogue.isEmotion(pose)) speechEmotion = pose
+        if (wasPlaying && !playing) speechEndedAt = now
+        if (!wasPlaying && playing) speechEndedAt = 0L
+        wasPlaying = playing
+        if (!dialogue.speakDuringTalk || speechEmotion.isBlank()) return face
+        if (VoiceHud.mode == "hear" || VoiceHud.mode == "think" || playing) return face
+        if (speechEndedAt > 0L && now - speechEndedAt < AFTERGLOW_MS) return speechEmotion
+        if (speechEndedAt > 0L) speechEmotion = ""
+        return face
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,29 +111,34 @@ class VoiceActivity : Activity() {
             setBackgroundColor(Color.BLACK)
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
         }
-        faceView = TextureView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-            )
-            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+        repeat(2) { i ->
+            val view = TextureView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                )
+                alpha = if (i == 0) 1f else 0f
+            }
+            val slot = FaceSlot(view)
+            view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
                 override fun onSurfaceTextureAvailable(surface: android.graphics.SurfaceTexture, w: Int, h: Int) {
-                    faceSurface?.release()
-                    faceSurface = Surface(surface)
-                    pendingFace?.let { startFace(it) }
+                    slot.surface?.release()
+                    slot.surface = Surface(surface)
+                    pendingFace?.let { playFace(it) }
                 }
 
                 override fun onSurfaceTextureSizeChanged(surface: android.graphics.SurfaceTexture, w: Int, h: Int) = Unit
 
                 override fun onSurfaceTextureDestroyed(surface: android.graphics.SurfaceTexture): Boolean {
-                    releaseFace()
+                    releaseSlot(slot)
                     return true
                 }
 
                 override fun onSurfaceTextureUpdated(surface: android.graphics.SurfaceTexture) = Unit
             }
+            slots += slot
+            screen.addView(view)
         }
-        screen.addView(faceView)
         if (debug) screen.addView(debugPanel())
         menu = settingsMenu()
         screen.addView(menuBand())
@@ -403,9 +444,19 @@ class VoiceActivity : Activity() {
     }
 
     private fun playFace(id: String) {
-        val view = faceView
-        if (view != null && view.isAvailable && faceSurface != null) startFace(id)
-        else pendingFace = id
+        if (slots.size < 2) {
+            pendingFace = id
+            return
+        }
+        // First clip: the front view. Afterwards: the hidden one, once its old player is gone.
+        val target = if (facePlayer == null) slots[front] else slots[1 - front]
+        // A clip still starting on the hidden view (no first frame yet): wait for its swap.
+        val starting = target.player != null && target !== slots[front]
+        if (!target.view.isAvailable || target.surface == null || target.releasing || starting) {
+            pendingFace = id
+            return
+        }
+        startFace(id, target)
     }
 
     /**
@@ -416,12 +467,10 @@ class VoiceActivity : Activity() {
      * handled by [localFace], so releasing first no longer leaves a frozen frame.
      * A clip that still fails is marked as shown, so the 120 ms refresh does not retry it in a loop.
      */
-    private fun startFace(id: String) {
+    private fun startFace(id: String, target: FaceSlot) {
         pendingFace = null
-        val surface = faceSurface ?: return
+        val surface = target.surface ?: return
         val local = localFace(id)
-        facePlayer?.release()
-        facePlayer = null
         shownFace = id
         val mp = MediaPlayer()
         try {
@@ -430,16 +479,44 @@ class VoiceActivity : Activity() {
             }
             mp.setSurface(surface)
             mp.setVolume(0f, 0f)
-            mp.isLooping = true
+            // At rest, idle_video=once / N s stops the decoder after one play: the last frame stays
+            // on the TextureView and the RenderThread goes quiet. Dialogue clips always loop.
+            val rest = VoiceHud.mode == "idle" && !VoiceHud.playing
+            val idle = VoiceHud.idleVideo
+            mp.isLooping = !rest || idle.loop
+            if (rest && !idle.loop && idle.replaySec > 0) {
+                mp.setOnCompletionListener { done ->
+                    handler.postDelayed({
+                        if (facePlayer === done && shownFace == id && VoiceHud.mode == "idle") {
+                            try {
+                                done.seekTo(0)
+                                done.start()
+                            } catch (_: IllegalStateException) {
+                            }
+                        }
+                    }, idle.replaySec * 1_000L)
+                }
+            }
             mp.setOnErrorListener { _, what, extra ->
                 VoiceHud.diag = "visage $local $what/$extra"
                 EventLog.add("hud error $local $what/$extra")
                 true
             }
+            val previous = slots.firstOrNull { it !== target && it.player != null }
+            mp.setOnInfoListener { _, what, _ ->
+                if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
+                    handler.post { swapTo(target, mp, previous) }
+                }
+                false
+            }
             mp.prepare()
+            target.player = mp
             facePlayer = mp
             mp.start()
-            EventLog.add("hud play $id${if (local != id) " (as $local)" else ""} mode=${VoiceHud.mode} playing=${VoiceHud.playing}")
+            if (previous == null) swapTo(target, mp, null)
+            // No first-frame event (a broken clip): swap anyway so the screen does not stay behind.
+            else handler.postDelayed({ swapTo(target, mp, previous) }, 1_500L)
+            EventLog.add("hud play $id${if (local != id) " (as $local)" else ""} mode=${VoiceHud.mode} playing=${VoiceHud.playing}${if (mp.isLooping) "" else " once"}")
             if (local != id) VoiceHud.diag = "visage $id absent, $local"
         } catch (e: Exception) {
             VoiceHud.diag = "visage $id ${e.javaClass.simpleName}"
@@ -466,11 +543,56 @@ class VoiceActivity : Activity() {
         return if (hasFaceAsset(fallback)) fallback else id
     }
 
+    /** Show [target] once [mp] drew its first frame, then let the old player go off the main thread. */
+    private fun swapTo(target: FaceSlot, mp: MediaPlayer, previous: FaceSlot?) {
+        if (target.player !== mp) return
+        target.view.alpha = 1f
+        front = slots.indexOf(target)
+        val old = previous ?: return
+        if (old.player == null) return
+        if (old === target) return
+        old.view.alpha = 0f
+        val player = old.player ?: return
+        old.player = null
+        old.releasing = true
+        val started = System.currentTimeMillis()
+        releaser.execute {
+            try {
+                player.setOnCompletionListener(null)
+                player.setOnInfoListener(null)
+                player.stop()
+            } catch (_: Exception) {
+            }
+            try {
+                player.release()
+            } catch (_: Exception) {
+            }
+            val took = System.currentTimeMillis() - started
+            if (took > 1_000L) EventLog.add("hud release lent ${took} ms")
+            handler.post {
+                old.releasing = false
+                pendingFace?.let { playFace(it) }
+            }
+        }
+        pendingFace?.let { playFace(it) }
+    }
+
+    private fun releaseSlot(slot: FaceSlot) {
+        slot.player?.let { p ->
+            if (facePlayer === p) facePlayer = null
+            try {
+                p.release()
+            } catch (_: Exception) {
+            }
+        }
+        slot.player = null
+        slot.surface?.release()
+        slot.surface = null
+    }
+
     private fun releaseFace() {
-        facePlayer?.release()
+        for (slot in slots) releaseSlot(slot)
         facePlayer = null
-        faceSurface?.release()
-        faceSurface = null
     }
 
     private fun standDown() {
@@ -567,6 +689,7 @@ class VoiceActivity : Activity() {
         sample?.release()
         sample = null
         releaseFace()
+        releaser.shutdown()
         super.onDestroy()
     }
 
@@ -595,5 +718,10 @@ class VoiceActivity : Activity() {
         VoiceHud.visible = false
         EventLog.add("hud behind mode=${VoiceHud.mode}")
         super.onPause()
+    }
+
+    companion object {
+        /** How long the answer's emotion stays after the speech (talk_face=speak). */
+        private const val AFTERGLOW_MS = 3_000L
     }
 }

@@ -43,7 +43,14 @@ class RestFaceTest {
     fun moodFaceIsRestSoTheMouthStillShowsWhileSpeaking() {
         RestFace.current = "h0060"
         assertEquals(SPEAK_FACE, dialogueFace("talk", true, "h0060"))
-        assertEquals("h0001", dialogueFace("talk", true, "h0001"))
+        // talk_face=speak (default): the mouth also wins over an emotion; talk_face=emotion keeps it.
+        assertEquals(SPEAK_FACE, dialogueFace("talk", true, "h0001"))
+        com.geeui.voice.bus.DialogueFaces.speakDuringTalk = false
+        try {
+            assertEquals("h0001", dialogueFace("talk", true, "h0001"))
+        } finally {
+            com.geeui.voice.bus.DialogueFaces.reset()
+        }
     }
 
     @Test

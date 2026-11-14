@@ -25,6 +25,9 @@ object VoiceSettings {
         "think_face" to "",
         "idle_faces" to "off",
         "idle_face_interval" to "",
+        "talk_face" to "speak",
+        "idle_video" to "loop",
+        "dobby_gate" to "auto",
     )
 
     private val labels = mapOf(
@@ -43,6 +46,9 @@ object VoiceSettings {
         "think_face" to "Visage réflexion (vide = backend)",
         "idle_faces" to "Visages au repos (off, ou on = alternance)",
         "idle_face_interval" to "Intervalle repos en secondes (min. 60, défaut 90)",
+        "talk_face" to "Visage pendant la parole (speak = bouche h0292, emotion)",
+        "idle_video" to "Vidéo au repos (loop, once, ou secondes entre deux lectures)",
+        "dobby_gate" to "Seuil Hey Dobby (auto, ou RMS fixe ex. 50)",
     )
 
     private val extras = mapOf(
@@ -61,6 +67,9 @@ object VoiceSettings {
         "think_face" to "think_face",
         "idle_faces" to "idle_faces",
         "idle_face_interval" to "idle_face_interval",
+        "talk_face" to "talk_face",
+        "idle_video" to "idle_video",
+        "dobby_gate" to "dobby_gate",
     )
 
     fun label(key: String): String = labels.getValue(key)

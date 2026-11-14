@@ -51,6 +51,7 @@ class VoiceService : Service() {
     private var backendFace = ""
     private var idleFaces = ""
     private var idleInterval = ""
+    private var dobbyGate = "auto"
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -105,11 +106,16 @@ class VoiceService : Service() {
             intent.getStringExtra("think_face")?.let { thinkFace = it }
             intent.getStringExtra("idle_faces")?.let { idleFaces = it }
             intent.getStringExtra("idle_face_interval")?.let { idleInterval = it }
+            intent.getStringExtra("talk_face")?.let {
+                com.geeui.voice.bus.DialogueFaces.speakDuringTalk = com.geeui.voice.bus.DialogueFaces.parseTalkFace(it)
+            }
+            intent.getStringExtra("idle_video")?.let { VoiceHud.idleVideo = com.geeui.voice.bus.IdleVideo.parse(it) }
+            intent.getStringExtra("dobby_gate")?.let { dobbyGate = it }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
                 sidecar, cosyModel, phonon, phononVoice, initiative, listenMode, wakeWord,
-                listenFace, thinkFace, backendFace, idleFaces, idleInterval, vision,
+                listenFace, thinkFace, backendFace, idleFaces, idleInterval, vision, dobbyGate,
             )
             loop?.start()
             VoiceHud.running = true

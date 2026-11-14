@@ -82,12 +82,23 @@ object DialogueFaces {
     @Volatile var listen: String = LISTEN_FACE
     @Volatile var think: String = THINK_FACE
     @Volatile var speak: String = SPEAK_FACE
+    /** talk_face=speak (default): mouth clip while speaking. false = talk_face=emotion. */
+    @Volatile var speakDuringTalk: Boolean = true
 
     fun reset() {
         listen = LISTEN_FACE
         think = THINK_FACE
         speak = SPEAK_FACE
+        speakDuringTalk = true
     }
+
+    /** An answer emotion: not a rest face, not the listen / backend state clips. */
+    fun isEmotion(pose: String): Boolean =
+        pose.isNotBlank() && !RestFace.isRest(pose) && pose != listen && pose != think
+
+    /** "speak" (default) or "emotion". */
+    fun parseTalkFace(raw: String?): Boolean =
+        raw?.trim()?.lowercase() !in setOf("emotion", "émotion", "emo")
 
     /** Accepts `h0180`, `H0180` or `0180`. Unknown values keep [fallback]. */
     fun parseId(raw: String?, fallback: String): String {
@@ -109,15 +120,18 @@ object DialogueFaces {
  */
 fun dialogueFace(mode: String, playing: Boolean, pose: String): String {
     // The listen / backend clips are states, not emotions: they must not stay on while speaking.
-    val emotion = pose.isNotBlank() && !RestFace.isRest(pose) &&
-        pose != DialogueFaces.listen && pose != DialogueFaces.think
+    val emotion = DialogueFaces.isEmotion(pose)
+    // talk_face=speak (default): the mouth clip while the robot speaks, emotion after it.
+    // talk_face=emotion: the answer's emotion face replaces the mouth.
+    val emotionWhileTalking = emotion && !DialogueFaces.speakDuringTalk
     return when {
-        playing -> if (emotion) pose else DialogueFaces.speak
-        // Apply the emotion face as soon as talk starts, even before TTS is audible.
-        // Otherwise the backend / think clip stays on the TextureView while the robot speaks.
-        mode == "talk" && emotion -> pose
+        playing -> if (emotionWhileTalking) pose else DialogueFaces.speak
+        mode == "talk" && emotionWhileTalking -> pose
         mode == "hear" -> DialogueFaces.listen
         mode == "think" || mode == "talk" -> DialogueFaces.think
+        // Back at rest the pose can still be the listen / backend clip for a moment
+        // (mode changes before the rest face is recorded): show the rest face, not a flash of h0242.
+        pose == DialogueFaces.listen || pose == DialogueFaces.think -> RestFace.current
         else -> pose
     }
 }

@@ -388,13 +388,23 @@ de 100 ms sous un seuil d'énergie (RMS 50) ne sont pas données à Vosk.
 Avant ce correctif, *aucune* trame silencieuse n'était donnée : dans une
 pièce calme, Vosk ne voyait jamais la fin de « Hey Dobby » et le réveil
 ne partait qu'au bruit suivant, souvent quand on répétait la phrase (le
-STT entendait alors « Et de bi »). Désormais, après de la parole, 8
-trames silencieuses (800 ms) sont encore données, puis la phrase est
+STT entendait alors « Et de bi »). Désormais, après de la parole, des
+trames silencieuses (800 ms, puis 500 ms) sont encore données, puis la phrase est
 close (`finalResult`). Simulation sur les clips Noémie / Hélène avec un
 bruit de fond RMS 15 ou 40 : 0/7 réveils avant, 7/7 après ; au RMS 120,
 7/7 dans les deux cas. Sur le robot, clips joués par le haut-parleur du
 PC : 5/5, confiance 1,00 sur « dobby », réveil ~0,4 s après la fin de la
 phrase.
+
+**Réglage du 14 novembre (après-midi).** Sur un vrai test à la voix, une
+question posée juste après « Hey Dobby » perdait son début (« Bonjour, »)
+: le micro de conversation s'ouvrait ~0,5 s après le réveil. Désormais :
+5 trames de queue au lieu de 8 (même 14/14 en simulation), 100 ms
+d'attente au lieu de 400 ms avant d'ouvrir le micro pour Hey Dobby (Lex
+n'enregistre pas), donc micro ouvert ~0,3 s après le réveil ; la phrase
+« Bonjour, comment ça va ? » enchaînée 0,3 s après le mot de réveil est
+entendue en entier. La porte d'énergie suit le bruit de fond
+(`dobby_gate=auto`, voir [REPOS-CONSO.md](REPOS-CONSO.md)).
 
 **Journal.** `chatty` supprime la plupart des lignes de l'app dans
 logcat. Les réveils (avec la confiance Vosk), les visages et les passages
@@ -404,6 +414,12 @@ au premier plan sont aussi écrits dans `files/events.log` (heure UTC,
 ```bash
 adb -s 2006014140527 shell run-as com.geeui.voice cat files/events.log
 ```
+
+Lignes utiles : `dobby heard [...] conf=` (score Vosk), `dobby peak= gate= floor=`
+(niveau de la voix, porte et bruit de fond), `mic open +N ms après le réveil`,
+`speech start peak=` (le VAD a entendu la question), `hear timeout: no speech,
+peak= vad=` (rien entendu en 12 s : voix trop faible pour le seuil VAD, ou
+question dite avant l'ouverture du micro), `dobby stats fed=` (toutes les 5 min).
 
 Le modèle n'est **pas** dans le dépôt ni dans l'APK (~41 Mo zip, ~66 Mo
 décompressé). Au premier lancement l'app cherche, dans cet ordre :

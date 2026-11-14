@@ -67,6 +67,8 @@ class VoiceLoop(
     idleFaces: String = "",
     idleInterval: String = "",
     vision: Boolean = true,
+    /** "auto" (default): the Dobby gate follows the room noise. A number keeps a fixed RMS gate. */
+    dobbyGateSetting: String = "auto",
 ) {
     private val camera = if (vision) RobotCamera(audio) else null
     private val appContext = audio
@@ -123,10 +125,11 @@ class VoiceLoop(
         },
     )
     private val live = LiveTurn(vad, stt, tts, session)
+    private val vadThreshold = vad.threshold
     private val turns = Executors.newSingleThreadExecutor()
     private val ticker = Executors.newSingleThreadScheduledExecutor()
     private val poller = com.geeui.voice.session.InitiativePoller(
-        fetch = { httpGet(sidecar.trimEnd('/') + "/v1/robot/pending") },
+        fetch = { fetchPending() },
         ack = { id, status ->
             httpPostJson(sidecar.trimEnd('/') + "/v1/robot/ack", "{\"id\":\"$id\",\"status\":\"$status\"}")
         },
@@ -154,6 +157,21 @@ class VoiceLoop(
         if (resting && !inDialogue) bus.showFace(face)
     }
 
+    /** The deployed sidecar has no /v1/robot/pending yet: after a 404, ask again in 10 min, not every 15 s. */
+    @Volatile private var pendingMissingUntil = 0L
+
+    private fun fetchPending(now: Long = System.currentTimeMillis()): String? {
+        if (now < pendingMissingUntil) return null
+        val (code, body) = httpGetCode(sidecar.trimEnd('/') + "/v1/robot/pending")
+        if (code == 404) {
+            if (pendingMissingUntil == 0L) EventLog.add("initiative: /v1/robot/pending absent (404), nouvel essai dans 10 min")
+            pendingMissingUntil = now + PENDING_MISSING_BACKOFF_MS
+        } else if (code in 200..299) {
+            pendingMissingUntil = 0L
+        }
+        return body
+    }
+
     private val running = AtomicBoolean(false)
     private val wavTestBusy = AtomicBoolean(false)
     private val wavTest = WavTestTurn(stt, session, timingChat, tts)
@@ -174,8 +192,32 @@ class VoiceLoop(
     private val wantMic = AtomicBoolean(false)
     private val micGate = Object()
     private val wantDobby = AtomicBoolean(false)
-    private val dobbyGate = Object()
+    private val dobbyLock = Object()
     @Volatile private var dobby: VoskDobbyWake? = null
+    /** Energy gate in front of Vosk, setting dobby_gate ("auto" or a fixed RMS). Dobby thread only. */
+    private val dobbyGate = com.geeui.voice.audio.NoiseGate.parse(dobbyGateSetting)
+    private var statFrames = 0
+    private var statFed = 0
+    private var statAt = 0L
+    /** When the last local wake fired, to log how long the conversation mic takes to open. */
+    @Volatile private var wakeAt = 0L
+    /** The pending wake is Hey Dobby (no Lex recording to wait for). */
+    @Volatile private var localWake = false
+    /** Loudest 20 ms frame since the conversation mic opened, and whether the VAD saw speech. */
+    @Volatile private var hearPeak = 0
+    @Volatile private var hearSpeech = false
+
+    /** Every 5 min: share of 100 ms frames fed to Vosk, the noise floor and the gate. */
+    private fun dobbyStats(rms: Double, fed: Boolean, now: Long = System.currentTimeMillis()) {
+        statFrames++
+        if (fed) statFed++
+        if (statAt == 0L) statAt = now
+        if (now - statAt < 300_000L) return
+        EventLog.add("dobby stats fed=${statFed * 100 / statFrames.coerceAtLeast(1)}% floor=${dobbyGate.floor.toInt()} gate=${dobbyGate.gate} frames=$statFrames")
+        statFrames = 0
+        statFed = 0
+        statAt = now
+    }
     private var dobbyThread: Thread? = null
     private val screenOn = ScreenOn(appContext)
     @Volatile private var lexPaused = false
@@ -206,7 +248,11 @@ class VoiceLoop(
             EventLog.add("answer=$it")
             writeLastTurn()
         }
-        live.onListen = { setHudMode("hear") }
+        live.onListen = {
+            if (!hearSpeech) EventLog.add("speech start peak=$hearPeak")
+            hearSpeech = true
+            setHudMode("hear")
+        }
         live.onThink = { setHudMode("think") }
         live.onIdle = {
             setHudMode("idle")
@@ -227,6 +273,9 @@ class VoiceLoop(
                 val busy = wavTestBusy.get() || VoiceHud.playing ||
                     session.state != com.geeui.voice.session.Dialogue.Idle
                 if (policy.onTick(busy = busy)) {
+                    if (VoiceHud.mode == "hear" && !hearSpeech) {
+                        EventLog.add("hear timeout: no speech, peak=$hearPeak vad=${vadThreshold}")
+                    }
                     setHudMode("idle")
                     VoiceHud.line = restLabel()
                     Log.i(TEST_TAG, "mic yielded after idle")
@@ -313,6 +362,11 @@ class VoiceLoop(
                 try {
                     rec.startRecording()
                     VoiceHud.mic = true
+                    hearPeak = 0
+                    hearSpeech = false
+                    val since = wakeAt
+                    EventLog.add("mic open" + if (since > 0L) " +${System.currentTimeMillis() - since} ms après le réveil" else "")
+                    wakeAt = 0L
                     policy.beginPostWakeTrim()
                     try {
                         val am = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -324,6 +378,8 @@ class VoiceLoop(
                         val n = rec.read(buf, 0, frame)
                         if (n == frame) {
                             VoiceHud.level = levelOf(buf)
+                            val r = (VoiceHud.level * 4000f).toInt()
+                            if (r > hearPeak) hearPeak = r
                             if (!policy.shouldDropFrame()) live.onFrame(buf.copyOf())
                         }
                     }
@@ -347,7 +403,7 @@ class VoiceLoop(
         wantMic.set(false)
         synchronized(micGate) { micGate.notifyAll() }
         wantDobby.set(false)
-        synchronized(dobbyGate) { dobbyGate.notifyAll() }
+        synchronized(dobbyLock) { dobbyLock.notifyAll() }
         ticker.shutdownNow()
         tts.stop()
         VoiceHud.mode = "idle"
@@ -401,6 +457,7 @@ class VoiceLoop(
     }
 
     private fun onLexSpeech(command: String, data: String) {
+        if (command.equals("wakeup_status", ignoreCase = true)) wakeAt = System.currentTimeMillis()
         Log.i(TEST_TAG, "LtpSpeech $command $data")
         val related = command.equals("wakeup_status", ignoreCase = true) ||
             command.equals("wakeup_doa", ignoreCase = true)
@@ -428,13 +485,17 @@ class VoiceLoop(
         if (hold) {
             // Stop the rest-time Dobby recorder before opening the conversation mic.
             wantDobby.set(false)
-            synchronized(dobbyGate) { dobbyGate.notifyAll() }
+            synchronized(dobbyLock) { dobbyLock.notifyAll() }
             (bus as? AidlBus)?.pauseLexAudio()
             lexPaused = true
+            // Hi RUX: Lex is still recording its own question, give it time to let go.
+            // Hey Dobby: Lex is not recording, and every 100 ms here is the start of the
+            // user's question lost (« Bonjour, » cut when the question follows the wake).
             try {
-                Thread.sleep(400)
+                Thread.sleep(if (localWake) 100L else 400L)
             } catch (_: InterruptedException) {
             }
+            localWake = false
             wantMic.set(true)
             synchronized(micGate) { micGate.notifyAll() }
         } else {
@@ -453,6 +514,8 @@ class VoiceLoop(
             lastIdleRotated = ""
         } else if (leavingIdle) {
             lastIdleRotateAt = 0L
+            hearPeak = 0
+            hearSpeech = false
         }
         val face = when (mode) {
             "hear" -> listenFaceId
@@ -522,7 +585,7 @@ class VoiceLoop(
     private fun refreshDobby() {
         val listen = running.get() && policy.dobbyEnabled && !wantMic.get() && dobby != null
         wantDobby.set(listen)
-        synchronized(dobbyGate) { dobbyGate.notifyAll() }
+        synchronized(dobbyLock) { dobbyLock.notifyAll() }
     }
 
     private fun prepareDobby() {
@@ -567,10 +630,10 @@ class VoiceLoop(
                         dobby?.flush()
                     } catch (_: Exception) {
                     }
-                    synchronized(dobbyGate) {
+                    synchronized(dobbyLock) {
                         while (running.get() && !wantDobby.get()) {
                             try {
-                                dobbyGate.wait(200)
+                                dobbyLock.wait(200)
                             } catch (_: InterruptedException) {
                                 break
                             }
@@ -579,8 +642,8 @@ class VoiceLoop(
                     continue
                 }
                 if (min <= 0) {
-                    synchronized(dobbyGate) {
-                        try { dobbyGate.wait(1_000) } catch (_: InterruptedException) {}
+                    synchronized(dobbyLock) {
+                        try { dobbyLock.wait(1_000) } catch (_: InterruptedException) {}
                     }
                     continue
                 }
@@ -593,8 +656,8 @@ class VoiceLoop(
                 )
                 if (rec.state != AudioRecord.STATE_INITIALIZED) {
                     rec.release()
-                    synchronized(dobbyGate) {
-                        try { dobbyGate.wait(800) } catch (_: InterruptedException) {}
+                    synchronized(dobbyLock) {
+                        try { dobbyLock.wait(800) } catch (_: InterruptedException) {}
                     }
                     continue
                 }
@@ -604,6 +667,7 @@ class VoiceLoop(
                     val engine = dobby ?: break
                     var quiet = DOBBY_HANG_FRAMES + 1
                     var inUtterance = false
+                    var peak = 0.0
                     while (running.get() && wantDobby.get()) {
                         val n = rec.read(shorts, 0, frame)
                         if (n <= 0) continue
@@ -612,13 +676,18 @@ class VoiceLoop(
                             val s = shorts[i].toInt()
                             energy += s * s
                         }
+                        val rms = kotlin.math.sqrt(energy.toDouble() / n)
+                        val open = dobbyGate.pass(rms)
+                        dobbyStats(rms, open)
                         // Skip long silence so Vosk is not woken on every frame, but keep
                         // feeding a short tail after speech: without that tail Vosk never
                         // sees the end of « Hey Dobby » in a quiet room, and the wake only
                         // fires on the next noise (often the user repeating it).
-                        if (energy >= n.toLong() * DOBBY_GATE_RMS * DOBBY_GATE_RMS) {
+                        if (open) {
                             quiet = 0
+                            if (!inUtterance) peak = 0.0
                             inUtterance = true
+                            if (rms > peak) peak = rms
                         } else {
                             quiet++
                             if (quiet > DOBBY_HANG_FRAMES) {
@@ -631,6 +700,8 @@ class VoiceLoop(
                                         null
                                     }
                                     if (tail != null) {
+                                        EventLog.add("dobby peak=${peak.toInt()} gate=${dobbyGate.gate} floor=${dobbyGate.floor.toInt()}")
+                                        wakeAt = System.currentTimeMillis()
                                         wantDobby.set(false)
                                         turns.execute { onDobbyWake(tail) }
                                         break
@@ -650,6 +721,8 @@ class VoiceLoop(
                             Log.w(TEST_TAG, "vosk accept failed", e)
                             null
                         } ?: continue
+                        EventLog.add("dobby peak=${peak.toInt()} gate=${dobbyGate.gate} floor=${dobbyGate.floor.toInt()}")
+                        wakeAt = System.currentTimeMillis()
                         wantDobby.set(false)
                         turns.execute { onDobbyWake(verdict) }
                         break
@@ -676,6 +749,7 @@ class VoiceLoop(
             return
         }
         EventLog.add("wake accepted(dobby: ${verdict.phrase}) hud=${VoiceHud.visible}")
+        localWake = true
         VoiceHud.line = "Hey Dobby"
         setHudMode("hear")
         screenOn.turnOn()
@@ -691,15 +765,7 @@ class VoiceLoop(
     }
 
     private fun pingSidecar(base: String) {
-        val code = try {
-            val conn = URL(base.trimEnd('/') + "/health").openConnection() as HttpURLConnection
-            conn.connectTimeout = 800
-            conn.readTimeout = 800
-            conn.requestMethod = "GET"
-            conn.responseCode
-        } catch (_: Exception) {
-            0
-        }
+        val code = httpGetCode(base.trimEnd('/') + "/health", 800, 800).first
         if (code in 200..299) sidecarOk.set(System.currentTimeMillis())
     }
 
@@ -871,19 +937,41 @@ class VoiceLoop(
         private const val TEST_TAG = "GeeUIVoiceTest"
         /** Mean amplitude under which a 100 ms frame counts as silence for the Dobby listener. */
         private const val DOBBY_GATE_RMS = 50L
-        /** Silent frames still fed to Vosk after speech (8 × 100 ms), then the phrase is flushed. */
-        private const val DOBBY_HANG_FRAMES = 8
+        /** Silent frames still fed to Vosk after speech (5 × 100 ms), then the phrase is flushed. */
+        private const val DOBBY_HANG_FRAMES = 5
+        private const val PENDING_MISSING_BACKOFF_MS = 10 * 60_000L
     }
 }
 
 /** GET returning the body, or null on any error. Short timeouts: this runs while idle. */
-internal fun httpGet(url: String): String? = try {
-    val conn = URL(url).openConnection() as HttpURLConnection
-    conn.connectTimeout = 2_000
-    conn.readTimeout = 5_000
-    if (conn.responseCode in 200..299) conn.inputStream.use { String(it.readBytes(), Charsets.UTF_8) } else null
-} catch (_: Exception) {
-    null
+internal fun httpGet(url: String): String? = httpGetCode(url).second
+
+/**
+ * GET returning (HTTP code, body or null). The body or error stream is always read and
+ * closed, and the connection disconnected: an unread 404 body left the socket open, so
+ * every 15 s poll of a missing endpoint piled up one CLOSE_WAIT socket to the sidecar.
+ */
+internal fun httpGetCode(url: String, connectMs: Int = 2_000, readMs: Int = 5_000): Pair<Int, String?> {
+    var conn: HttpURLConnection? = null
+    return try {
+        conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = connectMs
+        conn.readTimeout = readMs
+        val code = conn.responseCode
+        if (code in 200..299) {
+            code to conn.inputStream.use { String(it.readBytes(), Charsets.UTF_8) }
+        } else {
+            try {
+                conn.errorStream?.use { it.readBytes() }
+            } catch (_: Exception) {
+            }
+            code to null
+        }
+    } catch (_: Exception) {
+        0 to null
+    } finally {
+        conn?.disconnect()
+    }
 }
 
 internal fun httpPostJson(url: String, body: String) {
@@ -895,7 +983,11 @@ internal fun httpPostJson(url: String, body: String) {
         conn.doOutput = true
         conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
         conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-        conn.responseCode
+        val code = conn.responseCode
+        try {
+            (if (code in 200..299) conn.inputStream else conn.errorStream)?.use { it.readBytes() }
+        } catch (_: Exception) {
+        }
         conn.disconnect()
     } catch (_: Exception) {
     }

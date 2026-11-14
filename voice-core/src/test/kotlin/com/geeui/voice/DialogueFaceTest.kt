@@ -37,15 +37,37 @@ class DialogueFaceTest {
     }
 
     @Test
-    fun emotionPoseWinsWhileSpeakingAndAfter() {
-        assertEquals("h0006", dialogueFace("talk", true, "h0006"))
-        assertEquals("h0006", dialogueFace("talk", false, "h0006"))
+    fun emotionPoseWinsWhileSpeakingWithTalkFaceEmotion() {
+        DialogueFaces.speakDuringTalk = false
+        try {
+            assertEquals("h0006", dialogueFace("talk", true, "h0006"))
+            assertEquals("h0006", dialogueFace("talk", false, "h0006"))
+            assertEquals("h0119", dialogueFace("idle", false, "h0119"))
+        } finally {
+            DialogueFaces.reset()
+        }
+    }
+
+    @Test
+    fun mouthWhileSpeakingByDefault() {
+        // The user wants to see the speaking clip: an emotion answer no longer hides it.
+        assertEquals(SPEAK_FACE, dialogueFace("talk", true, "h0006"))
+        assertEquals(THINK_FACE, dialogueFace("talk", false, "h0006"))
         assertEquals("h0119", dialogueFace("idle", false, "h0119"))
+        assertEquals(true, DialogueFaces.parseTalkFace(null))
+        assertEquals(false, DialogueFaces.parseTalkFace("emotion"))
     }
 
     @Test
     fun idleGoesBackToThePoseFace() {
         assertEquals(IDLE_FACE, dialogueFace("idle", false, IDLE_FACE))
+    }
+
+    @Test
+    fun backAtRestNeverFlashesTheBackendClip() {
+        // Seen on the robot: mode idle while the pose was still h0242 for ~0.45 s.
+        assertEquals(IDLE_FACE, dialogueFace("idle", false, THINK_FACE))
+        assertEquals(IDLE_FACE, dialogueFace("idle", false, LISTEN_FACE))
     }
 
     @Test
