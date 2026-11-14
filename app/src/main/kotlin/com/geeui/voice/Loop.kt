@@ -69,6 +69,10 @@ class VoiceLoop(
     vision: Boolean = true,
     /** "auto" (default): the Dobby gate follows the room noise. A number keeps a fixed RMS gate. */
     dobbyGateSetting: String = "auto",
+    /** « Confie à Hermes … » through the sidecar (/hermes/…), light while a result waits. */
+    hermes: Boolean = true,
+    /** Optional X-Hermes-Token for the sidecar /hermes routes (HERMES_TASKS_TOKEN). */
+    private val hermesToken: String = "",
 ) {
     private val camera = if (vision) RobotCamera(audio) else null
     private val appContext = audio
@@ -101,6 +105,13 @@ class VoiceLoop(
         if (!ok) sidecarOk.set(0)
     }
     private val timingChat = TimingChat(LemonadeChat(client))
+    private val hermesDesk = if (hermes && sidecar.isNotBlank()) {
+        com.geeui.voice.session.HermesDesk(
+            get = { path -> hermesCall("GET", path, null, readMs = 5_000) },
+            // The summary of a long result can take a while on the chat model (cold start).
+            post = { path, json -> hermesCall("POST", path, json, readMs = 70_000) },
+        )
+    } else null
     private val session = VoiceSession(
         bus,
         tts,
@@ -118,6 +129,7 @@ class VoiceLoop(
                 jpeg
             }
         },
+        hermes = hermesDesk,
         sidecarOkAt = {
             val now = System.currentTimeMillis()
             if (sidecar.isNotBlank() && now - sidecarOk.get() > 5_000L) pingSidecar(sidecar)
@@ -171,6 +183,68 @@ class VoiceLoop(
         }
         return body
     }
+
+    /** Unread Hermes results last seen, and whether this app lit the antenna for them. */
+    @Volatile private var hermesUnread = 0
+    @Volatile private var hermesLit = false
+    @Volatile private var hermesSeen = ""
+
+    /**
+     * Idle check of the Hermes task list: the antenna glows purple while a result waits.
+     * Re-lit at each check because the end of every turn (standAtAttention) turns the light off.
+     */
+    private fun pollHermes() {
+        val desk = hermesDesk ?: return
+        val idle = running.get() && VoiceHud.mode == "idle" && !VoiceHud.playing &&
+            session.state == com.geeui.voice.session.Dialogue.Idle
+        if (!idle) return
+        val state = desk.state()
+        val seen = when {
+            state == null -> "injoignable"
+            !state.enabled -> "désactivé"
+            else -> "unread=${state.unread} running=${state.running}"
+        }
+        // One journal line per change (first poll included), not one every 20 s.
+        if (seen != hermesSeen) {
+            EventLog.add("hermes: $seen")
+            hermesSeen = seen
+        }
+        if (state == null) return
+        val unread = if (state.enabled) state.unread else 0
+        if (unread > hermesUnread) {
+            VoiceHud.line = "Hermes : " + com.geeui.voice.session.HermesDesk.statusLine(state)
+        }
+        hermesUnread = unread
+        if (unread > 0) {
+            bus.antennaLight(true, HERMES_LIGHT)
+            hermesLit = true
+        } else if (hermesLit) {
+            bus.antennaLight(false, 0)
+            hermesLit = false
+        }
+    }
+
+    /** One call to the sidecar /hermes routes. Code 0 = no answer. Error bodies are read too (503, 404). */
+    private fun hermesCall(method: String, path: String, json: String?, readMs: Int): com.geeui.voice.session.HermesHttp =
+        try {
+            val conn = URL(sidecar.trimEnd('/') + path).openConnection() as HttpURLConnection
+            conn.connectTimeout = 2_000
+            conn.readTimeout = readMs
+            conn.requestMethod = method
+            if (hermesToken.isNotBlank()) conn.setRequestProperty("X-Hermes-Token", hermesToken)
+            if (json != null) {
+                conn.doOutput = true
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                conn.outputStream.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+            }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val body = stream?.use { String(it.readBytes(), Charsets.UTF_8) }
+            conn.disconnect()
+            com.geeui.voice.session.HermesHttp(code, body)
+        } catch (_: Exception) {
+            com.geeui.voice.session.HermesHttp(0, null)
+        }
 
     private val running = AtomicBoolean(false)
     private val wavTestBusy = AtomicBoolean(false)
@@ -267,6 +341,9 @@ class VoiceLoop(
         if (initiative && sidecar.isNotBlank()) {
             // Same single worker as the turns: an initiative never overlaps a conversation.
             ticker.scheduleWithFixedDelay({ turns.execute { poller.poll() } }, 15, 15, java.util.concurrent.TimeUnit.SECONDS)
+        }
+        if (hermesDesk != null) {
+            ticker.scheduleWithFixedDelay({ turns.execute { pollHermes() } }, 20, 20, java.util.concurrent.TimeUnit.SECONDS)
         }
         ticker.scheduleWithFixedDelay({
             turns.execute {
@@ -940,6 +1017,8 @@ class VoiceLoop(
         /** Silent frames still fed to Vosk after speech (5 × 100 ms), then the phrase is flushed. */
         private const val DOBBY_HANG_FRAMES = 5
         private const val PENDING_MISSING_BACKOFF_MS = 10 * 60_000L
+        /** Antenna colour while a Hermes result waits (PURPLE). */
+        private val HERMES_LIGHT = com.geeui.voice.bus.lightId("PURPLE") ?: 7
     }
 }
 

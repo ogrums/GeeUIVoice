@@ -28,6 +28,8 @@ object VoiceSettings {
         "talk_face" to "speak",
         "idle_video" to "30",
         "dobby_gate" to "auto",
+        "hermes" to "on",
+        "hermes_token" to "",
     )
 
     private val labels = mapOf(
@@ -49,6 +51,8 @@ object VoiceSettings {
         "talk_face" to "Visage pendant la parole (speak = bouche h0292, emotion)",
         "idle_video" to "Vidéo au repos (secondes entre deux lectures, défaut 30 ; loop, once)",
         "dobby_gate" to "Seuil Hey Dobby (auto, ou RMS fixe ex. 50)",
+        "hermes" to "Hermes (on, off)",
+        "hermes_token" to "Jeton Hermes (vide = aucun)",
     )
 
     private val extras = mapOf(
@@ -70,6 +74,8 @@ object VoiceSettings {
         "talk_face" to "talk_face",
         "idle_video" to "idle_video",
         "dobby_gate" to "dobby_gate",
+        "hermes" to "hermes",
+        "hermes_token" to "hermes_token",
     )
 
     fun label(key: String): String = labels.getValue(key)

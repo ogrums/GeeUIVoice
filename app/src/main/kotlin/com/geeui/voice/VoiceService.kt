@@ -52,6 +52,9 @@ class VoiceService : Service() {
     private var idleFaces = ""
     private var idleInterval = ""
     private var dobbyGate = "auto"
+    /** Extra "hermes" = "off" : pas de « confie à Hermes », pas de lumière de résultat. */
+    private var hermes = true
+    private var hermesToken = ""
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -111,11 +114,14 @@ class VoiceService : Service() {
             }
             intent.getStringExtra("idle_video")?.let { VoiceHud.idleVideo = com.geeui.voice.bus.IdleVideo.parse(it) }
             intent.getStringExtra("dobby_gate")?.let { dobbyGate = it }
+            intent.getStringExtra("hermes")?.let { hermes = it.trim().lowercase() !in setOf("0", "false", "non", "off") }
+            intent.getStringExtra("hermes_token")?.let { hermesToken = it.trim() }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
                 sidecar, cosyModel, phonon, phononVoice, initiative, listenMode, wakeWord,
                 listenFace, thinkFace, backendFace, idleFaces, idleInterval, vision, dobbyGate,
+                hermes, hermesToken,
             )
             loop?.start()
             VoiceHud.running = true

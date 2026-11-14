@@ -72,6 +72,18 @@ adb shell am startservice -n com.geeui.voice/.VoiceService \
 - `-e vision 0` : jamais de photo.
 - Caméra occupée (reconnaissance faciale du fabricant) ou refusée : nanobot reçoit « (RUX a voulu regarder mais n'a pas pu : caméra indisponible) » ; la cause est dans la ligne de diagnostic (`caméra : …`).
 
+### Tâches confiées à Hermes
+
+« Confie à Hermes de compter les fichiers du dossier demo » : l'app passe la phrase au sidecar (`POST /hermes/intent`, puis `POST /hermes/tasks`), qui crée la tâche dans Hermes Agent (agent local sur nimbus) et la suit. RUX répond tout de suite : « D'accord, je confie ça à Hermes… ». Le LLM n'est pas appelé.
+
+- Quand un résultat attend, l'antenne s'allume en violet et le HUD affiche « Hermes : … ». Le sidecar est interrogé toutes les 20 s, et seulement au repos.
+- « Lis le résultat » ou « résultat Hermes » : RUX lit un résumé court, fait par le sidecar avec le modèle de conversation. La tâche passe alors en lue et la lumière s'éteint. Un « lis le résultat » sans « Hermes » ne déclenche rien tant qu'aucun résultat n'attend : le tour normal répond.
+- « Où en est Hermes ? » : le nombre de tâches en cours et de résultats prêts.
+- Seules les phrases qui contiennent « Hermes », ou les phrases courtes avec « résultat », partent vers le sidecar. Les autres tours ne font aucune requête en plus.
+- Si `allowed_actions` est présent, il doit contenir `hermes`, sinon RUX refuse (mode enfant ou invité). Sans liste, tout le monde peut confier une tâche.
+- `-e hermes off` : fonction coupée. `-e hermes_token …` : jeton envoyé dans `X-Hermes-Token`, si le sidecar a `HERMES_TASKS_TOKEN`. Les deux réglages sont aussi dans le menu.
+- Côté sidecar : `HERMES_URL` et `HERMES_API_KEY` (section « Tâches confiées à Hermes » de GeeUIVoiceSidecar).
+
 Lex and this service cannot share the mic. Stop Lex's recorder before starting the loop, or the `AudioRecord` fails.
 
 ## VAD (desk)
