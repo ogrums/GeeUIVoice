@@ -26,7 +26,7 @@ object VoiceSettings {
         "idle_faces" to "off",
         "idle_face_interval" to "",
         "talk_face" to "speak",
-        "idle_video" to "loop",
+        "idle_video" to "30",
         "dobby_gate" to "auto",
     )
 
@@ -47,7 +47,7 @@ object VoiceSettings {
         "idle_faces" to "Visages au repos (off, ou on = alternance)",
         "idle_face_interval" to "Intervalle repos en secondes (min. 60, défaut 90)",
         "talk_face" to "Visage pendant la parole (speak = bouche h0292, emotion)",
-        "idle_video" to "Vidéo au repos (loop, once, ou secondes entre deux lectures)",
+        "idle_video" to "Vidéo au repos (secondes entre deux lectures, défaut 30 ; loop, once)",
         "dobby_gate" to "Seuil Hey Dobby (auto, ou RMS fixe ex. 50)",
     )
 

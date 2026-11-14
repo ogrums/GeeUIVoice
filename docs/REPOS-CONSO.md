@@ -8,6 +8,7 @@ Mesures du 14 novembre 2026 (heure de Paris) sur le RUX (RK3566, 4 cœurs), robo
 |---|---|---|---|---|---|
 | Avant (36c4716, porte fixe RMS 50, h0059 en boucle) | **78 %** | 37 % | 29 % | 7 % | 156 Mo |
 | Après, réglages par défaut (porte `auto`, `idle_video=loop`) | **32 %** | 8–10 % | 17 % | 5 % | 155 Mo |
+| Après, `idle_video=30` (**défaut depuis le 14 nov.**, avec dérive anti-marquage) | **~13 % hors Vosk bruyant** : 3–4 % pendant l’attente, ~35–45 % pendant les 8 s de lecture | 1 à 56 % selon le bruit de la pièce (moyenne 20 % sur ce relevé) | 0,6 % pendant l’attente, ~20 % pendant la lecture (moyenne 5,5 %) | 0,8 % / ~8 % (moyenne 2,8 %) | 155 Mo |
 | Après, `idle_video=once` | **11 %** | 10 % | 0 % | 0,5 % | 151 Mo |
 | Après, `idle_video=once`, sans Hey Dobby (`wake_word=hirux`) | **1 %** | — | 0 % | 0,5 % | **36 Mo** |
 
@@ -25,7 +26,7 @@ La mémoire ne grossit pas : ~155 Mo PSS au démarrage comme après 45 min. Les 
 
 | Réglage | Valeurs | Défaut |
 |---|---|---|
-| `idle_video` | `loop` (en boucle), `once` (une lecture, puis la dernière image reste), ou un nombre de secondes entre deux lectures (min. 10) | `loop` |
+| `idle_video` | un nombre de secondes entre deux lectures (min. 10), `loop` (en boucle), `once` (une lecture, puis la dernière image reste, avec la dérive) | `30` |
 | `dobby_gate` | `auto`, ou un RMS fixe (ex. `50`, l’ancien comportement) | `auto` |
 | `talk_face` | `speak` (bouche h0292 pendant la parole, émotion 3 s après), `emotion` (visage d’émotion pendant la parole, ancien comportement) | `speak` |
 
@@ -37,6 +38,22 @@ adb -s 2006014140527 shell am start -S -n com.geeui.voice/.VoiceActivity --es id
 
 Une valeur enregistrée dans le menu l’emporte sur l’extra de lancement.
 
+## Choix retenu : `idle_video=30` et dérive anti-marquage
+
+Décision du 14 novembre 2026 : le visage de repos h0059 joue une fois (8,7 s), puis attend 30 s, puis rejoue. Cycle mesuré sur le robot : 38,7 s.
+
+Une image fixe pendant 30 s peut marquer l’écran. Pendant l’attente, l’image bouge donc un peu (`hud idle gap: drift` dans events.log) :
+
+- Toutes les 2 s, le visage se décale d’un point sur un cercle de 3 px (8 positions).
+- Une étape sur deux, sa luminosité baisse légèrement (opacité 0,93).
+- Tout revient à zéro dès qu’un nouveau clip démarre (réveil, écoute, rejeu).
+
+Coût : un rafraîchissement de l’écran toutes les 2 s. Le RenderThread reste à 0,6 % d’un cœur pendant l’attente, contre ~20 % pendant la lecture.
+
+Vérification sur le robot : 6 captures d’écran espacées de ~3,4 s pendant l’attente. D’une capture à l’autre, ~6 000 à 8 000 pixels changent ; ~35 000 quand l’opacité change. Le bas du visage passe de y=352 à 355, 352, 349, 350, 354. Aucune image ne reste figée.
+
+Sur ce relevé de 2 min, Vosk (Hey Dobby) a varié de 1 à 56 % selon le bruit de la pièce. C’est lui qui fait l’essentiel du reste ; la vidéo ne compte plus que ~8 % en moyenne (rendu + thread principal), contre ~22 % en boucle.
+
 ## Propositions (à choisir)
 
 | Option | Gain mesuré / estimé | Ce que ça change à l’écran |
@@ -47,6 +64,6 @@ Une valeur enregistrée dans le menu l’emporte sur l’extra de lancement.
 | D. Clip de repos plus léger (h0059 ré-encodé à 12 i/s, ou un clip court) | ~−8 points estimé | animation moins fluide |
 | E. Hey Dobby seulement à certaines heures, ou `wake_word=hirux` | −10 points et −115 Mo | plus de Hey Dobby à ces moments |
 
-Recommandation : **B** (`idle_video=30`) ou **A** si un visage fixe ne te gêne pas ; garder la porte `auto`.
+Retenu : **B** (`idle_video=30`) avec la dérive anti-marquage, porte `auto`.
 
 Reproduire les mesures : script `prof.ps1` (RoadRunner) — `top -H -p <pid>`, `dumpsys meminfo`, `/proc/net/tcp` filtré sur l’uid de l’app.

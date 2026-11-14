@@ -51,7 +51,9 @@ class NoiseGateTest {
 class IdleVideoTest {
     @Test
     fun parsesSettings() {
-        assertEquals(com.geeui.voice.bus.IdleVideo.LOOP, com.geeui.voice.bus.IdleVideo.parse(""))
+        assertEquals(com.geeui.voice.bus.IdleVideo.DEFAULT, com.geeui.voice.bus.IdleVideo.parse(""))
+        assertEquals(30, com.geeui.voice.bus.IdleVideo.parse(null).replaySec)
+        assertEquals(com.geeui.voice.bus.IdleVideo.DEFAULT, com.geeui.voice.bus.IdleVideo.parse("n'importe"))
         assertEquals(com.geeui.voice.bus.IdleVideo.LOOP, com.geeui.voice.bus.IdleVideo.parse("loop"))
         assertEquals(com.geeui.voice.bus.IdleVideo.ONCE, com.geeui.voice.bus.IdleVideo.parse("once"))
         assertEquals(30, com.geeui.voice.bus.IdleVideo.parse("30").replaySec)

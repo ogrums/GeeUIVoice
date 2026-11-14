@@ -467,8 +467,44 @@ class VoiceActivity : Activity() {
      * handled by [localFace], so releasing first no longer leaves a frozen frame.
      * A clip that still fails is marked as shown, so the 120 ms refresh does not retry it in a loop.
      */
+    private var driftStep = 0
+    private val drift = object : Runnable {
+        override fun run() {
+            val (dx, dy) = DRIFT[driftStep % DRIFT.size]
+            val alpha = if (driftStep % 2 == 0) 1f else DRIFT_ALPHA
+            driftStep++
+            for (slot in slots) {
+                slot.view.translationX = dx
+                slot.view.translationY = dy
+            }
+            slots.getOrNull(front)?.view?.alpha = alpha
+            handler.postDelayed(this, DRIFT_STEP_MS)
+        }
+    }
+
+    /**
+     * idle_video=once / N s: while the last frame waits for the next play, move the picture by
+     * a few pixels and dim it slightly every [DRIFT_STEP_MS], so no pixel stays fixed (burn-in).
+     * One recomposition every 2 s: a few tenths of a percent of CPU.
+     */
+    private fun startDrift() {
+        handler.removeCallbacks(drift)
+        EventLog.add("hud idle gap: drift")
+        handler.post(drift)
+    }
+
+    private fun stopDrift() {
+        handler.removeCallbacks(drift)
+        for (slot in slots) {
+            slot.view.translationX = 0f
+            slot.view.translationY = 0f
+        }
+        slots.getOrNull(front)?.view?.alpha = 1f
+    }
+
     private fun startFace(id: String, target: FaceSlot) {
         pendingFace = null
+        stopDrift()
         val surface = target.surface ?: return
         val local = localFace(id)
         shownFace = id
@@ -484,17 +520,23 @@ class VoiceActivity : Activity() {
             val rest = VoiceHud.mode == "idle" && !VoiceHud.playing
             val idle = VoiceHud.idleVideo
             mp.isLooping = !rest || idle.loop
-            if (rest && !idle.loop && idle.replaySec > 0) {
+            if (rest && !idle.loop) {
                 mp.setOnCompletionListener { done ->
-                    handler.postDelayed({
-                        if (facePlayer === done && shownFace == id && VoiceHud.mode == "idle") {
-                            try {
-                                done.seekTo(0)
-                                done.start()
-                            } catch (_: IllegalStateException) {
+                    if (facePlayer !== done) return@setOnCompletionListener
+                    // Between two plays the last frame stays: keep it moving a little (no burn-in).
+                    startDrift()
+                    if (idle.replaySec > 0) {
+                        handler.postDelayed({
+                            if (facePlayer === done && shownFace == id && VoiceHud.mode == "idle") {
+                                stopDrift()
+                                try {
+                                    done.seekTo(0)
+                                    done.start()
+                                } catch (_: IllegalStateException) {
+                                }
                             }
-                        }
-                    }, idle.replaySec * 1_000L)
+                        }, idle.replaySec * 1_000L)
+                    }
                 }
             }
             mp.setOnErrorListener { _, what, extra ->
@@ -516,7 +558,7 @@ class VoiceActivity : Activity() {
             if (previous == null) swapTo(target, mp, null)
             // No first-frame event (a broken clip): swap anyway so the screen does not stay behind.
             else handler.postDelayed({ swapTo(target, mp, previous) }, 1_500L)
-            EventLog.add("hud play $id${if (local != id) " (as $local)" else ""} mode=${VoiceHud.mode} playing=${VoiceHud.playing}${if (mp.isLooping) "" else " once"}")
+            EventLog.add("hud play $id${if (local != id) " (as $local)" else ""} mode=${VoiceHud.mode} playing=${VoiceHud.playing}${if (mp.isLooping) "" else if (rest && VoiceHud.idleVideo.replaySec > 0) " replay=${VoiceHud.idleVideo.replaySec}s" else " once"}")
             if (local != id) VoiceHud.diag = "visage $id absent, $local"
         } catch (e: Exception) {
             VoiceHud.diag = "visage $id ${e.javaClass.simpleName}"
@@ -723,5 +765,11 @@ class VoiceActivity : Activity() {
     companion object {
         /** How long the answer's emotion stays after the speech (talk_face=speak). */
         private const val AFTERGLOW_MS = 3_000L
+        private const val DRIFT_STEP_MS = 2_000L
+        private const val DRIFT_ALPHA = 0.93f
+        /** A 3 px circle, one point per step. */
+        private val DRIFT = listOf(
+            3f to 0f, 2f to 2f, 0f to 3f, -2f to 2f, -3f to 0f, -2f to -2f, 0f to -3f, 2f to -2f,
+        )
     }
 }

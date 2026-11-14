@@ -80,6 +80,8 @@ Les visages d'écoute et de réflexion sont envoyés sur le bus (`controlFace`) 
 
 L'attente STT et l'appel au modèle sont la même phase dans la boucle : on affiche `h0242` (réglable via `backend_face` ou l'alias `think_face`). La nuance 🤔 de la réponse reste `h0181` 语音思考.
 
+Idée pour plus tard : distinguer à l’écran une réflexion locale (modèle sur nimbus ou sur le robot) d’une IA distante, avec deux visages d’attente. `h0242` (badge « AI ») resterait l’IA distante. Le réglage `think_face` existe déjà ; il faudrait que la boucle choisisse le visage selon le backend utilisé.
+
 Pourquoi ces tags : `h0347` est le clip que l'assistant d'origine joue au début du VAD. Il est dans l'APK GeeUIFace du robot (`assets/video/h0347.mp4`, 350 Ko avec une piste audio) mais absent de la liste publique h0001–h0302. GeeUIVoice en embarque une copie sans audio (~87 Ko). En boucle, le clip passe d'un regard d'écoute à un visage rougissant avec des cœurs. L'ancien `h0180` 语音听 (yeux et un « ? ») reste disponible dans le menu, et sert de repli si `h0347` n'est pas bundlé. `h0242` n'a pas de nom officiel (无) ; on s'en sert pour l'attente du backend (yeux et badge « AI »). L'original GeeUIFace est en H.264 High avec des B-frames, format qui plante le décodeur OMX du RK3566 : la copie dans notre APK est en Main, sans B-frames. `h0181` reste le repli et la nuance 🤔.
 
 Au repos, le visage par défaut est `h0059` (ou l'humeur). L'alternance parmi `h0135`–`h0175` est **coupée par défaut** (`idle_faces=off`) : sur le RK3566, un `controlFace` trop fréquent fait planter le décodeur vidéo (`libomxvpu_dec.so`, `Rkvpu_Wait_ProcessPause`) et fige l'écran.
