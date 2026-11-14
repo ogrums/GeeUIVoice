@@ -59,27 +59,46 @@ fun bundledFace(id: String) = "video/$id.mp4"
 
 const val IDLE_FACE = "h0059"
 
-/** Same ids as the stock assistant (GestureCenter): wake / avatar.listening. Eyes with a "?". */
-const val LISTEN_FACE = "h0180"
-/** avatar.understanding in GestureCenter: eyes and a light bulb, while STT and the LLM work. */
-const val THINK_FACE = "h0181"
+/**
+ * Listening face: stock assistant uses this clip at VAD begin. Present in the
+ * on-device GeeUIFace APK (`assets/video/h0347.mp4`), not in the public h0001–h0302 list.
+ */
+const val LISTEN_FACE = "h0347"
+/**
+ * Face while the phrase is sent to the sidecar / STT / LLM (the current "think" phase).
+ * Same moment as [THINK_FACE]: there is no separate thinking step in the loop.
+ */
+const val BACKEND_FACE = "h0242"
+/** Alias of [BACKEND_FACE], kept so `think_face` and DialogueFaces.think stay valid. */
+const val THINK_FACE = BACKEND_FACE
 /** getSpeakingGesture in GestureCenter: eyes and a moving mouth. */
 const val SPEAK_FACE = "h0292"
 
 /**
- * Configurable dialogue face ids (settings `listen_face` / `think_face`).
- * Defaults match the stock assistant: [LISTEN_FACE], [THINK_FACE], [SPEAK_FACE].
+ * Configurable dialogue face ids (settings `listen_face` / `backend_face` / `think_face`).
+ * Defaults: [LISTEN_FACE], [BACKEND_FACE] (also [THINK_FACE]), [SPEAK_FACE].
  */
 object DialogueFaces {
     @Volatile var listen: String = LISTEN_FACE
     @Volatile var think: String = THINK_FACE
     @Volatile var speak: String = SPEAK_FACE
+    /** talk_face=speak (default): mouth clip while speaking. false = talk_face=emotion. */
+    @Volatile var speakDuringTalk: Boolean = true
 
     fun reset() {
         listen = LISTEN_FACE
         think = THINK_FACE
         speak = SPEAK_FACE
+        speakDuringTalk = true
     }
+
+    /** An answer emotion: not a rest face, not the listen / backend state clips. */
+    fun isEmotion(pose: String): Boolean =
+        pose.isNotBlank() && !RestFace.isRest(pose) && pose != listen && pose != think
+
+    /** "speak" (default) or "emotion". */
+    fun parseTalkFace(raw: String?): Boolean =
+        raw?.trim()?.lowercase() !in setOf("emotion", "émotion", "emo")
 
     /** Accepts `h0180`, `H0180` or `0180`. Unknown values keep [fallback]. */
     fun parseId(raw: String?, fallback: String): String {
@@ -100,11 +119,19 @@ object DialogueFaces {
  * gets the mouth. After the clip, the pose face holds until standAtAttention puts the rest face back.
  */
 fun dialogueFace(mode: String, playing: Boolean, pose: String): String {
-    val emotion = pose.isNotBlank() && !RestFace.isRest(pose)
+    // The listen / backend clips are states, not emotions: they must not stay on while speaking.
+    val emotion = DialogueFaces.isEmotion(pose)
+    // talk_face=speak (default): the mouth clip while the robot speaks, emotion after it.
+    // talk_face=emotion: the answer's emotion face replaces the mouth.
+    val emotionWhileTalking = emotion && !DialogueFaces.speakDuringTalk
     return when {
-        playing -> if (emotion) pose else DialogueFaces.speak
+        playing -> if (emotionWhileTalking) pose else DialogueFaces.speak
+        mode == "talk" && emotionWhileTalking -> pose
         mode == "hear" -> DialogueFaces.listen
         mode == "think" || mode == "talk" -> DialogueFaces.think
+        // Back at rest the pose can still be the listen / backend clip for a moment
+        // (mode changes before the rest face is recorded): show the rest face, not a flash of h0242.
+        pose == DialogueFaces.listen || pose == DialogueFaces.think -> RestFace.current
         else -> pose
     }
 }

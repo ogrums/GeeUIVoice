@@ -46,8 +46,12 @@ class VoiceService : Service() {
     private var listenMode = "auto"
     /** "hirux", "dobby", or "both" (default). */
     private var wakeWord = "both"
-    private var listenFace = "h0180"
-    private var thinkFace = "h0181"
+    private var listenFace = com.geeui.voice.bus.LISTEN_FACE
+    private var thinkFace = com.geeui.voice.bus.THINK_FACE
+    private var backendFace = ""
+    private var idleFaces = ""
+    private var idleInterval = ""
+    private var dobbyGate = "auto"
     /** Extra "hermes" = "off" : pas de « confie à Hermes », pas de lumière de résultat. */
     private var hermes = true
     private var hermesToken = ""
@@ -101,14 +105,23 @@ class VoiceService : Service() {
             intent.getStringExtra("listen_mode")?.let { listenMode = it }
             intent.getStringExtra("wake_word")?.let { wakeWord = it }
             intent.getStringExtra("listen_face")?.let { listenFace = it }
+            intent.getStringExtra("backend_face")?.let { backendFace = it }
             intent.getStringExtra("think_face")?.let { thinkFace = it }
+            intent.getStringExtra("idle_faces")?.let { idleFaces = it }
+            intent.getStringExtra("idle_face_interval")?.let { idleInterval = it }
+            intent.getStringExtra("talk_face")?.let {
+                com.geeui.voice.bus.DialogueFaces.speakDuringTalk = com.geeui.voice.bus.DialogueFaces.parseTalkFace(it)
+            }
+            intent.getStringExtra("idle_video")?.let { VoiceHud.idleVideo = com.geeui.voice.bus.IdleVideo.parse(it) }
+            intent.getStringExtra("dobby_gate")?.let { dobbyGate = it }
             intent.getStringExtra("hermes")?.let { hermes = it.trim().lowercase() !in setOf("0", "false", "non", "off") }
             intent.getStringExtra("hermes_token")?.let { hermesToken = it.trim() }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,
                 sidecar, cosyModel, phonon, phononVoice, initiative, listenMode, wakeWord,
-                listenFace, thinkFace, vision, hermes, hermesToken,
+                listenFace, thinkFace, backendFace, idleFaces, idleInterval, vision, dobbyGate,
+                hermes, hermesToken,
             )
             loop?.start()
             VoiceHud.running = true

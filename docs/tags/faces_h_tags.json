@@ -3,7 +3,7 @@
     "cmd_tag": "h0059",
     "cmd_tag_name": "常规环",
     "name_fr": "Anneau au repos",
-    "usage": "Boucle d'attente neutre. Visage de repos par défaut (émotion neutre, humeur calme)."
+    "usage": "Boucle d'attente neutre. Visage de repos par défaut (émotion neutre, humeur calme), avant l'alternance h0135–h0175. idle_faces=off garde ce visage."
   },
   {
     "cmd_tag": "h0060",
@@ -450,7 +450,7 @@
     "cmd_tag": "h0074",
     "cmd_tag_name": "俄罗斯",
     "name_fr": "Tetris (occupé à jouer)",
-    "usage": "Indique que le robot est occupé / en train de jouer à Tetris (俄罗斯方块). Vérifié par l'utilisateur. Suggestion pour un futur état « tâche longue / occupé à jouer » ; l'app n'a pas cet état aujourd'hui (l'attente STT/LLM utilise déjà h0181 语音思考).",
+    "usage": "Indique que le robot est occupé / en train de jouer à Tetris (俄罗斯方块). Vérifié par l'utilisateur. Suggestion pour un futur état « tâche longue / occupé à jouer » ; l'app n'a pas cet état aujourd'hui (l'attente STT/LLM utilise déjà h0242).",
     "verified_by_user": true
   },
   {
@@ -812,247 +812,247 @@
     "cmd_tag": "h0135",
     "cmd_tag_name": "低头看",
     "name_fr": "Regard baissé",
-    "usage": "Baisse la tête pour regarder."
+    "usage": "Baisse la tête pour regarder. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0136",
     "cmd_tag_name": "东张西望",
     "name_fr": "Regard aux alentours",
-    "usage": "Regarde un peu partout."
+    "usage": "Regarde un peu partout. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0137",
     "cmd_tag_name": "瞎看",
     "name_fr": "Regard au hasard",
-    "usage": "Regarde n'importe où."
+    "usage": "Regarde n'importe où. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0138",
     "cmd_tag_name": "偷看",
     "name_fr": "Coup d'œil furtif",
-    "usage": "Regarde en cachette."
+    "usage": "Regarde en cachette. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0139",
     "cmd_tag_name": "抖机灵",
     "name_fr": "Fait le malin",
-    "usage": "Petite vanne, air espiègle."
+    "usage": "Petite vanne, air espiègle. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0140",
     "cmd_tag_name": "眨眼笑",
     "name_fr": "Clin d'œil souriant",
-    "usage": "Cligne de l'œil en souriant."
+    "usage": "Cligne de l'œil en souriant. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0141",
     "cmd_tag_name": "眨眼笑2",
     "name_fr": "Clin d'œil souriant 2",
-    "usage": "Variante de h0140."
+    "usage": "Variante de h0140. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0142",
     "cmd_tag_name": "惊呆",
     "name_fr": "Stupéfaction",
-    "usage": "Reste bouche bée. Plus figé que 惊讶."
+    "usage": "Stupéfaction. Exclu de l'alternance au repos (air figé, pas une attente calme)."
   },
   {
     "cmd_tag": "h0143",
     "cmd_tag_name": "眯眼看",
     "name_fr": "Regard les yeux plissés",
-    "usage": "Observe en plissant les yeux."
+    "usage": "Observe en plissant les yeux. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0144",
     "cmd_tag_name": "想笑",
     "name_fr": "Envie de rire",
-    "usage": "Retient un rire."
+    "usage": "Retient un rire. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0145",
     "cmd_tag_name": "想笑2",
     "name_fr": "Envie de rire 2",
-    "usage": "Variante de h0144."
+    "usage": "Variante de h0144. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0146",
     "cmd_tag_name": "想笑3",
     "name_fr": "Envie de rire 3",
-    "usage": "Variante de h0144."
+    "usage": "Variante de h0144. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0147",
     "cmd_tag_name": "想笑4",
     "name_fr": "Envie de rire 4",
-    "usage": "Variante de h0144."
+    "usage": "Variante de h0144. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0148",
     "cmd_tag_name": "惊呆2",
     "name_fr": "Stupéfaction 2",
-    "usage": "Variante de h0142."
+    "usage": "Stupéfaction 2. Exclu de l'alternance au repos."
   },
   {
     "cmd_tag": "h0149",
     "cmd_tag_name": "想一想",
     "name_fr": "Réfléchit un peu",
-    "usage": "Court moment de réflexion."
+    "usage": "Court moment de réflexion. Exclu de l'alternance au repos (conflit avec l'attente backend)."
   },
   {
     "cmd_tag": "h0150",
     "cmd_tag_name": "笑看天下",
     "name_fr": "Rit en regardant le monde",
-    "usage": "Rire ample, contemplatif."
+    "usage": "Rire ample, contemplatif. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0151",
     "cmd_tag_name": "偷看2",
     "name_fr": "Coup d'œil furtif 2",
-    "usage": "Variante de coup d'œil furtif."
+    "usage": "Variante de coup d'œil furtif. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0152",
     "cmd_tag_name": "斜看",
     "name_fr": "Regard de biais",
-    "usage": "Regard en coin."
+    "usage": "Regard en coin. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0153",
     "cmd_tag_name": "左右看看",
     "name_fr": "Regarde à gauche et à droite",
-    "usage": "Balaye du regard."
+    "usage": "Balaye du regard. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0154",
     "cmd_tag_name": "偷看3",
     "name_fr": "Coup d'œil furtif 3",
-    "usage": "Variante de coup d'œil furtif."
+    "usage": "Variante de coup d'œil furtif. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0155",
     "cmd_tag_name": "瞅一瞅",
     "name_fr": "Jette un œil",
-    "usage": "Coup d'œil rapide."
+    "usage": "Coup d'œil rapide. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0156",
     "cmd_tag_name": "眨眼",
     "name_fr": "Clignement",
-    "usage": "Cligne des deux yeux (pas un clin d'œil)."
+    "usage": "Cligne des deux yeux (pas un clin d'œil). Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0157",
     "cmd_tag_name": "瞪眼",
     "name_fr": "Yeux écarquillés",
-    "usage": "Ouvre grand les yeux."
+    "usage": "Yeux écarquillés. Exclu de l'alternance au repos (air surpris)."
   },
   {
     "cmd_tag": "h0158",
     "cmd_tag_name": "瞪眼看",
     "name_fr": "Regard les yeux écarquillés",
-    "usage": "Fixe en ouvrant grand les yeux."
+    "usage": "Regard les yeux écarquillés. Exclu de l'alternance au repos (air surpris)."
   },
   {
     "cmd_tag": "h0159",
     "cmd_tag_name": "瞅右边",
     "name_fr": "Coup d'œil à droite",
-    "usage": "Jette un œil à droite."
+    "usage": "Jette un œil à droite. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0160",
     "cmd_tag_name": "瞪大眼",
     "name_fr": "Grands yeux écarquillés",
-    "usage": "Ouvre encore plus les yeux."
+    "usage": "Grands yeux écarquillés. Exclu de l'alternance au repos (air surpris)."
   },
   {
     "cmd_tag": "h0161",
     "cmd_tag_name": "瞅右边2",
     "name_fr": "Coup d'œil à droite 2",
-    "usage": "Variante de h0159."
+    "usage": "Variante de h0159. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0162",
     "cmd_tag_name": "悄悄看",
     "name_fr": "Regard discret",
-    "usage": "Regarde sans se faire remarquer."
+    "usage": "Regarde sans se faire remarquer. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0163",
     "cmd_tag_name": "扫视",
     "name_fr": "Balayage du regard",
-    "usage": "Parcourt la scène des yeux."
+    "usage": "Parcourt la scène des yeux. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0164",
     "cmd_tag_name": "瞪大眼2",
     "name_fr": "Grands yeux écarquillés 2",
-    "usage": "Variante de h0160."
+    "usage": "Grands yeux écarquillés 2. Exclu de l'alternance au repos (air surpris)."
   },
   {
     "cmd_tag": "h0165",
     "cmd_tag_name": "瞅右边3",
     "name_fr": "Coup d'œil à droite 3",
-    "usage": "Variante de h0159."
+    "usage": "Variante de h0159. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0166",
     "cmd_tag_name": "瞅右边4",
     "name_fr": "Coup d'œil à droite 4",
-    "usage": "Variante de h0159."
+    "usage": "Variante de h0159. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0167",
     "cmd_tag_name": "瞅右边5",
     "name_fr": "Coup d'œil à droite 5",
-    "usage": "Variante de h0159."
+    "usage": "Variante de h0159. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0168",
     "cmd_tag_name": "瞅右边6",
     "name_fr": "Coup d'œil à droite 6",
-    "usage": "Variante de h0159."
+    "usage": "Variante de h0159. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0169",
     "cmd_tag_name": "瞅右边7",
     "name_fr": "Coup d'œil à droite 7",
-    "usage": "Variante de h0159."
+    "usage": "Variante de h0159. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0170",
     "cmd_tag_name": "考虑",
     "name_fr": "Réflexion",
-    "usage": "Pèse le pour et le contre."
+    "usage": "Réflexion. Exclu de l'alternance au repos (conflit avec l'attente backend)."
   },
   {
     "cmd_tag": "h0171",
     "cmd_tag_name": "眨眼2",
     "name_fr": "Clignement 2",
-    "usage": "Variante de clignement."
+    "usage": "Variante de clignement. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0172",
     "cmd_tag_name": "瞪眼4",
     "name_fr": "Yeux écarquillés 4",
-    "usage": "Variante de h0157."
+    "usage": "Yeux écarquillés 4. Exclu de l'alternance au repos (air surpris)."
   },
   {
     "cmd_tag": "h0173",
     "cmd_tag_name": "眨眼笑3",
     "name_fr": "Clin d'œil souriant 3",
-    "usage": "Variante de h0140."
+    "usage": "Variante de h0140. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0174",
     "cmd_tag_name": "超左看",
     "name_fr": "Regard loin à gauche",
-    "usage": "Regarde tout à gauche."
+    "usage": "Regarde tout à gauche. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0175",
     "cmd_tag_name": "眨眼3",
     "name_fr": "Clignement 3",
-    "usage": "Variante de clignement."
+    "usage": "Variante de clignement. Fait partie de l'alternance au repos (h0135–h0175)."
   },
   {
     "cmd_tag": "h0176",
@@ -1082,13 +1082,13 @@
     "cmd_tag": "h0180",
     "cmd_tag_name": "语音听",
     "name_fr": "Écoute vocale",
-    "usage": "État d'écoute de l'assistant. L'app utilise h0180, pas h0098."
+    "usage": "Ancien visage d'écoute de l'app (yeux et un « ? »). Le défaut est maintenant h0347. Toujours utilisable via listen_face."
   },
   {
     "cmd_tag": "h0181",
     "cmd_tag_name": "语音思考",
     "name_fr": "Réflexion vocale",
-    "usage": "L'assistant réfléchit. Visage « think » et nuance 🤔."
+    "usage": "Nuance 🤔 (thinking). Ancien visage d'attente STT/LLM ; l'app utilise maintenant h0242 pour cette phase."
   },
   {
     "cmd_tag": "h0182",
@@ -1454,7 +1454,7 @@
     "cmd_tag": "h0242",
     "cmd_tag_name": "无",
     "name_fr": "Sans nom",
-    "usage": "Réservé, pas de nom officiel."
+    "usage": "Attente backend (envoi au sidecar / STT / LLM). Réglage backend_face (alias think_face). Pas de nom officiel (无)."
   },
   {
     "cmd_tag": "h0243",
@@ -1815,5 +1815,11 @@
     "cmd_tag_name": "h0302",
     "name_fr": "Réservé (sans nom)",
     "usage": "Identifiant vide dans la liste officielle, jusqu'à h0302."
+  },
+  {
+    "cmd_tag": "h0347",
+    "cmd_tag_name": "",
+    "name_fr": "Début VAD",
+    "usage": "Visage d'écoute par défaut (listen_face). Clip que l'assistant d'origine joue au début du VAD. Présent dans l'APK GeeUIFace du robot (assets/video/h0347.mp4), absent de la liste publique h0001–h0302."
   }
 ]
