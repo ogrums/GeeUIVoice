@@ -15,6 +15,7 @@ import java.util.concurrent.Executors
 
 /** Forwards skills to the robot process. Motion opens the servo rail first. */
 class AidlBus(context: Context) : RobotBus, ServiceConnection {
+    private val appContext = context
     private var remote: IBinder? = null
     private var motorOn = false
     /** Invoked on the binder thread when Letianpai is bound (and again if rebound). */
@@ -29,7 +30,7 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
     init {
         val intent = Intent("android.intent.action.LETIANPAI")
             .setPackage("com.renhejia.robot.letianpaiservice")
-        context.bindService(intent, this, Context.BIND_AUTO_CREATE)
+        appContext.bindService(intent, this, Context.BIND_AUTO_CREATE)
     }
 
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -46,6 +47,22 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
     }
 
     fun connected(): Boolean = remote != null
+
+    /** Unbinds Letianpai and stops the face thread. Safe to call more than once. */
+    fun close() {
+        onConnected = null
+        try {
+            unregisterSpeechCallback()
+        } catch (_: Exception) {
+        }
+        try {
+            appContext.unbindService(this)
+        } catch (_: Exception) {
+        }
+        remote = null
+        motorOn = false
+        faceGate.shutdownNow()
+    }
 
     override fun speechCmd(command: String, data: String) {
         call("setSpeechCmd", command, data)

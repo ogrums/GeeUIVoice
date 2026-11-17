@@ -91,9 +91,16 @@ class LemonadeClient(
     fun chat(userText: String): String {
         val body = messages(userText, stream = false)
         val raw = post("/chat/completions", "application/json", body.toByteArray())
+        if (isErrorText(raw)) {
+            logLemonadeError(raw)
+            return SPOKEN_ERROR
+        }
         val marker = "\"content\":"
         val at = raw.indexOf(marker)
-        if (at < 0) return raw
+        if (at < 0) {
+            logLemonadeError(raw)
+            return SPOKEN_ERROR
+        }
         return contentText(raw.substring(at + marker.length)) ?: ""
     }
 
@@ -145,9 +152,16 @@ class LemonadeClient(
             resolvedStt = FALLBACK_STT
             return transcribeCore(wav)
         }
+        if (isErrorText(raw)) {
+            logLemonadeError(raw)
+            return ""
+        }
         val marker = "\"text\":"
         val at = raw.indexOf(marker)
-        if (at < 0) return raw
+        if (at < 0) {
+            logLemonadeError(raw)
+            return ""
+        }
         lastAudioEmotion = stringField(raw, "emotion") ?: "neutral"
         lastAudioConfidence = numberField(raw, "emotion_confidence") ?: 0.0
         lastAudioEmotionRaw = stringField(raw, "emotion_raw") ?: lastAudioEmotion
@@ -210,31 +224,36 @@ class LemonadeClient(
         }
         val body = messages(userText, stream = true)
         val conn = open("/chat/completions", "application/json")
-        conn.doOutput = true
-        conn.outputStream.use { it.write(body.toByteArray()) }
-        val code = conn.responseCode
-        val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-        if (code !in 200..299) {
-            val err = stream?.readBytes()?.let { String(it) } ?: ""
-            onDelta(err.ifBlank { "lemonade $code" })
-            return
-        }
-        BufferedReader(InputStreamReader(stream)).use { reader ->
-            while (true) {
-                val line = reader.readLine() ?: break
-                val data = line.removePrefix("data:").trim()
-                if (data.isEmpty()) continue
-                if (data == "[DONE]") break
-                val marker = "\"content\":"
-                var from = 0
-                while (from < data.length) {
-                    val at = data.indexOf(marker, from)
-                    if (at < 0) break
-                    val piece = contentText(data.substring(at + marker.length))
-                    if (piece != null) onDelta(piece)
-                    from = at + marker.length
+        try {
+            conn.doOutput = true
+            conn.outputStream.use { it.write(body.toByteArray()) }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            if (code !in 200..299) {
+                val err = stream?.use { it.readBytes() }?.let { String(it) } ?: ""
+                logLemonadeError("lemonade $code $err")
+                onDelta(SPOKEN_ERROR)
+                return
+            }
+            BufferedReader(InputStreamReader(stream)).use { reader ->
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    val data = line.removePrefix("data:").trim()
+                    if (data.isEmpty()) continue
+                    if (data == "[DONE]") break
+                    val marker = "\"content\":"
+                    var from = 0
+                    while (from < data.length) {
+                        val at = data.indexOf(marker, from)
+                        if (at < 0) break
+                        val piece = contentText(data.substring(at + marker.length))
+                        if (piece != null) onDelta(piece)
+                        from = at + marker.length
+                    }
                 }
             }
+        } finally {
+            conn.disconnect()
         }
     }
 
@@ -247,11 +266,13 @@ class LemonadeClient(
     }
 
     private fun listModels(): List<String> {
+        var conn: HttpURLConnection? = null
         return try {
-            val conn = open("/models", "application/json", "GET")
+            conn = open("/models", "application/json", "GET", connectTimeoutMs = 3_000, readTimeoutMs = 5_000)
             val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else return emptyList()
-            val raw = stream.readBytes().toString(Charsets.UTF_8)
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val raw = stream?.readBytes()?.toString(Charsets.UTF_8) ?: ""
+            if (code !in 200..299) return emptyList()
             val out = ArrayList<String>()
             var at = 0
             val key = "\"id\":"
@@ -264,25 +285,37 @@ class LemonadeClient(
             out
         } catch (_: Exception) {
             emptyList()
+        } finally {
+            conn?.disconnect()
         }
     }
 
     private fun postBytes(path: String, contentType: String, body: ByteArray): ByteArray {
         val conn = open(path, contentType)
-        conn.doOutput = true
-        conn.outputStream.use { it.write(body) }
-        val code = conn.responseCode
-        val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-        val bytes = stream?.readBytes() ?: ByteArray(0)
-        if (code !in 200..299) throw IllegalStateException("lemonade $code ${String(bytes)}")
-        return bytes
+        try {
+            conn.doOutput = true
+            conn.outputStream.use { it.write(body) }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val bytes = stream?.use { it.readBytes() } ?: ByteArray(0)
+            if (code !in 200..299) throw IllegalStateException("lemonade $code ${String(bytes)}")
+            return bytes
+        } finally {
+            conn.disconnect()
+        }
     }
 
-    private fun open(path: String, contentType: String, method: String = "POST"): HttpURLConnection {
+    private fun open(
+        path: String,
+        contentType: String,
+        method: String = "POST",
+        connectTimeoutMs: Int = 5_000,
+        readTimeoutMs: Int = 120_000,
+    ): HttpURLConnection {
         val conn = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
         conn.requestMethod = method
-        conn.connectTimeout = 5_000
-        conn.readTimeout = 120_000
+        conn.connectTimeout = connectTimeoutMs
+        conn.readTimeout = readTimeoutMs
         conn.setRequestProperty("Authorization", "Bearer $apiKey")
         conn.setRequestProperty("Content-Type", contentType)
         return conn
@@ -292,6 +325,8 @@ class LemonadeClient(
         const val FALLBACK_STT = "Whisper-Small"
         const val FALLBACK_TTS = "kokoro-v1"
         const val SPOKEN = "Tu es la voix d'un petit robot. Réponds en français parlé, en une ou deux phrases courtes. Pas de markdown, pas d'étoiles, pas de listes, pas de titres."
+        /** Spoken when the server returns an HTTP error instead of a reply. Never the raw body. */
+        const val SPOKEN_ERROR = "Désolé, je n'arrive pas à joindre le serveur."
     }
 
     private fun messages(userText: String, stream: Boolean): String {
@@ -446,4 +481,17 @@ internal fun jsonUnquote(raw: String): String {
         i += 2
     }
     return out.toString()
+}
+
+/** True when [text] is an HTTP or client error payload, not a user utterance or model reply. */
+fun isErrorText(text: String): Boolean {
+    val t = text.trimStart()
+    return t.startsWith("ERR ") ||
+        t.startsWith("<!DOCTYPE", ignoreCase = true) ||
+        t.startsWith("<html", ignoreCase = true)
+}
+
+internal fun logLemonadeError(detail: String) {
+    val short = detail.replace("\n", " ").take(240)
+    System.err.println("GeeUIVoice lemonade: $short")
 }

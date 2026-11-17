@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      Debug APK only: keep the service and test receivers exported so the
+      existing `adb shell am startservice` / `am broadcast` commands in the
+      README and tools/voicetest still work. The main manifest sets
+      exported="false" for release, so another app on the robot cannot start
+      the service or inject host / hermes_token extras.
+    -->
+    <application>
+        <service
+            android:name=".VoiceService"
+            android:exported="true"
+            android:foregroundServiceType="microphone"
+            tools:node="merge"
+            tools:replace="android:exported" />
+        <receiver
+            android:name=".TestWavReceiver"
+            android:exported="true"
+            tools:node="merge"
+            tools:replace="android:exported" />
+        <receiver
+            android:name=".TestMicReceiver"
+            android:exported="true"
+            tools:node="merge"
+            tools:replace="android:exported" />
+        <receiver
+            android:name=".TestFaceReceiver"
+            android:exported="true"
+            tools:node="merge"
+            tools:replace="android:exported" />
+    </application>
+</manifest>

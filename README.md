@@ -63,6 +63,8 @@ adb shell am startservice -n com.geeui.voice/.VoiceService \
   -e host http://<pc>:13305/api/v1
 ```
 
+These `adb shell am` commands (and the `am broadcast` hooks in `tools/voicetest`) work with the **debug** APK, where the service and test receivers stay `exported="true"`. The release APK sets them to `exported="false"` so another app on the robot cannot start the service or inject `host` / `hermes_token`. The launcher activity stays exported.
+
 ### Vision à la demande
 
 « Qu'est-ce que tu vois ? », « lis ça », « regarde ça », « c'est quoi ça ? » (liste dans `VisionIntent`) : l'app prend **une** photo avec la caméra du robot (Camera2, le SDK Letianpai n'expose pas la caméra) et l'ajoute au tour au format OpenAI (`image_url` en data URL). Le sidecar la fait décrire par un modèle vision (`VISION_MODEL`, section « Vision à la demande » de GeeUIVoiceSidecar) et nanobot reçoit « (RUX voit : …) ». Pas de flux continu, rien n'est gardé sur le robot.

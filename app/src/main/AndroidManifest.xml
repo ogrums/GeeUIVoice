@@ -32,26 +32,26 @@
         </activity>
         <service
             android:name=".VoiceService"
-            android:exported="true"
+            android:exported="false"
             android:foregroundServiceType="microphone" />
-        <!-- Exported for adb only. Paths are allowlisted in WavTestAccess; does nothing until broadcast. -->
+        <!-- Voicetest adb hooks. exported=true only on the debug APK (src/debug). Paths allowlisted in WavTestAccess. -->
         <receiver
             android:name=".TestWavReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.geeui.voice.TEST_WAV" />
             </intent-filter>
         </receiver>
         <receiver
             android:name=".TestMicReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.geeui.voice.TEST_MIC" />
             </intent-filter>
         </receiver>
         <receiver
             android:name=".TestFaceReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.geeui.voice.TEST_FACE" />
             </intent-filter>
