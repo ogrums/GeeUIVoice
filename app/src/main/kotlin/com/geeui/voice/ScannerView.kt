@@ -88,6 +88,7 @@ class ScannerView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         if (VoiceHud.mode == "talk") advanceTalk()
         else if (comet) advance(n, 6)
         else tick++
-        postInvalidateOnAnimation()
+        // Debug-only view: animate at ~12 fps while visible, stop when hidden.
+        if (isShown) postInvalidateDelayed(80)
     }
 }
