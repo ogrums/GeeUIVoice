@@ -6,9 +6,12 @@ import com.geeui.voice.bus.PoseTiming
 import com.geeui.voice.bus.applyPose
 import com.geeui.voice.bus.standAtAttention
 import com.geeui.voice.engine.Chat
+import com.geeui.voice.engine.LemonadeClient
 import com.geeui.voice.engine.StreamingChat
 import com.geeui.voice.engine.TextToSpeech
 import com.geeui.voice.engine.TtsPlan
+import com.geeui.voice.engine.isErrorText
+import com.geeui.voiceemo.TtsEngine
 import com.geeui.voice.skill.SkillLexicon
 import com.geeui.voice.skill.SkillRouter
 import com.geeui.voiceemo.Affect
@@ -132,7 +135,11 @@ class VoiceSession(
             delta(chat.reply(asked))
             answer.append(tags.finish().text)
         }
-        val (withoutActions, actions) = ActionTags.split(answer.toString())
+        val rawAnswer = answer.toString()
+        if (isErrorText(rawAnswer)) {
+            return say(LemonadeClient.SPOKEN_ERROR)
+        }
+        val (withoutActions, actions) = ActionTags.split(rawAnswer)
         // Always look at a trailing emoji, even when a [happy] tag is already present.
         // Previously a leading tag skipped the cue, and a tag alone stayed under the
         // fusion threshold, so a reply like "[happy] 😄" left the face at h0059.
@@ -267,6 +274,8 @@ class VoiceSession(
         val whole = spoken(head.text + tags.finish().text)
         val emotion = head.emotion
         var moved = false
+        // Short system / initiative lines must not inherit CosyVoice from the previous turn.
+        plan?.engine = TtsEngine.KOKORO
         if (mood != null && emotion != com.geeui.voiceemo.Emotion.NEUTRAL) {
             plan?.emotion = emotion.name.lowercase()
             plan?.prosody = com.geeui.voiceemo.EmotionProsody.of(emotion, INITIATIVE_SCORE)
