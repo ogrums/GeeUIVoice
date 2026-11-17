@@ -732,6 +732,7 @@ class VoiceActivity : Activity() {
         sample = null
         releaseFace()
         releaser.shutdown()
+        if (::bus.isInitialized) bus.close()
         super.onDestroy()
     }
 
