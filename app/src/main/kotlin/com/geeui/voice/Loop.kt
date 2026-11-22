@@ -33,7 +33,10 @@ import android.util.Log
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
@@ -138,8 +141,8 @@ class VoiceLoop(
     )
     private val live = LiveTurn(vad, stt, tts, session)
     private val vadThreshold = vad.threshold
-    private val turns = Executors.newSingleThreadExecutor()
-    private val ticker = Executors.newSingleThreadScheduledExecutor()
+    private var turns: ExecutorService = newTurns()
+    private var ticker: ScheduledExecutorService = newTicker()
     private val poller = com.geeui.voice.session.InitiativePoller(
         fetch = { fetchPending() },
         ack = { id, status ->
@@ -293,6 +296,7 @@ class VoiceLoop(
         statAt = now
     }
     private var dobbyThread: Thread? = null
+    private var dobbyInitThread: Thread? = null
     private val screenOn = ScreenOn(appContext)
     @Volatile private var lexPaused = false
     private val speechCb = SpeechCallbackBinder { command, data ->
@@ -301,6 +305,8 @@ class VoiceLoop(
 
     fun start() {
         if (!running.compareAndSet(false, true)) return
+        if (turns.isShutdown) turns = newTurns()
+        if (ticker.isShutdown) ticker = newTicker()
         EventLog.init(appContext)
         EventLog.add("loop start hirux=${policy.hiruxEnabled} dobby=${policy.dobbyEnabled} listen=$listenFaceId backend=$thinkFaceId")
         DialogueFaces.listen = listenFaceId
@@ -345,43 +351,33 @@ class VoiceLoop(
         if (hermesDesk != null) {
             ticker.scheduleWithFixedDelay({ turns.execute { pollHermes() } }, 20, 20, java.util.concurrent.TimeUnit.SECONDS)
         }
-        ticker.scheduleWithFixedDelay({
-            turns.execute {
-                val busy = wavTestBusy.get() || VoiceHud.playing ||
-                    session.state != com.geeui.voice.session.Dialogue.Idle
-                if (policy.onTick(busy = busy)) {
-                    if (VoiceHud.mode == "hear" && !hearSpeech) {
-                        EventLog.add("hear timeout: no speech, peak=$hearPeak vad=${vadThreshold}")
-                    }
-                    setHudMode("idle")
-                    VoiceHud.line = restLabel()
-                    Log.i(TEST_TAG, "mic yielded after idle")
-                }
-                maybeRotateIdle()
-                keepHudInFront()
-                applyMic()
-            }
-        }, 500, 500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        scheduleLoopTick(500)
         hookLexWake()
         prepareDobby()
         thread = Thread({
-            val used = try {
-                client.resolveStt()
-            } catch (_: Exception) {
-                "Whisper-Small"
-            }
-            val llm = try {
-                client.resolveChat().ifBlank { "aucun" }
-            } catch (_: Exception) {
-                "aucun"
-            }
-            val voice = try {
-                client.resolveTts().ifBlank { "aucun" }
-            } catch (_: Exception) {
-                "aucun"
-            }
-            VoiceHud.line = "stt $used · llm $llm · tts $voice"
-            if (sidecar.isNotBlank()) pingSidecar(sidecar)
+            // Resolve models in the background with short /models timeouts so
+            // the conversation mic can open as soon as the user is heard.
+            Thread({
+                val used = try {
+                    client.resolveStt()
+                } catch (_: Exception) {
+                    "Whisper-Small"
+                }
+                val llm = try {
+                    client.resolveChat().ifBlank { "aucun" }
+                } catch (_: Exception) {
+                    "aucun"
+                }
+                val voice = try {
+                    client.resolveTts().ifBlank { "aucun" }
+                } catch (_: Exception) {
+                    "aucun"
+                }
+                if (running.get()) {
+                    VoiceHud.line = "stt $used · llm $llm · tts $voice"
+                    if (sidecar.isNotBlank()) pingSidecar(sidecar)
+                }
+            }, "geeui-models").start()
             val rate = 16_000
             val frame = 320
             val min = AudioRecord.getMinBufferSize(
@@ -482,16 +478,52 @@ class VoiceLoop(
         wantDobby.set(false)
         synchronized(dobbyLock) { dobbyLock.notifyAll() }
         ticker.shutdownNow()
+        turns.shutdownNow()
+        try {
+            turns.awaitTermination(500, TimeUnit.MILLISECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
         tts.stop()
         VoiceHud.mode = "idle"
         thread?.join(500)
+        dobbyInitThread?.interrupt()
+        dobbyInitThread?.join(800)
+        dobbyInitThread = null
         dobbyThread?.join(800)
         dobbyThread = null
-        dobby?.close()
-        dobby = null
-        (bus as? AidlBus)?.unregisterSpeechCallback()
+        synchronized(dobbyLock) {
+            dobby?.close()
+            dobby = null
+        }
         resumeLexIfPaused()
+        (bus as? AidlBus)?.close()
         screenOn.release()
+    }
+
+    private fun scheduleLoopTick(delayMs: Long) {
+        if (!running.get() || ticker.isShutdown) return
+        ticker.schedule({
+            if (!running.get() || ticker.isShutdown || turns.isShutdown) return@schedule
+            turns.execute {
+                if (!running.get()) return@execute
+                val busy = wavTestBusy.get() || VoiceHud.playing ||
+                    session.state != com.geeui.voice.session.Dialogue.Idle
+                if (policy.onTick(busy = busy)) {
+                    if (VoiceHud.mode == "hear" && !hearSpeech) {
+                        EventLog.add("hear timeout: no speech, peak=$hearPeak vad=${vadThreshold}")
+                    }
+                    setHudMode("idle")
+                    VoiceHud.line = restLabel()
+                    Log.i(TEST_TAG, "mic yielded after idle")
+                }
+                maybeRotateIdle()
+                keepHudInFront()
+                applyMic()
+                val idle = !busy && VoiceHud.mode == "idle"
+                scheduleLoopTick(if (idle) 2_000L else 500L)
+            }
+        }, delayMs, TimeUnit.MILLISECONDS)
     }
 
     private fun hookLexWake() {
@@ -667,13 +699,14 @@ class VoiceLoop(
 
     private fun prepareDobby() {
         if (!policy.dobbyEnabled) return
-        Thread({
+        dobbyInitThread = Thread({
             val dir = try {
-                VoskModelStore.ensure(appContext)
+                VoskModelStore.ensure(appContext) { !running.get() }
             } catch (e: Exception) {
                 Log.w(TEST_TAG, "vosk model ensure failed", e)
                 null
             }
+            if (!running.get()) return@Thread
             if (dir == null) {
                 Log.w(
                     TEST_TAG,
@@ -684,13 +717,20 @@ class VoiceLoop(
                 return@Thread
             }
             try {
-                dobby = VoskDobbyWake(dir)
-                refreshDobby()
+                val wake = VoskDobbyWake(dir)
+                synchronized(dobbyLock) {
+                    if (!running.get()) {
+                        wake.close()
+                    } else {
+                        dobby = wake
+                        refreshDobby()
+                    }
+                }
             } catch (e: Exception) {
                 Log.w(TEST_TAG, "vosk init failed", e)
                 VoiceHud.line = "Hey Dobby : modèle illisible"
             }
-        }, "geeui-dobby-init").start()
+        }, "geeui-dobby-init").also { it.start() }
         dobbyThread = Thread({
             val rate = 16_000
             val frame = 1_600 // 100 ms, keeps CPU low
@@ -1022,6 +1062,12 @@ class VoiceLoop(
     }
 }
 
+private fun newTurns(): ExecutorService =
+    Executors.newSingleThreadExecutor { r -> Thread(r, "geeui-turns") }
+
+private fun newTicker(): ScheduledExecutorService =
+    Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "geeui-ticker") }
+
 /** GET returning the body, or null on any error. Short timeouts: this runs while idle. */
 internal fun httpGet(url: String): String? = httpGetCode(url).second
 
@@ -1078,15 +1124,30 @@ internal fun postCosy(base: String, model: String, text: String, emotion: String
 /** POST {base}/v1/audio/speech. Empty on a blank base or an HTTP error, so the caller falls back. */
 internal fun postSpeech(base: String, body: String): ByteArray {
     if (base.isBlank()) return ByteArray(0)
-    val conn = URL(base.trimEnd('/') + "/v1/audio/speech").openConnection() as HttpURLConnection
-    conn.connectTimeout = 2_000
-    conn.readTimeout = 60_000
-    conn.requestMethod = "POST"
-    conn.doOutput = true
-    conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-    conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-    if (conn.responseCode !in 200..299) return ByteArray(0)
-    return conn.inputStream.use { it.readBytes() }
+    var conn: HttpURLConnection? = null
+    return try {
+        conn = URL(base.trimEnd('/') + "/v1/audio/speech").openConnection() as HttpURLConnection
+        conn.connectTimeout = 2_000
+        conn.readTimeout = 60_000
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+        val code = conn.responseCode
+        if (code !in 200..299) {
+            try {
+                conn.errorStream?.use { it.readBytes() }
+            } catch (_: Exception) {
+            }
+            ByteArray(0)
+        } else {
+            conn.inputStream.use { it.readBytes() }
+        }
+    } catch (_: Exception) {
+        ByteArray(0)
+    } finally {
+        conn?.disconnect()
+    }
 }
 
 private fun levelOf(frame: ShortArray): Float {

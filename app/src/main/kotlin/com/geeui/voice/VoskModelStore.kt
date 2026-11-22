@@ -20,6 +20,8 @@ object VoskModelStore {
     const val ATTRIBUTION = "Vosk small French 0.22 © Alpha Cephei, licence Apache-2.0"
     private const val TAG = "GeeUIVoiceTest"
     private const val TMP = "/data/local/tmp/geeui"
+    /** vosk-model-small-fr-0.22.zip is about 45 Mo; this leaves headroom without allowing a huge payload. */
+    private const val MAX_BYTES = 150L * 1024 * 1024
 
     fun isComplete(dir: File): Boolean =
         File(dir, "am/final.mdl").isFile && File(dir, "conf/model.conf").isFile
@@ -33,8 +35,9 @@ object VoskModelStore {
         return candidates.firstOrNull { isComplete(it) }
     }
 
+    /** [cancelled] is checked during download so a service stop can drop a partial zip. */
     @Synchronized
-    fun ensure(context: Context): File? {
+    fun ensure(context: Context, cancelled: () -> Boolean = { false }): File? {
         locate(context)?.let { return it }
         val destParent = File(context.filesDir, "vosk")
         destParent.mkdirs()
@@ -51,7 +54,11 @@ object VoskModelStore {
         Log.i(TAG, "vosk download $ZIP_URL")
         val tmpZip = File(destParent, "$MODEL_NAME.zip.part")
         return try {
-            download(ZIP_URL, tmpZip)
+            download(ZIP_URL, tmpZip, cancelled)
+            if (cancelled()) {
+                tmpZip.delete()
+                return null
+            }
             val ready = installZip(tmpZip, destParent, dest)
             tmpZip.delete()
             if (ready) dest else null
@@ -90,16 +97,48 @@ object VoskModelStore {
         }
     }
 
-    private fun download(url: String, dest: File) {
+    private fun download(url: String, dest: File, cancelled: () -> Boolean = { false }) {
         dest.parentFile?.mkdirs()
-        val conn = URL(url).openConnection() as HttpURLConnection
-        conn.connectTimeout = 15_000
-        conn.readTimeout = 60_000
-        conn.instanceFollowRedirects = true
-        conn.inputStream.use { input ->
-            FileOutputStream(dest).use { output -> input.copyTo(output) }
+        if (dest.exists()) dest.delete()
+        var conn: HttpURLConnection? = null
+        try {
+            conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 60_000
+            conn.instanceFollowRedirects = true
+            val code = conn.responseCode
+            val length = conn.contentLengthLong
+            if (code !in 200..299) {
+                try { conn.errorStream?.use { it.readBytes() } } catch (_: Exception) {}
+                throw java.io.IOException("vosk download HTTP $code")
+            }
+            if (length > MAX_BYTES) {
+                throw java.io.IOException("vosk download too large: $length")
+            }
+            var copied = 0L
+            val stream = conn.inputStream
+            stream.use { input ->
+                FileOutputStream(dest).use { output ->
+                    val buf = ByteArray(64 * 1024)
+                    while (true) {
+                        if (cancelled()) throw java.io.IOException("vosk download cancelled")
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        copied += n
+                        if (copied > MAX_BYTES) throw java.io.IOException("vosk download too large: $copied")
+                        output.write(buf, 0, n)
+                    }
+                }
+            }
+            if (length > 0 && copied != length) {
+                throw java.io.IOException("vosk download incomplete: $copied / $length")
+            }
+        } catch (e: Exception) {
+            dest.delete()
+            throw e
+        } finally {
+            conn?.disconnect()
         }
-        conn.disconnect()
     }
 
     private fun unzip(zip: File, destDir: File): Boolean {

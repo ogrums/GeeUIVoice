@@ -5,6 +5,7 @@ import com.geeui.voice.audio.VadEvent
 import com.geeui.voice.audio.pcm16ToWav
 import com.geeui.voice.engine.SpeechToText
 import com.geeui.voice.engine.TextToSpeech
+import com.geeui.voice.engine.isErrorText
 
 /**
  * Real-time loop. Frames in, one utterance out.
@@ -51,7 +52,7 @@ class LiveTurn(
                 val pcm = event.pcm
                 worker {
                     val text = stt.transcribe(pcm16ToWav(pcm, sampleRate), sampleRate).trim()
-                    if (text.isEmpty()) {
+                    if (text.isEmpty() || isErrorText(text)) {
                         onIdle()
                         return@worker
                     }
