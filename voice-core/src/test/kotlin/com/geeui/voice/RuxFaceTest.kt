@@ -39,6 +39,21 @@ class RuxFaceTest {
         assertEquals(IDLE_FACE, d.next("idle", false, IDLE_FACE, IDLE_FACE, 4_000))
     }
 
+    @Test fun directorNoWaitingFlashAfterSpeech() {
+        DialogueFaces.speakDuringTalk = true
+        val d = FaceDirector(afterglowMs = 3_000)
+        assertEquals(THINK_FACE, d.next("think", false, LISTEN_FACE, IDLE_FACE, 0))
+        // talk announced before the clip: still the waiting face
+        assertEquals(THINK_FACE, d.next("talk", false, THINK_FACE, IDLE_FACE, 100))
+        assertEquals(SPEAK_FACE, d.next("talk", true, IDLE_FACE, IDLE_FACE, 200))
+        // late "talk" once the clip is over (no emotion): rest, not a flash of the waiting face
+        assertEquals(IDLE_FACE, d.next("talk", false, IDLE_FACE, IDLE_FACE, 2_000))
+        assertEquals(IDLE_FACE, d.next("idle", false, IDLE_FACE, IDLE_FACE, 2_100))
+        // next turn waits again
+        assertEquals(THINK_FACE, d.next("think", false, LISTEN_FACE, IDLE_FACE, 5_000))
+        assertEquals(THINK_FACE, d.next("talk", false, THINK_FACE, IDLE_FACE, 5_100))
+    }
+
     @Test fun directorTalkFaceEmotion() {
         DialogueFaces.speakDuringTalk = false
         val d = FaceDirector()

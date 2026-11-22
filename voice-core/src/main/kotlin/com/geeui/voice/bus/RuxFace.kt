@@ -47,6 +47,7 @@ class FaceDirector(private val afterglowMs: Long = 3_000L) {
     private var speechEmotion = ""
     private var wasPlaying = false
     private var speechEndedAt = 0L
+    private var spoke = false
 
     fun next(mode: String, playing: Boolean, pose: String, rest: String, now: Long): String {
         val p = pose.ifBlank { rest }
@@ -56,11 +57,17 @@ class FaceDirector(private val afterglowMs: Long = 3_000L) {
         if (wasPlaying && !playing) speechEndedAt = now
         if (!wasPlaying && playing) speechEndedAt = 0L
         wasPlaying = playing
-        if (!dialogue.speakDuringTalk || speechEmotion.isBlank()) return face
+        if (playing) spoke = true
+        if (mode == "hear" || mode == "think") spoke = false
+        // "talk" with no clip playing after the robot already spoke (late answer callback,
+        // gap between sentences): no flash back to the waiting face.
+        val settled = if (spoke && !playing && mode == "talk" && face == dialogue.think)
+            dialogueFace("idle", false, p) else face
+        if (!dialogue.speakDuringTalk || speechEmotion.isBlank()) return settled
         if (mode == "hear" || mode == "think" || playing) return face
         if (speechEndedAt > 0L && now - speechEndedAt < afterglowMs) return speechEmotion
         if (speechEndedAt > 0L) speechEmotion = ""
-        return face
+        return settled
     }
 }
 

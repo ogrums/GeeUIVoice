@@ -938,6 +938,8 @@ class VoiceLoop(
         wavTestBusy.set(true)
         return try {
             VoiceHud.clearFaceEvents()
+            // Same face path as a spoken turn: waiting face while STT + chat run.
+            if (VoiceHud.mode == "idle") setHudMode("think")
             val result = wavTest.run(bytes, path,
                 face = { VoiceHud.faceDuringSpeech().ifBlank { VoiceHud.face } },
                 faces = { VoiceHud.faceEvents.toList() },
@@ -954,6 +956,7 @@ class VoiceLoop(
             val clip = copyLastTts(outDir)
             result.copy(ttsFile = clip)
         } finally {
+            if (VoiceHud.mode == "think" || (VoiceHud.mode == "talk" && !VoiceHud.playing)) setHudMode("idle")
             wavTestBusy.set(false)
         }
     }
