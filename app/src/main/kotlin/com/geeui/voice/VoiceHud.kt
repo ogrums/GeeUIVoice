@@ -18,6 +18,8 @@ object VoiceHud {
     @Volatile var face: String = ""
     /** True between VoiceActivity onStart and onStop: our face is on screen. */
     @Volatile var visible: Boolean = false
+    /** True while VoiceActivity runs as the debug / button screen (RuxFace is then not put on top at start). */
+    @Volatile var debugScreen: Boolean = false
     /** Rest clip playback: replay every 30 s (default), loop, or once. The gap drifts (no burn-in). */
     @Volatile var idleVideo: com.geeui.voice.bus.IdleVideo = com.geeui.voice.bus.IdleVideo.DEFAULT
 

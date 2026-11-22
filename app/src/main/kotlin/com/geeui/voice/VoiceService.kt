@@ -116,6 +116,7 @@ class VoiceService : Service() {
             intent.getStringExtra("dobby_gate")?.let { dobbyGate = it }
             intent.getStringExtra("hermes")?.let { hermes = it.trim().lowercase() !in setOf("0", "false", "non", "off") }
             intent.getStringExtra("hermes_token")?.let { hermesToken = it.trim() }
+            intent.getStringExtra("face_backend")?.let { RuxFaceLink.backend = com.geeui.voice.bus.FaceBackend.parse(it) }
             loop?.stop()
             loop = VoiceLoop(
                 AidlBus(this), host, cacheDir, VadConfig.from(vad).toVad(), model, chat, tts, voice, prompt, this,

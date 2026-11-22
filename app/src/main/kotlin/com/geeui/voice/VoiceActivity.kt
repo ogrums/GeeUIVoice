@@ -71,7 +71,9 @@ class VoiceActivity : Activity() {
             val pose = VoiceHud.face.ifBlank { if (debug) "" else com.geeui.voice.bus.RestFace.current }
             var face = if (debug && pose.isBlank()) "" else dialogueFace(VoiceHud.mode, VoiceHud.playing, pose)
             face = afterglow(pose, face)
-            if (face.isNotBlank() && face != shownFace) playFace(face)
+            // RuxFace backend: RuxFace draws the face (VoiceLoop drives it), no clip decoded here.
+            val rux = !debug && RuxFaceLink.active(this@VoiceActivity)
+            if (!rux && face.isNotBlank() && face != shownFace) playFace(face)
             handler.postDelayed(this, 120)
         }
     }
@@ -103,6 +105,8 @@ class VoiceActivity : Activity() {
         setTurnScreenOn(true)
         if (Build.VERSION.SDK_INT >= 27) setShowWhenLocked(true)
         debug = debugLaunch(intent.getStringExtra("mode"), intent.getStringExtra("debug"))
+        VoiceHud.debugScreen = debug
+        RuxFaceLink.backend = com.geeui.voice.bus.FaceBackend.parse(VoiceSettings.effective(this, intent)["face_backend"])
         bus = AidlBus(this)
         // The robot ROM has no autofill service: AutofillManager throws a NullPointerException
         // (IAutoFillManager null) as soon as an EditText becomes visible. Keep every view out of it.

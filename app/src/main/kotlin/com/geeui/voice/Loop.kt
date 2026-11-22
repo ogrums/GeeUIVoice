@@ -362,6 +362,9 @@ class VoiceLoop(
                 applyMic()
             }
         }, 500, 500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        // RuxFace backend: the dialogue face goes to RuxFace (every 100 ms, only when it changes)
+        ticker.scheduleWithFixedDelay({ ruxFaceTick() }, 0, 100, java.util.concurrent.TimeUnit.MILLISECONDS)
+        if (RuxFaceLink.active(appContext) && !VoiceHud.debugScreen) RuxFaceLink.front(appContext, force = true)
         hookLexWake()
         prepareDobby()
         thread = Thread({
@@ -605,6 +608,23 @@ class VoiceLoop(
             EventLog.add("face $mode $face hud=${VoiceHud.visible}")
         } else {
             EventLog.add("mode $mode hud=${VoiceHud.visible}")
+        }
+    }
+
+    private val faceDirector = com.geeui.voice.bus.FaceDirector()
+
+    /** Same face as VoiceActivity would play (listen, backend, mouth, emotion, rest), sent to RuxFace. */
+    private fun ruxFaceTick() {
+        try {
+            if (!running.get() || !RuxFaceLink.active(appContext)) return
+            val face = faceDirector.next(
+                VoiceHud.mode, VoiceHud.playing, VoiceHud.face,
+                com.geeui.voice.bus.RestFace.current, System.currentTimeMillis(),
+            )
+            RuxFaceLink.face(appContext, face)
+        } catch (e: Exception) {
+            // never let the scheduled task die
+            Log.w(TEST_TAG, "ruxface tick: $e")
         }
     }
 
@@ -1111,6 +1131,7 @@ class PlayingTts(
     private val gate = Any()
     private var started = false
     private var audible: (() -> Unit)? = null
+    @Volatile private var envelope: com.geeui.voice.bus.SpeechEnvelope? = null
 
     override fun whenAudible(action: (() -> Unit)?) {
         audible = action
@@ -1137,6 +1158,10 @@ class PlayingTts(
         VoiceHud.diag = "serveur ${bytes.size} o ${kindOf(bytes)}"
         VoiceHud.line = VoiceHud.diag
         val file = clipFile(bytes)
+        // RuxFace: the mouth follows the loudness of the clip (PCM WAV only; else RuxFace simulates it)
+        envelope = if (file.name.endsWith(".wav") && RuxFaceLink.active(audio)) {
+            try { com.geeui.voice.bus.SpeechEnvelope.fromWav(file.readBytes()) } catch (_: Exception) { null }
+        } else null
         playWithPlayer(file)
     }
 
@@ -1274,8 +1299,14 @@ class PlayingTts(
                 audible = null
                 action?.invoke()
             }
-            while (!cancelled.get() && !done.await(40, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+            while (!cancelled.get() && !done.await(com.geeui.voice.bus.RuxFaceProtocol.LEVEL_PERIOD_MS, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                envelope?.let { env ->
+                    val pos = try { mp.currentPosition } catch (_: IllegalStateException) { -1 }
+                    if (pos >= 0) RuxFaceLink.level(audio, env.at(pos + LEVEL_LEAD_MS))
+                }
             }
+            if (envelope != null) RuxFaceLink.level(audio, 0f, 0)
+            envelope = null
             if (cancelled.get()) VoiceHud.diag = "coupé (micro)"
         } catch (e: Exception) {
             VoiceHud.diag = "audio: ${e.javaClass.simpleName}"
@@ -1436,3 +1467,6 @@ class PlayingTts(
             ((b[at + 3].toInt() and 0xff) shl 24)
     }
 }
+
+/** Level lookahead: the speaker plays slightly after MediaPlayer.currentPosition. */
+private const val LEVEL_LEAD_MS = 50

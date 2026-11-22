@@ -34,6 +34,10 @@ class ScreenOn(private val context: Context) {
 
     /** Put our face back on top (Lex opens its own full-screen activity on « Hi RUX »). */
     fun bringToFront() {
+        if (RuxFaceLink.active(context)) {
+            RuxFaceLink.front(context)
+            return
+        }
         try {
             val launch = Intent(context, VoiceActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)

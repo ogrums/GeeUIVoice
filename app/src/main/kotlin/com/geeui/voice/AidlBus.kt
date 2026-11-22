@@ -15,6 +15,7 @@ import java.util.concurrent.Executors
 
 /** Forwards skills to the robot process. Motion opens the servo rail first. */
 class AidlBus(context: Context) : RobotBus, ServiceConnection {
+    private val appContext: Context = context.applicationContext
     private var remote: IBinder? = null
     private var motorOn = false
     /** Invoked on the binder thread when Letianpai is bound (and again if rebound). */
@@ -95,6 +96,9 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
 
     override fun showFace(faceId: String) {
         VoiceHud.recordFace(faceId)
+        // RuxFace backend: the face on screen is computed from VoiceHud and sent to RuxFace by VoiceLoop;
+        // GeeUIFace is left alone (no clip decoded behind RuxFace).
+        if (RuxFaceLink.active(appContext)) return
         faceGate.execute { sendFace(faceId) }
     }
 
