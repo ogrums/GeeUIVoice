@@ -188,10 +188,13 @@ class VoiceLoop(
     @Volatile private var hermesUnread = 0
     @Volatile private var hermesLit = false
     @Volatile private var hermesSeen = ""
+    private val hermesLight = com.geeui.voice.bus.HermesLight()
 
     /**
-     * Idle check of the Hermes task list: the antenna glows purple while a result waits.
-     * Re-lit at each check because the end of every turn (standAtAttention) turns the light off.
+     * Idle check of the Hermes task list: the antenna glows purple for a few minutes when a
+     * new result waits (not forever), and goes off if the sidecar can no longer be reached.
+     * Re-lit at each check during that window because the end of every turn
+     * (standAtAttention) turns the light off.
      */
     private fun pollHermes() {
         val desk = hermesDesk ?: return
@@ -209,18 +212,18 @@ class VoiceLoop(
             EventLog.add("hermes: $seen")
             hermesSeen = seen
         }
-        if (state == null) return
-        val unread = if (state.enabled) state.unread else 0
-        if (unread > hermesUnread) {
+        val unread = state?.let { if (it.enabled) it.unread else 0 }
+        if (state != null && unread != null && unread > hermesUnread) {
             VoiceHud.line = "Hermes : " + com.geeui.voice.session.HermesDesk.statusLine(state)
         }
-        hermesUnread = unread
-        if (unread > 0) {
+        if (unread != null) hermesUnread = unread
+        if (hermesLight.want(unread, System.currentTimeMillis())) {
             bus.antennaLight(true, HERMES_LIGHT)
             hermesLit = true
         } else if (hermesLit) {
             bus.antennaLight(false, 0)
             hermesLit = false
+            EventLog.add("hermes: antenne éteinte")
         }
     }
 
@@ -345,6 +348,8 @@ class VoiceLoop(
         if (hermesDesk != null) {
             ticker.scheduleWithFixedDelay({ turns.execute { pollHermes() } }, 20, 20, java.util.concurrent.TimeUnit.SECONDS)
         }
+        // Antenna watchdog: whatever lit it (light tag, Hermes), at rest it goes off after a few minutes.
+        ticker.scheduleWithFixedDelay({ turns.execute { lightWatchdog() } }, 10, 10, java.util.concurrent.TimeUnit.SECONDS)
         ticker.scheduleWithFixedDelay({
             turns.execute {
                 val busy = wavTestBusy.get() || VoiceHud.playing ||
@@ -486,6 +491,9 @@ class VoiceLoop(
         synchronized(dobbyLock) { dobbyLock.notifyAll() }
         ticker.shutdownNow()
         tts.stop()
+        if (com.geeui.voice.bus.AntennaLight.guard.onSince > 0L) {
+            try { bus.antennaLight(false, 0) } catch (_: Exception) {}
+        }
         VoiceHud.mode = "idle"
         thread?.join(500)
         dobbyThread?.join(800)
@@ -608,6 +616,20 @@ class VoiceLoop(
             EventLog.add("face $mode $face hud=${VoiceHud.visible}")
         } else {
             EventLog.add("mode $mode hud=${VoiceHud.visible}")
+        }
+    }
+
+    private fun lightWatchdog() {
+        try {
+            if (!running.get() || VoiceHud.playing || VoiceHud.mode != "idle") return
+            if (session.state != com.geeui.voice.session.Dialogue.Idle) return
+            val guard = com.geeui.voice.bus.AntennaLight.guard
+            if (!guard.expired(System.currentTimeMillis())) return
+            bus.antennaLight(false, 0)
+            hermesLit = false
+            EventLog.add("antenne éteinte : allumée depuis plus de ${com.geeui.voice.bus.LightGuard.MAX_ON_MS / 60_000} min au repos")
+        } catch (e: Exception) {
+            Log.w(TEST_TAG, "light watchdog: $e")
         }
     }
 

@@ -18,6 +18,7 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
     private val appContext: Context = context.applicationContext
     private var remote: IBinder? = null
     private var motorOn = false
+    private var startedDark = false
     /** Invoked on the binder thread when Letianpai is bound (and again if rebound). */
     var onConnected: (() -> Unit)? = null
     private var speechCallback: IBinder? = null
@@ -37,6 +38,11 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
         remote = service
         Log.i(TAG, "letianpai bound")
         speechCallback?.let { registerSpeechCallback(it) }
+        // A light left on by a previous run (killed app, update) would otherwise stay on: start dark.
+        if (!startedDark) {
+            startedDark = true
+            antennaLight(false, 0)
+        }
         onConnected?.invoke()
     }
 
@@ -78,6 +84,7 @@ class AidlBus(context: Context) : RobotBus, ServiceConnection {
 
     override fun antennaLight(on: Boolean, color: Int) {
         if (remote == null) return
+        com.geeui.voice.bus.AntennaLight.guard.lit(on, System.currentTimeMillis())
         val state = if (on) "on" else "off"
         call(
             "setMcuCommand",
